@@ -1,23 +1,21 @@
 <template>
   <div class="now-playing-bar">
-    <div class="progress-bar">
-      <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
-    </div>
-    
-    <div class="bar-content">
+    <div class="now-playing-container">
       <!-- Song Info -->
-      <div class="song-info">
+      <div class="song-info-section">
         <div class="song-artwork">
-          <svg viewBox="0 0 48 48" class="artwork-placeholder">
-            <rect width="48" height="48" fill="url(#now-playing-gradient)" rx="6"/>
-            <path d="M24 14v11.07c-.71-.41-1.52-.65-2.4-.65-2.65 0-4.8 2.15-4.8 4.8s2.15 4.8 4.8 4.8 4.8-2.15 4.8-4.8V20h4.8v-6H24z" fill="rgba(255,255,255,0.3)"/>
-          </svg>
+          <div class="artwork-inner">
+            <svg viewBox="0 0 56 56" class="artwork-placeholder">
+              <rect width="56" height="56" rx="8" fill="url(#playing-gradient)"/>
+              <path d="M28 18v11.07c-.71-.41-1.52-.65-2.4-.65-2.65 0-4.8 2.15-4.8 4.8s2.15 4.8 4.8 4.8 4.8-2.15 4.8-4.8V24h4.8v-6H28z" fill="white" opacity="0.3"/>
+            </svg>
+          </div>
         </div>
         <div class="song-details">
-          <p class="song-title">{{ song.title }}</p>
+          <h4 class="song-title">{{ song.title }}</h4>
           <p class="song-artist">{{ song.artist }}</p>
         </div>
-        <button class="favorite-button" :class="{ active: isFavorite }" @click="toggleFavorite">
+        <button class="favorite-btn" :class="{ active: isFavorite }" @click="toggleFavorite">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
           </svg>
@@ -25,19 +23,19 @@
       </div>
       
       <!-- Player Controls -->
-      <div class="player-controls">
+      <div class="player-section">
         <div class="control-buttons">
-          <button class="control-button">
+          <button class="control-btn small">
             <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M18.244 2.25h3.308l-7.227 8.26c.783.112 1.45.374 2.001.785.552.411.988.924 1.308 1.538.32.615.48 1.304.48 2.067 0 .763-.16 1.452-.48 2.067-.32.614-.756 1.127-1.308 1.538-.551.41-1.218.673-2.001.785l7.227 8.26h-3.308L12 18.153 5.756 27.55H2.448l7.227-8.26c-.783-.112-1.45-.374-2.001-.785-.552-.411-.988-.924-1.308-1.538-.32-.615-.48-1.304-.48-2.067 0-.763.16-1.452.48-2.067.32-.614.756-1.127 1.308-1.538.551-.41 1.218-.673 2.001-.785L2.448 2.25h3.308L12 11.647 18.244 2.25z"/>
+              <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
             </svg>
           </button>
-          <button class="control-button">
+          <button class="control-btn">
             <svg viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
             </svg>
           </button>
-          <button class="control-button play" @click="togglePlay">
+          <button class="control-btn play" @click="togglePlay">
             <svg v-if="!isPlaying" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8 5v14l11-7z"/>
             </svg>
@@ -45,58 +43,62 @@
               <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
             </svg>
           </button>
-          <button class="control-button">
+          <button class="control-btn">
             <svg viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
             </svg>
           </button>
-          <button class="control-button" :class="{ active: isRepeat }" @click="toggleRepeat">
+          <button class="control-btn small" :class="{ active: isShuffle }">
             <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
+              <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
             </svg>
           </button>
         </div>
         
-        <div class="time-display">
-          <span class="time-current">{{ formatTime(currentTime) }}</span>
-          <div class="time-slider">
-            <input 
-              type="range" 
-              :value="currentTime"
-              :max="duration"
-              @input="seekTo($event.target.value)"
-              class="slider"
-            >
+        <div class="progress-section">
+          <span class="time-label">{{ formatTime(currentTime) }}</span>
+          <div class="progress-bar-container" @click="seekToPosition">
+            <div class="progress-bar">
+              <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+              <div class="progress-handle" :style="{ left: progressPercent + '%' }"></div>
+            </div>
           </div>
-          <span class="time-total">{{ formatTime(duration) }}</span>
+          <span class="time-label">{{ formatTime(duration) }}</span>
         </div>
       </div>
       
-      <!-- Volume and Actions -->
-      <div class="volume-controls">
-        <button class="control-button" @click="toggleMute">
-          <svg v-if="!isMuted" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-          </svg>
-          <svg v-else viewBox="0 0 24 24" fill="currentColor">
-            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
-          </svg>
-        </button>
-        <div class="volume-slider">
-          <input 
-            type="range" 
-            :value="volume"
-            max="100"
-            @input="setVolume($event.target.value)"
-            class="slider"
-          >
-        </div>
-        <button class="control-button">
+      <!-- Extra Controls -->
+      <div class="extra-controls">
+        <button class="control-btn small">
           <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
           </svg>
         </button>
-        <button class="control-button">
+        <button class="control-btn small">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z"/>
+          </svg>
+        </button>
+        <div class="volume-control">
+          <button class="control-btn small" @click="toggleMute">
+            <svg v-if="!isMuted && volume > 0" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="currentColor">
+              <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+            </svg>
+          </button>
+          <div class="volume-slider-container">
+            <input 
+              type="range" 
+              :value="volume"
+              max="100"
+              @input="setVolume($event.target.value)"
+              class="volume-slider"
+            >
+          </div>
+        </div>
+        <button class="control-btn small">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
           </svg>
@@ -107,9 +109,9 @@
     <!-- SVG Definitions -->
     <svg width="0" height="0">
       <defs>
-        <linearGradient id="now-playing-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#ff0844;stop-opacity:1" />
-          <stop offset="100%" style="stop-color:#ffb199;stop-opacity:1" />
+        <linearGradient id="playing-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#FF6B6B;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#4ECDC4;stop-opacity:1" />
         </linearGradient>
       </defs>
     </svg>
@@ -127,7 +129,7 @@ export default {
   setup() {
     const isPlaying = ref(false)
     const isFavorite = ref(false)
-    const isRepeat = ref(false)
+    const isShuffle = ref(false)
     const isMuted = ref(false)
     const currentTime = ref(0)
     const duration = ref(180) // 3:00 for demo
@@ -151,16 +153,14 @@ export default {
       isFavorite.value = !isFavorite.value
     }
     
-    const toggleRepeat = () => {
-      isRepeat.value = !isRepeat.value
-    }
-    
     const toggleMute = () => {
       isMuted.value = !isMuted.value
     }
     
-    const seekTo = (value) => {
-      currentTime.value = parseInt(value)
+    const seekToPosition = (event) => {
+      const rect = event.currentTarget.getBoundingClientRect()
+      const percent = ((event.clientX - rect.left) / rect.width) * 100
+      currentTime.value = (percent / 100) * duration.value
     }
     
     const setVolume = (value) => {
@@ -178,7 +178,7 @@ export default {
     return {
       isPlaying,
       isFavorite,
-      isRepeat,
+      isShuffle,
       isMuted,
       currentTime,
       duration,
@@ -187,9 +187,8 @@ export default {
       formatTime,
       togglePlay,
       toggleFavorite,
-      toggleRepeat,
       toggleMute,
-      seekTo,
+      seekToPosition,
       setVolume
     }
   }
@@ -202,50 +201,42 @@ export default {
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(20, 20, 20, 0.95);
-  backdrop-filter: blur(50px);
-  -webkit-backdrop-filter: blur(50px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  height: 88px;
+  background: rgba(18, 18, 18, 0.95);
+  backdrop-filter: blur(100px) saturate(180%);
+  -webkit-backdrop-filter: blur(100px) saturate(180%);
+  border-top: 1px solid var(--border-color);
   z-index: 100;
 }
 
-.progress-bar {
-  position: absolute;
-  top: -2px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.progress-fill {
+.now-playing-container {
   height: 100%;
-  background: #fff;
-  transition: width 0.1s ease;
-}
-
-.bar-content {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
   align-items: center;
-  padding: 16px 24px;
+  padding: 0 24px;
   gap: 32px;
 }
 
-/* Song Info */
-.song-info {
+/* Song Info Section */
+.song-info-section {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-width: 280px;
+  gap: 14px;
+  min-width: 0;
 }
 
 .song-artwork {
-  width: 48px;
-  height: 48px;
-  border-radius: 6px;
-  overflow: hidden;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.artwork-inner {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: var(--bg-secondary);
 }
 
 .artwork-placeholder {
@@ -260,8 +251,8 @@ export default {
 
 .song-title {
   font-size: 14px;
-  font-weight: 500;
-  color: #fff;
+  font-weight: 600;
+  color: var(--text-primary);
   margin-bottom: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -269,42 +260,43 @@ export default {
 }
 
 .song-artist {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.favorite-button {
+.favorite-btn {
   width: 32px;
   height: 32px;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-tertiary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 50%;
   transition: all 0.2s ease;
 }
 
-.favorite-button:hover {
-  color: #fff;
+.favorite-btn:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
 }
 
-.favorite-button.active {
-  color: #ff4757;
+.favorite-btn.active {
+  color: var(--accent-primary);
 }
 
-.favorite-button svg {
-  width: 18px;
-  height: 18px;
+.favorite-btn svg {
+  width: 20px;
+  height: 20px;
 }
 
-/* Player Controls */
-.player-controls {
-  flex: 1;
+/* Player Section */
+.player-section {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -317,54 +309,76 @@ export default {
   gap: 16px;
 }
 
-.control-button {
-  width: 32px;
-  height: 32px;
+.control-btn {
+  width: 40px;
+  height: 40px;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   transition: all 0.2s ease;
+  position: relative;
 }
 
-.control-button:hover {
-  color: #fff;
-  transform: scale(1.1);
+.control-btn.small {
+  width: 32px;
+  height: 32px;
 }
 
-.control-button.play {
-  width: 40px;
-  height: 40px;
-  background: #fff;
-  color: #000;
+.control-btn:hover {
+  color: var(--text-primary);
 }
 
-.control-button.play:hover {
-  transform: scale(1.15);
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.3);
+.control-btn.play {
+  width: 48px;
+  height: 48px;
+  background: white;
+  color: black;
 }
 
-.control-button.active {
-  color: #1db954;
+.control-btn.play:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
 }
 
-.control-button svg {
-  width: 18px;
-  height: 18px;
-}
-
-.control-button.play svg {
+.control-btn.play svg {
   width: 20px;
   height: 20px;
   margin-left: 2px;
 }
 
-/* Time Display */
-.time-display {
+.control-btn.active {
+  color: var(--accent-primary);
+}
+
+.control-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  background: var(--accent-primary);
+  border-radius: 50%;
+}
+
+.control-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.control-btn.small svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Progress Section */
+.progress-section {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -372,71 +386,127 @@ export default {
   max-width: 600px;
 }
 
-.time-current,
-.time-total {
+.time-label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
-  min-width: 40px;
+  min-width: 35px;
 }
 
-.time-slider {
+.progress-bar-container {
   flex: 1;
-}
-
-/* Volume Controls */
-.volume-controls {
+  height: 32px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 200px;
+  cursor: pointer;
+}
+
+.progress-bar {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  background: var(--bg-secondary);
+  border-radius: 2px;
+  overflow: visible;
+}
+
+.progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: white;
+  border-radius: 2px;
+  transition: width 0.1s ease;
+}
+
+.progress-handle {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.progress-bar-container:hover .progress-handle {
+  opacity: 1;
+}
+
+/* Extra Controls */
+.extra-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   justify-content: flex-end;
 }
 
-.volume-slider {
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.volume-slider-container {
   width: 100px;
 }
 
-/* Slider Styles */
-.slider {
+.volume-slider {
   width: 100%;
   height: 4px;
   -webkit-appearance: none;
   appearance: none;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-secondary);
   border-radius: 2px;
   outline: none;
   cursor: pointer;
 }
 
-.slider::-webkit-slider-thumb {
+.volume-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 12px;
   height: 12px;
-  background: #fff;
+  background: white;
   border-radius: 50%;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
-}
-
-.slider::-moz-range-thumb {
+.volume-slider::-moz-range-thumb {
   width: 12px;
   height: 12px;
-  background: #fff;
+  background: white;
   border-radius: 50%;
   cursor: pointer;
   border: none;
-  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.slider::-moz-range-thumb:hover {
-  transform: scale(1.2);
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+/* Responsive */
+@media (max-width: 1024px) {
+  .now-playing-container {
+    grid-template-columns: 300px 1fr auto;
+    gap: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .now-playing-container {
+    grid-template-columns: 1fr;
+    padding: 12px 16px;
+  }
+  
+  .player-section {
+    order: -1;
+  }
+  
+  .extra-controls {
+    display: none;
+  }
 }
 </style>
