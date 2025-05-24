@@ -31,6 +31,10 @@
           :key="artist.id"
           class="artist-tile"
           @click="$emit('select-artist', artist.id)"
+          @dragover.prevent="dragOverArtistId = artist.id"
+          @dragleave="dragOverArtistId = null"
+          @drop.prevent="handleFileDropToArtist(artist, $event)"
+          :class="{ 'drag-over': dragOverArtistId === artist.id }"
         >
           <div class="artist-image">
             <div v-if="!artist.image" class="image-placeholder">
@@ -69,11 +73,13 @@
   export default {
     name: 'ArtistsView',
     props: {
-      artists: Array
+      artists: Array,
+      onFileDropToArtist: Function
     },
     emits: ['add-artist', 'select-artist'],
     setup(props) {
       const searchQuery = ref('')
+      const dragOverArtistId = ref(null)
   
       const filteredArtists = computed(() => {
         if (!searchQuery.value) return props.artists
@@ -89,10 +95,26 @@
         console.log('Show menu for:', artist)
       }
   
+      const handleFileDropToArtist = (artist, e) => {
+        dragOverArtistId.value = null
+        const files = e.dataTransfer.files
+        if (files && files.length > 0) {
+          const filePaths = Array.from(files).map(f => f.path || f.name)
+          if (props.onFileDropToArtist) props.onFileDropToArtist(artist.id, filePaths)
+        } else if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+          const filePaths = Array.from(e.dataTransfer.items)
+            .filter(item => item.kind === 'file')
+            .map(item => item.getAsFile()?.path || item.getAsFile()?.name)
+          if (props.onFileDropToArtist) props.onFileDropToArtist(artist.id, filePaths)
+        }
+      }
+  
       return {
         searchQuery,
         filteredArtists,
-        showArtistMenu
+        showArtistMenu,
+        dragOverArtistId,
+        handleFileDropToArtist
       }
     }
   }
@@ -340,6 +362,11 @@
     width: 16px;
     height: 16px;
     color: var(--text-secondary);
+  }
+  
+  .artist-tile.drag-over {
+    outline: 2px solid #4ECDC4;
+    background: rgba(78, 205, 196, 0.08);
   }
   
   /* Responsive */

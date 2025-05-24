@@ -121,32 +121,34 @@
             </div>
             
             <div 
-              v-for="playlist in generalPlaylists.slice(0, 5)" 
-              :key="playlist.id"
+              v-for="(element, index) in generalPlaylists"
+              :key="element.id"
               class="nav-item playlist-item"
-              :class="{ active: activeView === 'playlist' && activePlaylistId === playlist.id }"
-              @click="setActiveView('playlist', playlist.id)"
+              :class="{ active: activeView === 'playlist' && activePlaylistId === element.id, 'drag-over': dragOverPlaylistId === element.id }"
+              @click="setActiveView('playlist', element.id)"
+              @dragenter.prevent="(e) => { console.log('🎯 Dragenter playlist:', element.name); dragOverPlaylistId = element.id }"
+              @dragover.prevent="(e) => { e.dataTransfer.dropEffect = 'copy'; dragOverPlaylistId = element.id }"
+              @dragleave="(e) => { console.log('👋 Dragleave playlist:', element.name); dragOverPlaylistId = null }"
+              @drop.prevent="(e) => { console.log('💧 DROP on playlist:', element.name); handlePlaylistExternalDrop(e, element.id) }"
             >
               <div class="playlist-cover">
                 <svg viewBox="0 0 24 24" fill="currentColor">
                   <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
                 </svg>
               </div>
-              <span>{{ playlist.name }}</span>
+              <span>{{ element.name }}</span>
             </div>
           </div>
         </nav>
 
-        <!-- Storage Indicator -->
-        <div class="storage-indicator">
-          <div class="storage-header">
-            <span class="storage-label">Storage</span>
-            <span class="storage-amount">42GB <span class="storage-total">from 100GB</span></span>
-          </div>
-          <div class="storage-bar">
-            <div class="storage-used" style="width: 42%"></div>
-          </div>
-          <button class="upgrade-btn">Upgrade plan</button>
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+          <button class="action-btn" @click="scanMusicFolder">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+            Scan Folder
+          </button>
         </div>
       </aside>
 
@@ -162,10 +164,31 @@
             @select-artist="(id) => setActiveView('artist-songs', id)"
             @navigate="(view) => activeView = view"
           />
-          <AllSongsView v-else-if="activeView === 'all-songs'" :songs="allSongs" />
-          <ArtistsView v-else-if="activeView === 'artists'" :artists="artists" @add-artist="showAddModal = true" @select-artist="(id) => setActiveView('artist-songs', id)" />
-          <playlistsview v-else-if="activeView === 'playlists'" :playlists="generalPlaylists" @create-playlist="showAddModal = true" @select-playlist="(id) => setActiveView('playlist', id)" />
-          <ArtistSongsView v-else-if="activeView === 'artist-songs'" :artist="currentArtist" :songs="currentArtistSongs" />
+          <AllSongsView 
+            v-else-if="activeView === 'all-songs'" 
+            :songs="allSongs" 
+            :onFileDrop="handleAllSongsFileDrop" 
+          />
+          <ArtistsView 
+            v-else-if="activeView === 'artists'" 
+            :artists="artists" 
+            @add-artist="showAddModal = true" 
+            @select-artist="(id) => setActiveView('artist-songs', id)" 
+            :onFileDropToArtist="handleFileDropToArtist" 
+          />
+          <playlistsview v-else-if="activeView === 'playlists'" :playlists="generalPlaylists" @create-playlist="showAddModal = true" @select-playlist="(id) => setActiveView('playlist', id)" @add-song-to-playlist="({ playlistId, song }) => addSongToPlaylist(playlistId, song)" />
+          <ArtistSongsView 
+            v-else-if="activeView === 'artist-songs'" 
+            :artist="currentArtist" 
+            :songs="currentArtistSongs" 
+            :onFileDropToArtist="handleFileDropToArtist" 
+          />
+          <PlaylistDetailView
+            v-else-if="activeView === 'playlist'"
+            :playlist="currentPlaylist"
+            :songs="currentPlaylistSongs"
+            @remove-song="removeSongFromPlaylist"
+          />
         </div>
       </main>
 
@@ -174,19 +197,35 @@
     </div>
 
     <!-- Add Content Modal -->
-    <AddContentModal v-if="showAddModal" @close="showAddModal = false" @add="handleAddContent" />
+    <AddContentModal 
+      v-if="showAddModal" 
+      @close="showAddModal = false" 
+      @add="handleAddContent" 
+    />
+    <!-- Toast Notifications -->
+    <Toast />
   </div>
 </template>
 
 <script>
 import { ref, computed, onMounted } from 'vue'
+import { invoke } from '@tauri-apps/api/tauri'
+import { open } from '@tauri-apps/api/dialog'
+import { convertFileSrc } from '@tauri-apps/api/tauri'
+import { readBinaryFile } from '@tauri-apps/api/fs'
+import { listen } from '@tauri-apps/api/event'
 import HomeView from './components/HomeView.vue'
 import AllSongsView from './components/AllSongsView.vue'
 import ArtistsView from './components/ArtistsView.vue'
 import playlistsview from './components/playlistsview.vue'
 import ArtistSongsView from './components/ArtistSongsView.vue'
+import PlaylistDetailView from './components/PlaylistDetailView.vue'
 import NowPlayingBar from './components/NowPlayingBar.vue'
 import AddContentModal from './components/AddContentModal.vue'
+import Toast from './components/Toast.vue'
+import { useAudioPlayer } from './services/audioPlayer'
+import { importFiles } from '@/utils/importFiles'
+import { useToastStore } from '@/store/toast'
 
 export default {
   name: 'App',
@@ -196,8 +235,10 @@ export default {
     ArtistsView,
     playlistsview,
     ArtistSongsView,
+    PlaylistDetailView,
     NowPlayingBar,
-    AddContentModal
+    AddContentModal,
+    Toast
   },
   setup() {
     // Navigation state
@@ -208,47 +249,13 @@ export default {
     // UI state
     const showAddModal = ref(false)
     const currentSong = ref(null)
+    const dragOverPlaylistId = ref(null)
+    const showFileDropOverlay = ref(false)
 
     // Data
-    const artists = ref([
-      {
-        id: 1,
-        name: 'Glass Animals',
-        image: null,
-        genre: 'Indie Pop',
-        followers: '2.5M'
-      },
-      {
-        id: 2,
-        name: 'Tame Impala',
-        image: null,
-        genre: 'Psychedelic Rock',
-        followers: '3.2M'
-      },
-      {
-        id: 3,
-        name: 'Mac Miller',
-        image: null,
-        genre: 'Hip Hop',
-        followers: '5.1M'
-      }
-    ])
-
-    const songs = ref([
-      { id: 1, title: 'Heat Waves', artist: 'Glass Animals', artistId: 1, album: 'Dreamland', duration: '3:58' },
-      { id: 2, title: 'The Less I Know The Better', artist: 'Tame Impala', artistId: 2, album: 'Currents', duration: '3:36' },
-      { id: 3, title: 'Tokyo Drifting', artist: 'Glass Animals', artistId: 1, album: 'Dreamland', duration: '4:52' },
-      { id: 4, title: 'Elephant', artist: 'Tame Impala', artistId: 2, album: 'Lonerism', duration: '3:31' },
-      { id: 5, title: 'Good News', artist: 'Mac Miller', artistId: 3, album: 'Circles', duration: '5:42' }
-    ])
-
-    const generalPlaylists = ref([
-      { id: 'gp1', name: 'Favorites', songIds: [1, 2, 5], color: '#FF6B6B' },
-      { id: 'gp2', name: 'Chill Vibes', songIds: [1, 3], color: '#4ECDC4' },
-      { id: 'gp3', name: 'Workout Mix', songIds: [2, 4], color: '#45B7D1' },
-      { id: 'gp4', name: 'Late Night', songIds: [3, 5], color: '#96CEB4' },
-      { id: 'gp5', name: 'Focus Flow', songIds: [1, 4], color: '#DDA0DD' }
-    ])
+    const artists = ref([])
+    const songs = ref([])
+    const generalPlaylists = ref([])
 
     // Computed
     const allSongs = computed(() => songs.value)
@@ -259,22 +266,39 @@ export default {
     )
 
     const currentArtistSongs = computed(() => 
-      songs.value.filter(s => s.artistId === activeArtistId.value)
+      songs.value.filter(s => s.artist_id === activeArtistId.value)
     )
 
     const currentPlaylist = computed(() => {
-      return generalPlaylists.value.find(p => p.id === activePlaylistId.value)
+      const playlist = generalPlaylists.value.find(p => p.id === activePlaylistId.value)
+      console.log('🎵 Current playlist:', playlist)
+      return playlist
     })
 
     const currentPlaylistSongs = computed(() => {
       const playlist = currentPlaylist.value
       if (!playlist) return []
       
-      if (playlist.songIds) {
-        return songs.value.filter(s => playlist.songIds.includes(s.id))
+      // Check if playlist has songs array directly
+      if (playlist.songs && Array.isArray(playlist.songs)) {
+        return playlist.songs
+      }
+      
+      // Otherwise check for song_ids
+      if (playlist.song_ids && Array.isArray(playlist.song_ids)) {
+        return songs.value.filter(s => playlist.song_ids.includes(s.id))
       }
       
       return []
+    })
+
+    const totalStorageUsed = computed(() => {
+      return songs.value.reduce((total, song) => total + (song.file_size || 0), 0)
+    })
+
+    const storagePercent = computed(() => {
+      const maxStorage = 100 * 1024 * 1024 * 1024 // 100GB in bytes
+      return Math.min((totalStorageUsed.value / maxStorage) * 100, 100)
     })
 
     // Methods
@@ -287,17 +311,422 @@ export default {
       }
     }
 
-    const handleAddContent = (data) => {
+    const formatFileSize = (bytes) => {
+      if (bytes === 0) return '0 B'
+      const k = 1024
+      const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+      const i = Math.floor(Math.log(bytes) / Math.log(k))
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+    }
+
+    // Refresh library data from database
+    const refreshLibrary = async () => {
+      try {
+        const [dbSongs, dbArtists, dbPlaylists] = await Promise.all([
+          invoke('get_all_songs'),
+          invoke('get_all_artists'),
+          invoke('get_all_playlists')
+        ])
+        
+        console.log('📚 Refreshed library data:', {
+          songs: dbSongs?.length || 0,
+          artists: dbArtists?.length || 0,
+          playlists: dbPlaylists?.length || 0
+        })
+        
+        songs.value = dbSongs || []
+        artists.value = dbArtists || []
+        generalPlaylists.value = dbPlaylists || []
+        
+        // Log playlist details
+        console.log('📋 Playlists detail:', dbPlaylists)
+      } catch (error) {
+        console.error('Error refreshing library:', error)
+      }
+    }
+
+    // Import the toast store directly instead of using inject
+    const toastStore = useToastStore()
+    const showToast = (options) => toastStore.push(options)
+    const audio = useAudioPlayer()
+
+    const handleAddContent = async (data) => {
       console.log('Add content:', data)
+      
+      try {
+        switch (data.type) {
+          case 'import':
+            // Handle music file imports with Tauri
+            if (data.data.files && data.data.files.length > 0) {
+              console.log(`Importing ${data.data.files.length} music files...`)
+              
+              // Extract file paths - handle both drag/drop and file picker
+              const filePaths = data.data.files.map(f => {
+                // If it's a File object from drag/drop, use the path property
+                // If it's already a path string, use it directly
+                return f.path || f
+              })
+              
+              // Call Tauri command to import files
+              const result = await invoke('import_music_files', { filePaths })
+              
+              if (result.success || result.imported_count > 0) {
+                console.log(`Successfully imported ${result.imported_count} songs`)
+                
+                // Show any errors that occurred
+                if (result.errors && result.errors.length > 0) {
+                  console.error('Import errors:', result.errors)
+                  showToast({ message: `Imported ${result.imported_count} songs successfully. ${result.failed_count} files failed: ${result.errors.join(', ')}`, type: 'info' })
+                } else {
+                  showToast({ message: `Successfully imported ${result.imported_count} songs!`, type: 'success' })
+                }
+              } else {
+                console.error('Import failed:', result.errors)
+                showToast({ message: `Import failed: ${result.errors.join(', ')}`, type: 'error' })
+              }
+            }
+            break
+            
+          case 'artist':
+            // Handle artist creation with image
+            const newArtist = await invoke('create_artist', {
+              name: data.data.name,
+              genre: data.data.genre || null
+            })
+            
+            // Upload artist image if provided
+            if (data.data.imagePath) {
+              try {
+                // Read the image file
+                const imageData = await readBinaryFile(data.data.imagePath)
+                const imageExt = data.data.imagePath.split('.').pop().toLowerCase()
+                
+                const imagePath = await invoke('save_artist_image', {
+                  artistId: newArtist.id,
+                  imageData: Array.from(imageData),
+                  extension: imageExt
+                })
+                
+                newArtist.image_path = imagePath
+                console.log('Artist image saved:', imagePath)
+              } catch (error) {
+                console.error('Failed to save artist image:', error)
+              }
+            }
+            
+            console.log('Added new artist:', newArtist)
+            showToast({ message: `Artist "${newArtist.name}" created successfully!`, type: 'success' })
+            break
+            
+          case 'playlist':
+            // Handle playlist creation with Tauri
+            const newPlaylist = await invoke('create_playlist', {
+              name: data.data.name,
+              description: data.data.description || null,
+              color: data.data.color || null
+            })
+            
+            console.log('Created new playlist:', newPlaylist)
+            showToast({ message: `Playlist "${newPlaylist.name}" created successfully!`, type: 'success' })
+            break
+        }
+        
+        // Refresh data from database
+        await refreshLibrary()
+        
+      } catch (error) {
+        console.error('Error handling content addition:', error)
+        showToast({ message: `Error: ${error}`, type: 'error' })
+      }
+      
       showAddModal.value = false
     }
 
-    // Demo: Set a current song
-    onMounted(() => {
+    // Scan music folder function
+    const scanMusicFolder = async () => {
+      try {
+        // Open folder selection dialog
+        const selected = await open({
+          directory: true,
+          multiple: false,
+          title: 'Select Music Folder to Scan'
+        })
+        
+        if (selected) {
+          console.log('Scanning folder:', selected)
+          const result = await invoke('scan_music_directory', {
+            directoryPath: selected
+          })
+          
+          if (result.success || result.imported_count > 0) {
+            showToast({ message: `Scanned folder successfully! Imported ${result.imported_count} songs.`, type: 'success' })
+            await refreshLibrary()
+          } else {
+            showToast({ message: `Scan failed: ${result.errors.join(', ')}`, type: 'error' })
+          }
+        }
+      } catch (error) {
+        console.error('Error scanning folder:', error)
+        showToast({ message: `Error scanning folder: ${error}`, type: 'error' })
+      }
+    }
+
+    // Add song to playlist
+    const addSongToPlaylist = async (playlistId, song) => {
+      console.log('➕ Adding song to playlist:', { playlistId, song });
+      try {
+        await invoke('add_songs_to_playlist', { playlistId, songIds: [song.id] })
+        console.log('✅ Song added successfully');
+        showToast({ message: `Added '${song.title}' to playlist!`, type: 'success' })
+        await refreshLibrary()
+      } catch (error) {
+        console.error('❌ Failed to add song:', error);
+        showToast({ message: `Failed to add song: ${error}`, type: 'error' })
+      }
+    }
+
+    // Handle playlist reordering
+    const onReorderPlaylists = async (evt) => {
+      // No longer needed since we removed draggable
+      showToast({ message: 'Playlist reordering disabled', type: 'info' })
+    }
+
+    // Add this handler
+    const handleAllSongsFileDrop = async (filePaths) => {
+      console.log('🎵 handleAllSongsFileDrop called with:', filePaths)
+      if (!filePaths || filePaths.length === 0) {
+        console.warn('🎵 No file paths provided')
+        return
+      }
+      try {
+        console.log('🎵 Calling import_music_files with paths:', filePaths)
+        const result = await invoke('import_music_files', { filePaths })
+        console.log('🎵 Import result:', result)
+        
+        if (result.success || result.imported_count > 0) {
+          showToast({ message: `Imported ${result.imported_count} songs!`, type: 'success' })
+          await refreshLibrary()
+        } else {
+          console.error('🎵 Import failed:', result)
+          showToast({ message: `Import failed: ${result.errors.join(', ')}`, type: 'error' })
+        }
+      } catch (error) {
+        console.error('🎵 Import error:', error)
+        showToast({ message: `Import failed: ${error}`, type: 'error' })
+      }
+    }
+
+    // Add this handler
+    const handleFileDropToArtist = async (artistId, filePaths) => {
+      console.log('🎨 handleFileDropToArtist called with artistId:', artistId, 'paths:', filePaths)
+      if (!filePaths || filePaths.length === 0) {
+        console.warn('🎨 No file paths provided')
+        return
+      }
+      try {
+        console.log('🎨 Importing files...')
+        // Import the files
+        const result = await invoke('import_music_files', { filePaths })
+        console.log('🎨 Import result:', result)
+        
+        if (result.success || result.imported_count > 0) {
+          // Add imported song IDs to artist
+          const songIds = (result.songs || []).map(s => s.id)
+          console.log('🎨 Song IDs to add to artist:', songIds)
+          
+          if (songIds.length > 0) {
+            console.log('🎨 Adding songs to artist...')
+            await invoke('add_songs_to_artist', { artistId, songIds })
+          }
+          showToast({ message: `Imported ${result.imported_count} songs and attached to artist!`, type: 'success' })
+          await refreshLibrary()
+        } else {
+          console.error('🎨 Import failed:', result)
+          showToast({ message: `Import failed: ${result.errors.join(', ')}`, type: 'error' })
+        }
+      } catch (error) {
+        console.error('🎨 Import error:', error)
+        showToast({ message: `Import failed: ${error}`, type: 'error' })
+      }
+    }
+
+    // Remove song from playlist
+    const removeSongFromPlaylist = async ({ playlistId, songId }) => {
+      try {
+        await invoke('remove_song_from_playlist', { playlistId, songId })
+        showToast({ message: 'Song removed from playlist', type: 'success' })
+        await refreshLibrary()
+      } catch (error) {
+        showToast({ message: `Failed to remove song: ${error}`, type: 'error' })
+      }
+    }
+
+    // Add this handler for playlist external drop
+    const handlePlaylistExternalDrop = async (e, playlistId) => {
+      console.log('🎯 Playlist drop event triggered for playlist:', playlistId);
+      dragOverPlaylistId.value = null;
+
+      // Check for files first
+      if (e.dataTransfer.files?.length) {
+        console.log('📁 Files detected in drop:', e.dataTransfer.files);
+        const paths = [...e.dataTransfer.files].map(f => f.path);
+        await importFiles(paths, { playlistId });
+        await refreshLibrary();
+        return;
+      }
+
+      // Check for JSON data (dragged songs)
+      const json = e.dataTransfer.getData('application/json');
+      console.log('🎵 JSON data from drop:', json);
+
+      if (json) {
+        try {
+          const song = JSON.parse(json);
+          console.log('🎵 Parsed song data:', song);
+          await addSongToPlaylist(playlistId, song);
+        } catch (error) {
+          console.error('❌ Error parsing dropped data:', error);
+        }
+      } else {
+        console.warn('⚠️ No data found in drop event');
+      }
+    }
+
+    // Initialize on mount
+    onMounted(async () => {
+      // Load library data
+      await refreshLibrary()
+      
+      // Set demo current song after a delay
       setTimeout(() => {
-        currentSong.value = songs.value[0]
-      }, 1000)
+        if (songs.value.length > 0) {
+          // Convert file path to Tauri asset URL for audio playback
+          const song = songs.value[0]
+          currentSong.value = {
+            id: song.id,
+            title: song.title,
+            artist: song.artist,
+            album: song.album,
+            duration: formatDuration(song.duration || 0),
+            path: convertFileSrc(song.path) // Convert to playable URL
+          }
+        }
+      })
+
+      // Keyboard shortcuts
+      document.addEventListener('keydown', (e) => {
+        // Ignore if input, textarea, or contenteditable is focused
+        const tag = document.activeElement?.tagName?.toLowerCase()
+        const isEditable = document.activeElement?.isContentEditable
+        if (['input', 'textarea', 'select'].includes(tag) || isEditable) return
+
+        // --- Playback Controls ---
+        if (e.code === 'Space') {
+          e.preventDefault()
+          audio.togglePlayPause()
+        }
+        if (e.code === 'ArrowLeft') {
+          e.preventDefault()
+          audio.skipBackward(10)
+        }
+        if (e.code === 'ArrowRight') {
+          e.preventDefault()
+          audio.skipForward(10)
+        }
+        if (e.code === 'ArrowUp') {
+          e.preventDefault()
+          audio.setVolume(Math.min(audio.volume.value + 10, 100))
+        }
+        if (e.code === 'ArrowDown') {
+          e.preventDefault()
+          audio.setVolume(Math.max(audio.volume.value - 10, 0))
+        }
+        if (e.key.toLowerCase() === 'm') {
+          audio.toggleMute()
+        }
+        if (e.key.toLowerCase() === 'n') {
+          // Next track (not implemented, placeholder)
+          showToast({ message: 'Next Track (not implemented)', type: 'info' })
+        }
+        if (e.key.toLowerCase() === 'p') {
+          // Previous track (not implemented, placeholder)
+          showToast({ message: 'Previous Track (not implemented)', type: 'info' })
+        }
+
+        // --- Navigation ---
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+        const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey
+        if (ctrlOrCmd && e.key === 'f') {
+          e.preventDefault()
+          // Focus search (not implemented, placeholder)
+          showToast({ message: 'Focus Search (not implemented)', type: 'info' })
+        }
+        if (ctrlOrCmd && e.key === '1') {
+          e.preventDefault()
+          setActiveView('home')
+        }
+        if (ctrlOrCmd && e.key === '2') {
+          e.preventDefault()
+          setActiveView('all-songs')
+        }
+        if (ctrlOrCmd && e.key === '3') {
+          e.preventDefault()
+          setActiveView('artists')
+        }
+        if (ctrlOrCmd && e.key === '4') {
+          e.preventDefault()
+          setActiveView('playlists')
+        }
+        if (ctrlOrCmd && e.key.toLowerCase() === 'k') {
+          e.preventDefault()
+          showToast({ message: 'Quick Switcher (not implemented)', type: 'info' })
+        }
+        if (ctrlOrCmd && e.key === ',') {
+          e.preventDefault()
+          showToast({ message: 'Open Settings (not implemented)', type: 'info' })
+        }
+
+        // --- Quick Actions ---
+        if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'n') {
+          e.preventDefault()
+          setActiveView('playlists')
+          showAddModal.value = true
+        }
+        if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'a') {
+          e.preventDefault()
+          setActiveView('artists')
+          showAddModal.value = true
+        }
+        if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'i') {
+          e.preventDefault()
+          setActiveView('all-songs')
+          showAddModal.value = true
+        }
+      })
+
+      // Global file drop listeners
+      await listen('tauri://file-drop-hover', (event) => {
+        // Don't show overlay, just log for debugging
+        console.log('🎯 FILE DROP HOVER EVENT:', event)
+      })
+      
+      await listen('tauri://file-drop-cancelled', (event) => {
+        console.log('❌ FILE DROP CANCELLED EVENT:', event)
+      })
+      
+      await listen('tauri://file-drop', async (event) => {
+        // The global drop is now just for visual feedback
+        // Actual file handling is done by the specific drop zones
+        console.log('📁 Global file drop detected, handled by specific drop zones')
+      })
     })
+
+    // Format duration from seconds to "M:SS"
+    const formatDuration = (seconds) => {
+      const minutes = Math.floor(seconds / 60)
+      const secs = Math.floor(seconds % 60)
+      return `${minutes}:${secs.toString().padStart(2, '0')}`
+    }
 
     return {
       activeView,
@@ -314,8 +743,22 @@ export default {
       currentArtistSongs,
       currentPlaylist,
       currentPlaylistSongs,
+      totalStorageUsed,
+      storagePercent,
       setActiveView,
-      handleAddContent
+      handleAddContent,
+      formatFileSize,
+      refreshLibrary,
+      scanMusicFolder,
+      convertFileSrc,
+      dragOverPlaylistId,
+      addSongToPlaylist,
+      onReorderPlaylists,
+      handleAllSongsFileDrop,
+      handleFileDropToArtist,
+      handlePlaylistExternalDrop,
+      showFileDropOverlay,
+      removeSongFromPlaylist
     }
   }
 }
@@ -517,6 +960,7 @@ body {
   font-weight: 600;
   letter-spacing: -0.5px;
   background: var(--gradient-primary);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -624,6 +1068,9 @@ body {
 
 .gradient-icon {
   background: var(--gradient-primary);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .gradient-icon svg {
@@ -639,6 +1086,13 @@ body {
 /* Playlist Items */
 .playlist-item {
   font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+.playlist-item.drag-over {
+  background: rgba(78, 205, 196, 0.2) !important;
+  border: 1px solid rgba(78, 205, 196, 0.5);
+  transform: scale(1.02);
 }
 
 .playlist-cover {
@@ -658,68 +1112,38 @@ body {
   color: var(--text-tertiary);
 }
 
-/* Storage Indicator */
-.storage-indicator {
+/* Quick Actions */
+.quick-actions {
   padding: 20px;
   border-top: 1px solid var(--border-color);
-  background: rgba(255, 255, 255, 0.02);
 }
 
-.storage-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.storage-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.storage-amount {
-  font-size: 12px;
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.storage-total {
-  color: var(--text-tertiary);
-  font-weight: 400;
-}
-
-.storage-bar {
-  height: 6px;
-  background: var(--bg-secondary);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 16px;
-}
-
-.storage-used {
-  height: 100%;
-  background: var(--gradient-primary);
-  border-radius: 3px;
-  transition: width 0.3s ease;
-}
-
-.upgrade-btn {
+.action-btn {
   width: 100%;
-  padding: 10px 16px;
-  background: var(--gradient-primary);
-  border: none;
-  border-radius: var(--radius-sm);
-  color: white;
-  font-size: 13px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   transition: all 0.2s ease;
 }
 
-.upgrade-btn:hover {
+.action-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+.action-btn svg {
+  width: 20px;
+  height: 20px;
 }
 
 /* Main Content */

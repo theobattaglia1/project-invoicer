@@ -1,5 +1,10 @@
 <template>
-    <div class="artist-songs-view">
+    <div class="artist-songs-view"
+         @dragover.prevent="isDragOver = true"
+         @dragleave="isDragOver = false"
+         @drop.prevent="handleFileDrop"
+         :class="{ 'drag-over': isDragOver }"
+    >
       <!-- Artist Header -->
       <div class="artist-header">
         <div class="artist-cover">
@@ -86,15 +91,17 @@
   </template>
   
   <script>
-  import { computed } from 'vue'
+  import { computed, ref } from 'vue'
   
   export default {
     name: 'ArtistSongsView',
     props: {
       artist: Object,
-      songs: Array
+      songs: Array,
+      onFileDropToArtist: Function
     },
     setup(props) {
+      const isDragOver = ref(false)
       const totalDuration = computed(() => {
         // Calculate total duration of all songs
         // In a real app, this would sum up actual durations
@@ -114,10 +121,26 @@
         // Show context menu
       }
       
+      const handleFileDrop = (e) => {
+        isDragOver.value = false
+        const files = e.dataTransfer.files
+        if (files && files.length > 0) {
+          const filePaths = Array.from(files).map(f => f.path || f.name)
+          if (props.onFileDropToArtist) props.onFileDropToArtist(props.artist.id, filePaths)
+        } else if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+          const filePaths = Array.from(e.dataTransfer.items)
+            .filter(item => item.kind === 'file')
+            .map(item => item.getAsFile()?.path || item.getAsFile()?.name)
+          if (props.onFileDropToArtist) props.onFileDropToArtist(props.artist.id, filePaths)
+        }
+      }
+      
       return {
         totalDuration,
         playSong,
-        showSongMenu
+        showSongMenu,
+        isDragOver,
+        handleFileDrop
       }
     }
   }
@@ -387,5 +410,10 @@
   .song-menu svg {
     width: 20px;
     height: 20px;
+  }
+  
+  .artist-songs-view.drag-over {
+    outline: 2px solid #4ECDC4;
+    background: rgba(78, 205, 196, 0.08);
   }
   </style>

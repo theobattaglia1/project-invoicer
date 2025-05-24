@@ -101,7 +101,7 @@
   </template>
   
   <script>
-  import { ref, onMounted } from 'vue'
+  import { ref, onMounted, inject } from 'vue'
   
   export default {
     name: 'StyleEditor',
@@ -121,6 +121,7 @@
       }
       
       const styles = ref({ ...defaultStyles })
+      const showToast = inject('showToast')
       
       const toggleEditor = () => {
         isVisible.value = !isVisible.value
@@ -196,7 +197,7 @@
         `.trim()
         
         navigator.clipboard.writeText(cssVariables)
-        alert('CSS variables copied to clipboard!')
+        showToast({ message: 'CSS variables copied to clipboard!', type: 'success' })
       }
       
       onMounted(() => {

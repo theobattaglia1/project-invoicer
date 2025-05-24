@@ -1,5 +1,10 @@
 <template>
-    <div class="all-songs-view">
+    <div class="all-songs-view" 
+         @dragover.prevent="isDragOver = true" 
+         @dragleave="isDragOver = false" 
+         @drop.prevent="handleFileDrop"
+         :class="{ 'drag-over': isDragOver }"
+    >
       <div class="view-header">
         <h1 class="view-title">All Songs</h1>
         <p class="view-subtitle">{{ songs.length }} songs in your library</p>
@@ -75,6 +80,8 @@
               v-for="(song, index) in filteredSongs" 
               :key="song.id"
               class="song-row"
+              :draggable="true"
+              @dragstart="onDragStart(song, $event)"
               @click="playSong(song)"
             >
               <div class="col-number">{{ index + 1 }}</div>
@@ -122,12 +129,15 @@
   export default {
     name: 'AllSongsView',
     props: {
-      songs: Array
+      songs: Array,
+      onFileDrop: Function
     },
-    setup(props) {
+    emits: ['song-drag-start'],
+    setup(props, { emit }) {
       const searchQuery = ref('')
       const sortBy = ref('title')
       const showSortMenu = ref(false)
+      const isDragOver = ref(false)
       
       const sortOptions = [
         { value: 'title', label: 'Title' },
@@ -179,6 +189,28 @@
         // Show context menu
       }
       
+      const onDragStart = (song, event) => {
+        event.dataTransfer.effectAllowed = 'move'
+        event.dataTransfer.setData('application/json', JSON.stringify(song))
+        emit('song-drag-start', song)
+      }
+      
+      const handleFileDrop = (e) => {
+        isDragOver.value = false
+        const files = e.dataTransfer.files
+        if (files && files.length > 0) {
+          // Convert FileList to array of paths (Tauri provides path property)
+          const filePaths = Array.from(files).map(f => f.path || f.name)
+          if (props.onFileDrop) props.onFileDrop(filePaths)
+        } else if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+          // Fallback for items
+          const filePaths = Array.from(e.dataTransfer.items)
+            .filter(item => item.kind === 'file')
+            .map(item => item.getAsFile()?.path || item.getAsFile()?.name)
+          if (props.onFileDrop) props.onFileDrop(filePaths)
+        }
+      }
+      
       return {
         searchQuery,
         sortBy,
@@ -187,7 +219,10 @@
         filteredSongs,
         setSortBy,
         playSong,
-        showSongMenu
+        showSongMenu,
+        onDragStart,
+        isDragOver,
+        handleFileDrop
       }
     }
   }
@@ -500,5 +535,10 @@
   .dropdown-leave-to {
     opacity: 0;
     transform: translateY(-10px);
+  }
+  
+  .all-songs-view.drag-over {
+    outline: 2px solid #4ECDC4;
+    background: rgba(78, 205, 196, 0.08);
   }
   </style>

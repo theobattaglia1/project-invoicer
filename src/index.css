@@ -1,0 +1,84 @@
+/* ────────────────────────────────
+   TAILWIND LAYERS — keep at top
+   ──────────────────────────────── */
+   @tailwind base;
+   @tailwind components;
+   @tailwind utilities;
+   
+   /* ────────────────────────────────
+      RESET / BASE
+      ──────────────────────────────── */
+   * {
+     margin: 0;
+     padding: 0;
+     box-sizing: border-box;
+   }
+   
+   /* CSS Custom Properties */
+   :root {
+     --bg-primary   : #000;
+     --bg-secondary : rgba(255, 255, 255, 0.05);
+     --bg-hover     : rgba(255, 255, 255, 0.08);
+     --border-color : rgba(255, 255, 255, 0.1);
+     --text-primary : #fff;
+     --text-secondary: rgba(255, 255, 255, 0.7);
+     --text-muted   : rgba(255, 255, 255, 0.5);
+   }
+   
+   html,
+   body {
+     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text',
+                  'SF Pro Icons', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+     -webkit-font-smoothing : antialiased;
+     -moz-osx-font-smoothing: grayscale;
+     background : var(--bg-primary);
+     color      : var(--text-primary);
+     overflow   : hidden;
+   }
+   
+   /* ────────────────────────────────
+      GLASSMORPHISM UTILITY
+      ──────────────────────────────── */
+   .glass {
+     background        : var(--bg-secondary);
+     backdrop-filter   : blur(50px);
+     -webkit-backdrop-filter: blur(50px);
+     border            : 1px solid var(--border-color);
+   }
+   
+   /* ────────────────────────────────
+      CUSTOM SCROLLBAR
+      ──────────────────────────────── */
+   ::-webkit-scrollbar {
+     width : 8px;
+     height: 8px;
+   }
+   
+   ::-webkit-scrollbar-track {
+     background: transparent;
+   }
+   
+   ::-webkit-scrollbar-thumb {
+     background   : rgba(255, 255, 255, 0.1);
+     border-radius: 4px;
+   }
+   
+   ::-webkit-scrollbar-thumb:hover {
+     background: rgba(255, 255, 255, 0.2);
+   }
+   
+   /* ────────────────────────────────
+      SIMPLE TRANSITION HELPERS
+      ──────────────────────────────── */
+   .fade-enter-active,
+   .fade-leave-active { transition: opacity 0.3s ease; }
+   
+   .fade-enter-from,
+   .fade-leave-to    { opacity: 0; }
+   
+   .slide-enter-active,
+   .slide-leave-active { transition: transform 0.3s ease; }
+   
+   .slide-enter-from { transform: translateX(-100%); }
+   .slide-leave-to   { transform: translateX(100%); }
+   

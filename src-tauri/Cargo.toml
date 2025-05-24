@@ -1,36 +1,40 @@
-# src-tauri/Cargo.toml
 [package]
-name = "my-music-app"
-version = "0.1.0"
+name        = "my-music-app"
+version     = "0.1.0"
 description = "A beautiful music player built with Tauri and Vue"
-authors = ["Your Name"]
-license = ""
-repository = ""
-edition = "2021"
+authors     = ["Your Name"]
+license     = ""
+repository  = ""
+edition     = "2021"
 
+# ───────── Build script ─────────
 [build-dependencies]
 tauri-build = { version = "1.5", features = [] }
 
+# ───────── Runtime dependencies ─────────
 [dependencies]
 # Tauri core
-tauri = { version = "1.6", features = [
-    "shell-open",
-    "dialog-all",
-    "fs-all",
-    "path-all",
-    "protocol-asset"
+tauri = { version = "1.5", features = [
+  "shell-open",
+  "dialog-all",
+  "fs-all",
+  "path-all",
+  "protocol-asset"
 ] }
 
+# Crypto hash for duplicate detection
+sha1 = "0.10"
+
 # Serialization
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde       = { version = "1.0", features = ["derive"] }
+serde_json  = "1.0"
 
 # Database
-rusqlite = { version = "0.31", features = ["bundled"] }
+rusqlite    = { version = "0.30", features = ["bundled"] }
 
 # Audio metadata
-id3 = "1.13"
-metaflac = "0.2"
+id3          = "1.13"
+mp3-duration = "0.1"
 
 # File system
 walkdir = "2"
@@ -38,24 +42,10 @@ walkdir = "2"
 # Date/Time
 chrono = "0.4"
 
-# Async runtime (if needed)
+# Async runtime
 tokio = { version = "1", features = ["full"] }
 
-# Error handling
-anyhow = "1.0"
-thiserror = "1.0"
-
-# Logging
-log = "0.4"
-env_logger = "0.11"
-
-# Image processing (for album art)
-image = "0.25"
-
+# ───────── Feature flags ─────────
 [features]
-default = ["custom-protocol"]
-custom-protocol = ["tauri/custom-protocol"]
-
-[[bin]]
-name = "my-music-app"
-path = "src/main.rs"
+default          = ["custom-protocol"]
+custom-protocol  = ["tauri/custom-protocol"]

@@ -17,7 +17,11 @@
         v-for="playlist in playlists" 
         :key="playlist.id"
         class="playlist-card"
+        :class="{ 'drag-over': dragOverPlaylistId === playlist.id }"
         @click="$emit('select-playlist', playlist.id)"
+        @dragover.prevent="dragOverPlaylistId = playlist.id"
+        @dragleave="dragOverPlaylistId = null"
+        @drop.prevent="handleFileDropToPlaylist(playlist, $event)"
       >
         <div class="playlist-cover" :style="{ '--playlist-color': playlist.color || '#FF6B6B' }">
           <div class="cover-gradient"></div>
@@ -61,19 +65,42 @@
 </template>
 
 <script>
+import { ref } from 'vue'
 export default {
   name: 'playlistsview',
   props: {
-    playlists: Array
+    playlists: Array,
+    onFileDropToPlaylist: Function
   },
-  emits: ['create-playlist', 'select-playlist'],
-  setup() {
+  emits: ['create-playlist', 'select-playlist', 'add-song-to-playlist'],
+  setup(props, { emit }) {
+    const dragOverPlaylistId = ref(null)
     const showPlaylistMenu = (playlist) => {
       console.log('Show menu for:', playlist)
     }
-
+    const onDrop = (playlist, e) => {
+      dragOverPlaylistId.value = null
+      const song = JSON.parse(e.dataTransfer.getData('application/json'))
+      emit('add-song-to-playlist', { playlistId: playlist.id, song })
+    }
+    const handleFileDropToPlaylist = (playlist, e) => {
+      dragOverPlaylistId.value = null
+      const files = e.dataTransfer.files
+      if (files && files.length > 0) {
+        const filePaths = Array.from(files).map(f => f.path || f.name)
+        if (props.onFileDropToPlaylist) props.onFileDropToPlaylist(playlist.id, filePaths)
+      } else if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+        const filePaths = Array.from(e.dataTransfer.items)
+          .filter(item => item.kind === 'file')
+          .map(item => item.getAsFile()?.path || item.getAsFile()?.name)
+        if (props.onFileDropToPlaylist) props.onFileDropToPlaylist(playlist.id, filePaths)
+      }
+    }
     return {
-      showPlaylistMenu
+      showPlaylistMenu,
+      dragOverPlaylistId,
+      onDrop,
+      handleFileDropToPlaylist
     }
   }
 }
@@ -299,5 +326,10 @@ export default {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 16px;
   }
+}
+
+.playlist-card.drag-over {
+  outline: 2px solid #4ECDC4;
+  background: rgba(78, 205, 196, 0.08);
 }
 </style>

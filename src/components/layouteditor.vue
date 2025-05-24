@@ -219,7 +219,7 @@
   </template>
   
   <script>
-  import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+  import { ref, onMounted, onUnmounted, nextTick, inject } from 'vue'
   
   export default {
     name: 'LayoutEditor',
@@ -233,6 +233,7 @@
       const elements = ref([])
       const draggedElement = ref(null)
       const resizing = ref(null)
+      const showToast = inject('showToast')
       
       // Enable editor overlay on page elements
       const enableEditor = () => {
@@ -523,7 +524,7 @@
         // You could show visual guide lines here
       }
       
-      const saveLayout = () => {
+      const saveLayout = async () => {
         const layoutData = {}
         
         document.querySelectorAll('.editable-element').forEach(el => {
@@ -532,7 +533,7 @@
         })
         
         localStorage.setItem('customLayout', JSON.stringify(layoutData))
-        alert('Layout saved!')
+        showToast({ message: 'Layout saved!', type: 'success' })
       }
       
       const resetLayout = () => {

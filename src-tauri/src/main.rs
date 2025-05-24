@@ -1,427 +1,340 @@
-// src-tauri/src/main.rs
-#![cfg_attr(
-  all(not(debug_assertions), target_os = "windows"),
-  windows_subsystem = "windows"
-)]
+// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::Path;
-use tauri::Manager;
-use id3::{Tag, TagLike};
-use rusqlite::{Connection, Result};
+mod music;
+mod database;
+
+use music::{Song, Artist, Album, Playlist, ImportResult};
+use database::Database;
 use std::sync::Mutex;
+use tauri::{Manager, State};
 
-// Data structures
-#[derive(Debug, Serialize, Deserialize)]
-struct Artist {
-  id: i64,
-  name: String,
-  image_path: Option<String>,
-  created_at: String,
-}
+// NEW ──────────────────────────────────────────────────────────────────────────
+use tauri::api::path;
+use sha1::{Digest, Sha1};
+// ──────────────────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Album {
-  id: i64,
-  name: String,
-  artist_id: Option<i64>,
-  cover_path: Option<String>,
-  year: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Song {
-  id: i64,
-  title: String,
-  artist: Option<String>,
-  artist_id: Option<i64>,
-  album: Option<String>,
-  album_id: Option<i64>,
-  file_path: String,
-  duration: Option<i32>,
-  track_number: Option<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Playlist {
-  id: i64,
-  name: String,
-  description: Option<String>,
-  #[serde(rename = "type")]
-  playlist_type: String,
-  artist_id: Option<i64>,
-  songs: Vec<i64>,
-  created_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ImportResult {
-  success: Vec<Song>,
-  failed: Vec<String>,
-}
-
-// State
 struct AppState {
-  db: Mutex<Connection>,
+    db: Mutex<Option<Database>>,
 }
 
-// Initialize database
-fn init_database() -> Result<Connection> {
-  let conn = Connection::open("music_library.db")?;
-  
-  conn.execute_batch(
-      "
-      CREATE TABLE IF NOT EXISTS artists (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL UNIQUE,
-          image_path TEXT,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+// Initialize the database
+fn init_database(app_handle: &tauri::AppHandle) -> Result<Database, String> {
+    let app_dir = app_handle
+        .path_resolver()
+        .app_data_dir()
+        .ok_or("Failed to get app data directory")?;
 
-      CREATE TABLE IF NOT EXISTS albums (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          artist_id INTEGER,
-          cover_path TEXT,
-          year INTEGER,
-          FOREIGN KEY (artist_id) REFERENCES artists(id)
-      );
+    std::fs::create_dir_all(&app_dir)
+        .map_err(|e| format!("Failed to create app directory: {}", e))?;
 
-      CREATE TABLE IF NOT EXISTS songs (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          title TEXT NOT NULL,
-          artist TEXT,
-          artist_id INTEGER,
-          album TEXT,
-          album_id INTEGER,
-          file_path TEXT NOT NULL UNIQUE,
-          duration INTEGER,
-          track_number INTEGER,
-          FOREIGN KEY (artist_id) REFERENCES artists(id),
-          FOREIGN KEY (album_id) REFERENCES albums(id)
-      );
-
-      CREATE TABLE IF NOT EXISTS playlists (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          description TEXT,
-          type TEXT DEFAULT 'general',
-          artist_id INTEGER,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (artist_id) REFERENCES artists(id)
-      );
-
-      CREATE TABLE IF NOT EXISTS playlist_songs (
-          playlist_id INTEGER,
-          song_id INTEGER,
-          position INTEGER,
-          PRIMARY KEY (playlist_id, song_id),
-          FOREIGN KEY (playlist_id) REFERENCES playlists(id),
-          FOREIGN KEY (song_id) REFERENCES songs(id)
-      );
-      "
-  )?;
-  
-  Ok(conn)
+    let db_path = app_dir.join("music_library.db");
+    Database::new(&db_path).map_err(|e| format!("Failed to initialize database: {}", e))
 }
 
-// Commands
+// Import music files command
 #[tauri::command]
-fn scan_music_directory(path: String) -> Result<Vec<String>, String> {
-  let path = Path::new(&path);
-  if !path.exists() {
-      return Err("Directory does not exist".to_string());
-  }
+async fn import_music_files(
+    _app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+    file_paths: Vec<String>,
+) -> Result<ImportResult, String> {
+    // Import the files and extract metadata
+    let mut import_result = music::import_music_files(file_paths).await;
 
-  let mut files = Vec::new();
-  scan_directory_recursive(path, &mut files);
-  Ok(files)
+    // Get database
+    let db = state.db.lock().unwrap();
+    let db = db.as_ref().ok_or("Database not initialized")?;
+
+    // Process each imported song
+    for song in &mut import_result.songs {
+        // Check if artist exists, create if not
+        match db.find_artist_by_name(&song.artist) {
+            Ok(Some(artist)) => {
+                song.artist_id = Some(artist.id);
+            }
+            Ok(None) => {
+                // Create new artist
+                let artist = Artist {
+                    id: music::generate_id(),
+                    name: song.artist.clone(),
+                    genre: None,
+                    image_path: None,
+                };
+                db.insert_artist(&artist)
+                    .map_err(|e| format!("Failed to insert artist: {}", e))?;
+                song.artist_id = Some(artist.id.clone());
+            }
+            Err(e) => return Err(format!("Database error: {}", e)),
+        }
+
+        // Check if album exists, create if not
+        if let Some(artist_id) = &song.artist_id {
+            match db.find_album_by_name_and_artist(&song.album, artist_id) {
+                Ok(Some(album)) => {
+                    song.album_id = Some(album.id);
+                }
+                Ok(None) => {
+                    // Create new album
+                    let album = Album {
+                        id: music::generate_id(),
+                        name: song.album.clone(),
+                        artist_id: artist_id.clone(),
+                        artist_name: song.artist.clone(),
+                        year: None,
+                        cover_path: None,
+                    };
+                    db.insert_album(&album)
+                        .map_err(|e| format!("Failed to insert album: {}", e))?;
+                    song.album_id = Some(album.id);
+                }
+                Err(e) => return Err(format!("Database error: {}", e)),
+            }
+        }
+
+        // Insert the song
+        db.insert_song(song)
+            .map_err(|e| format!("Failed to insert song: {}", e))?;
+    }
+
+    Ok(import_result)
 }
 
-fn scan_directory_recursive(dir: &Path, files: &mut Vec<String>) {
-  if let Ok(entries) = fs::read_dir(dir) {
-      for entry in entries.flatten() {
-          let path = entry.path();
-          if path.is_dir() {
-              scan_directory_recursive(&path, files);
-          } else if let Some(extension) = path.extension() {
-              if matches!(
-                  extension.to_str(),
-                  Some("mp3") | Some("m4a") | Some("flac") | Some("wav") | Some("ogg")
-              ) {
-                  if let Some(path_str) = path.to_str() {
-                      files.push(path_str.to_string());
-                  }
-              }
-          }
-      }
-  }
-}
-
+// Get all songs
 #[tauri::command]
-fn import_music_files(state: tauri::State<AppState>, files: Vec<String>) -> Result<ImportResult, String> {
-  let mut success = Vec::new();
-  let mut failed = Vec::new();
-  
-  let db = state.db.lock().unwrap();
-  
-  for file_path in files {
-      match import_single_file(&db, &file_path) {
-          Ok(song) => success.push(song),
-          Err(e) => failed.push(format!("{}: {}", file_path, e)),
-      }
-  }
-  
-  Ok(ImportResult { success, failed })
+fn get_all_songs(state: State<'_, AppState>) -> Result<Vec<Song>, String> {
+    let db = state.db.lock().unwrap();
+    let db = db.as_ref().ok_or("Database not initialized")?;
+
+    db.get_all_songs()
+        .map_err(|e| format!("Failed to get songs: {}", e))
 }
 
-fn import_single_file(conn: &Connection, file_path: &str) -> Result<Song, String> {
-  // Read ID3 tags
-  let tag = Tag::read_from_path(file_path).map_err(|e| e.to_string())?;
-  
-  let title = tag.title().unwrap_or("Unknown Title").to_string();
-  let artist = tag.artist().map(|s| s.to_string());
-  let album = tag.album().map(|s| s.to_string());
-  let track_number = tag.track().map(|t| t as i32);
-  let duration = tag.duration().map(|d| d as i32);
-  
-  // Insert or get artist
-  let artist_id = if let Some(ref artist_name) = artist {
-      conn.execute(
-          "INSERT OR IGNORE INTO artists (name) VALUES (?1)",
-          &[artist_name],
-      ).map_err(|e| e.to_string())?;
-      
-      conn.query_row(
-          "SELECT id FROM artists WHERE name = ?1",
-          &[artist_name],
-          |row| row.get(0),
-      ).ok()
-  } else {
-      None
-  };
-  
-  // Insert song
-  conn.execute(
-      "INSERT OR REPLACE INTO songs (title, artist, artist_id, album, file_path, duration, track_number) 
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-      &[
-          &title as &dyn rusqlite::ToSql,
-          &artist,
-          &artist_id,
-          &album,
-          &file_path.to_string(),
-          &duration,
-          &track_number,
-      ],
-  ).map_err(|e| e.to_string())?;
-  
-  let song_id = conn.last_insert_rowid();
-  
-  Ok(Song {
-      id: song_id,
-      title,
-      artist,
-      artist_id,
-      album,
-      album_id: None,
-      file_path: file_path.to_string(),
-      duration,
-      track_number,
-  })
-}
-
+// Get all artists
 #[tauri::command]
-fn get_artists(state: tauri::State<AppState>) -> Result<Vec<Artist>, String> {
-  let conn = state.db.lock().unwrap();
-  let mut stmt = conn.prepare("SELECT id, name, image_path, created_at FROM artists ORDER BY name")
-      .map_err(|e| e.to_string())?;
-  
-  let artists = stmt.query_map([], |row| {
-      Ok(Artist {
-          id: row.get(0)?,
-          name: row.get(1)?,
-          image_path: row.get(2)?,
-          created_at: row.get(3)?,
-      })
-  }).map_err(|e| e.to_string())?;
-  
-  artists.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+fn get_all_artists(state: State<'_, AppState>) -> Result<Vec<Artist>, String> {
+    let db = state.db.lock().unwrap();
+    let db = db.as_ref().ok_or("Database not initialized")?;
+
+    db.get_all_artists()
+        .map_err(|e| format!("Failed to get artists: {}", e))
 }
 
+// Get all playlists
 #[tauri::command]
-fn get_songs(state: tauri::State<AppState>) -> Result<Vec<Song>, String> {
-  let conn = state.db.lock().unwrap();
-  let mut stmt = conn.prepare(
-      "SELECT id, title, artist, artist_id, album, album_id, file_path, duration, track_number 
-       FROM songs ORDER BY title"
-  ).map_err(|e| e.to_string())?;
-  
-  let songs = stmt.query_map([], |row| {
-      Ok(Song {
-          id: row.get(0)?,
-          title: row.get(1)?,
-          artist: row.get(2)?,
-          artist_id: row.get(3)?,
-          album: row.get(4)?,
-          album_id: row.get(5)?,
-          file_path: row.get(6)?,
-          duration: row.get(7)?,
-          track_number: row.get(8)?,
-      })
-  }).map_err(|e| e.to_string())?;
-  
-  songs.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+fn get_all_playlists(state: State<'_, AppState>) -> Result<Vec<Playlist>, String> {
+    let db = state.db.lock().unwrap();
+    let db = db.as_ref().ok_or("Database not initialized")?;
+
+    db.get_all_playlists()
+        .map_err(|e| format!("Failed to get playlists: {}", e))
 }
 
+// Create artist
 #[tauri::command]
-fn get_playlists(state: tauri::State<AppState>) -> Result<Vec<Playlist>, String> {
-  let conn = state.db.lock().unwrap();
-  let mut stmt = conn.prepare(
-      "SELECT id, name, description, type, artist_id, created_at FROM playlists ORDER BY name"
-  ).map_err(|e| e.to_string())?;
-  
-  let playlists = stmt.query_map([], |row| {
-      let playlist_id: i64 = row.get(0)?;
-      
-      // Get songs for this playlist
-      let mut song_stmt = conn.prepare(
-          "SELECT song_id FROM playlist_songs WHERE playlist_id = ?1 ORDER BY position"
-      ).unwrap();
-      
-      let songs: Vec<i64> = song_stmt.query_map(&[&playlist_id], |row| row.get(0))
-          .unwrap()
-          .filter_map(Result::ok)
-          .collect();
-      
-      Ok(Playlist {
-          id: playlist_id,
-          name: row.get(1)?,
-          description: row.get(2)?,
-          playlist_type: row.get(3)?,
-          artist_id: row.get(4)?,
-          songs,
-          created_at: row.get(5)?,
-      })
-  }).map_err(|e| e.to_string())?;
-  
-  playlists.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+fn create_artist(
+    state: State<'_, AppState>,
+    name: String,
+    genre: Option<String>,
+) -> Result<Artist, String> {
+    let db = state.db.lock().unwrap();
+    let db = db.as_ref().ok_or("Database not initialized")?;
+
+    let artist = Artist {
+        id: music::generate_id(),
+        name,
+        genre,
+        image_path: None,
+    };
+
+    db.insert_artist(&artist)
+        .map_err(|e| format!("Failed to create artist: {}", e))?;
+
+    Ok(artist)
 }
 
+// Create playlist
 #[tauri::command]
-fn create_artist(state: tauri::State<AppState>, data: serde_json::Value) -> Result<Artist, String> {
-  let conn = state.db.lock().unwrap();
-  
-  let name = data["name"].as_str().ok_or("Name is required")?;
-  let image_path = data["imagePath"].as_str();
-  
-  conn.execute(
-      "INSERT INTO artists (name, image_path) VALUES (?1, ?2)",
-      &[name, image_path.unwrap_or("")],
-  ).map_err(|e| e.to_string())?;
-  
-  let artist_id = conn.last_insert_rowid();
-  
-  Ok(Artist {
-      id: artist_id,
-      name: name.to_string(),
-      image_path: image_path.map(|s| s.to_string()),
-      created_at: chrono::Utc::now().to_rfc3339(),
-  })
+fn create_playlist(
+    state: State<'_, AppState>,
+    name: String,
+    description: Option<String>,
+    color: Option<String>,
+) -> Result<Playlist, String> {
+    let db = state.db.lock().unwrap();
+    let db = db.as_ref().ok_or("Database not initialized")?;
+
+    let playlist = Playlist {
+        id: music::generate_id(),
+        name,
+        description,
+        color,
+        song_ids: Vec::new(),
+        date_created: music::get_timestamp(),
+    };
+
+    db.insert_playlist(&playlist)
+        .map_err(|e| format!("Failed to create playlist: {}", e))?;
+
+    Ok(playlist)
 }
 
-#[tauri::command]
-fn create_playlist(state: tauri::State<AppState>, data: serde_json::Value) -> Result<Playlist, String> {
-  let conn = state.db.lock().unwrap();
-  
-  let name = data["name"].as_str().ok_or("Name is required")?;
-  let description = data["description"].as_str();
-  let playlist_type = data["type"].as_str().unwrap_or("general");
-  let artist_id = data["artistId"].as_i64();
-  
-  conn.execute(
-      "INSERT INTO playlists (name, description, type, artist_id) VALUES (?1, ?2, ?3, ?4)",
-      &[
-          &name as &dyn rusqlite::ToSql,
-          &description,
-          &playlist_type,
-          &artist_id,
-      ],
-  ).map_err(|e| e.to_string())?;
-  
-  let playlist_id = conn.last_insert_rowid();
-  
-  Ok(Playlist {
-      id: playlist_id,
-      name: name.to_string(),
-      description: description.map(|s| s.to_string()),
-      playlist_type: playlist_type.to_string(),
-      artist_id,
-      songs: vec![],
-      created_at: chrono::Utc::now().to_rfc3339(),
-  })
-}
-
+// Add songs to playlist
 #[tauri::command]
 fn add_songs_to_playlist(
-  state: tauri::State<AppState>, 
-  playlist_id: i64, 
-  song_ids: Vec<i64>
+    state: State<'_, AppState>,
+    playlist_id: String,
+    song_ids: Vec<String>,
 ) -> Result<(), String> {
-  let conn = state.db.lock().unwrap();
-  
-  // Get current max position
-  let max_position: Option<i32> = conn.query_row(
-      "SELECT MAX(position) FROM playlist_songs WHERE playlist_id = ?1",
-      &[&playlist_id],
-      |row| row.get(0),
-  ).unwrap_or(None);
-  
-  let mut position = max_position.unwrap_or(0) + 1;
-  
-  for song_id in song_ids {
-      conn.execute(
-          "INSERT OR IGNORE INTO playlist_songs (playlist_id, song_id, position) VALUES (?1, ?2, ?3)",
-          &[&playlist_id, &song_id, &(position as i64)],
-        ).map_err(|e| e.to_string())?;
-      position += 1;
-  }
-  
-  Ok(())
+    let db = state.db.lock().unwrap();
+    let db = db.as_ref().ok_or("Database not initialized")?;
+
+    for song_id in song_ids {
+        db.add_song_to_playlist(&playlist_id, &song_id)
+            .map_err(|e| format!("Failed to add song to playlist: {}", e))?;
+    }
+
+    Ok(())
+}
+
+// Remove song from playlist
+#[tauri::command]
+fn remove_song_from_playlist(
+    state: State<'_, AppState>,
+    playlist_id: String,
+    song_id: String,
+) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    let db = db.as_ref().ok_or("Database not initialized")?;
+
+    db.remove_song_from_playlist(&playlist_id, &song_id)
+        .map_err(|e| format!("Failed to remove song from playlist: {}", e))
+}
+
+// Delete song
+#[tauri::command]
+fn delete_song(state: State<'_, AppState>, song_id: String) -> Result<(), String> {
+    let db = state.db.lock().unwrap();
+    let db = db.as_ref().ok_or("Database not initialized")?;
+
+    db.delete_song(&song_id)
+        .map_err(|e| format!("Failed to delete song: {}", e))
+}
+
+// Save artist image
+#[tauri::command]
+async fn save_artist_image(
+    app_handle: tauri::AppHandle,
+    artist_id: String,
+    image_data: Vec<u8>,
+    extension: String,
+) -> Result<String, String> {
+    music::save_artist_image(&app_handle, &artist_id, image_data, &extension).await
+}
+
+// Scan music directory
+#[tauri::command]
+async fn scan_music_directory(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+    directory_path: String,
+) -> Result<ImportResult, String> {
+    use walkdir::WalkDir;
+
+    let mut file_paths = Vec::new();
+    let valid_extensions = ["mp3", "m4a", "flac", "wav", "ogg"];
+
+    for entry in WalkDir::new(&directory_path).into_iter().filter_map(|e| e.ok()) {
+        if entry.file_type().is_file() {
+            if let Some(ext) = entry.path().extension() {
+                if valid_extensions
+                    .contains(&ext.to_str().unwrap_or("").to_lowercase().as_str())
+                {
+                    if let Some(path_str) = entry.path().to_str() {
+                        file_paths.push(path_str.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    import_music_files(app_handle, state, file_paths).await
+}
+
+// ─────────────── NEW HELPER COMMANDS ──────────────────────────────────────────
+#[tauri::command]
+fn hash_file(path: String) -> Result<String, String> {
+    use std::{fs::File, io::Read};
+    let mut file = File::open(&path).map_err(|e| e.to_string())?;
+    let mut hasher = Sha1::new();
+    let mut buf = [0u8; 8192];
+    loop {
+        let n = file.read(&mut buf).map_err(|e| e.to_string())?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
 }
 
 #[tauri::command]
-async fn get_audio_url(path: String) -> Result<String, String> {
-  // Convert file path to file:// URL for web audio API
-  let path = Path::new(&path);
-  if !path.exists() {
-      return Err("File not found".to_string());
-  }
-  
-  let url = format!("file://{}", path.to_str().unwrap());
-  Ok(url)
+fn save_state(payload: String, app_handle: tauri::AppHandle) -> Result<(), String> {
+    let dir = path::app_dir(&app_handle.config()).ok_or("no app dir")?;
+    std::fs::create_dir_all(&dir).ok();
+    std::fs::write(dir.join("library.json"), payload).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn load_state(app_handle: tauri::AppHandle) -> Result<Option<String>, String> {
+    let dir = path::app_dir(&app_handle.config()).ok_or("no app dir")?;
+    let file = dir.join("library.json");
+    match std::fs::read_to_string(&file) {
+        Ok(s) => Ok(Some(s)),
+        Err(_) => Ok(None),
+    }
+}
+
+#[tauri::command]
+fn read_audio(path: String) -> Result<Vec<u8>, String> {
+    std::fs::read(path).map_err(|e| e.to_string())
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 fn main() {
-  let db = init_database().expect("Failed to initialize database");
-  let app_state = AppState {
-      db: Mutex::new(db),
-  };
-  
-  tauri::Builder::default()
-      .manage(app_state)
-      .invoke_handler(tauri::generate_handler![
-          scan_music_directory,
-          import_music_files,
-          get_artists,
-          get_songs,
-          get_playlists,
-          create_artist,
-          create_playlist,
-          add_songs_to_playlist,
-          get_audio_url,
-      ])
-      .run(tauri::generate_context!())
-      .expect("error while running tauri application");
+    tauri::Builder::default()
+        .setup(|app| {
+            // Initialize database
+            let db = init_database(&app.handle())?;
+
+            // Set up app state
+            app.manage(AppState {
+                db: Mutex::new(Some(db)),
+            });
+
+            // Ensure library directory structure exists
+            music::ensure_library_structure(&app.handle())?;
+
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            import_music_files,
+            get_all_songs,
+            get_all_artists,
+            get_all_playlists,
+            create_artist,
+            create_playlist,
+            add_songs_to_playlist,
+            remove_song_from_playlist,
+            delete_song,
+            save_artist_image,
+            scan_music_directory,
+            // NEW
+            hash_file,
+            save_state,
+            load_state,
+            read_audio,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
