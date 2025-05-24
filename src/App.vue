@@ -126,10 +126,10 @@
               class="nav-item playlist-item"
               :class="{ active: activeView === 'playlist' && activePlaylistId === element.id, 'drag-over': dragOverPlaylistId === element.id }"
               @click="setActiveView('playlist', element.id)"
-              @dragenter.prevent="(e) => { console.log('🎯 Dragenter playlist:', element.name); dragOverPlaylistId = element.id }"
-              @dragover.prevent="(e) => { e.dataTransfer.dropEffect = 'copy'; dragOverPlaylistId = element.id }"
-              @dragleave="(e) => { console.log('👋 Dragleave playlist:', element.name); dragOverPlaylistId = null }"
-              @drop.prevent="(e) => { console.log('💧 DROP on playlist:', element.name); handlePlaylistExternalDrop(e, element.id) }"
+              @dragenter.prevent="dragOverPlaylistId = element.id"
+              @dragover.prevent="(e) => { e.dataTransfer.dropEffect = 'copy' }"
+              @dragleave="dragOverPlaylistId = null"
+              @drop.prevent="(e) => handlePlaylistExternalDrop(e, element.id)"
             >
               <div class="playlist-cover">
                 <svg viewBox="0 0 24 24" fill="currentColor">
@@ -226,6 +226,7 @@ import Toast from './components/Toast.vue'
 import { useAudioPlayer } from './services/audioPlayer'
 import { importFiles } from '@/utils/importFiles'
 import { useToastStore } from '@/store/toast'
+import { useDragDropStore } from '@/store/dragddrop'
 
 export default {
   name: 'App',
@@ -257,6 +258,12 @@ export default {
     const songs = ref([])
     const generalPlaylists = ref([])
 
+    // Store instances
+    const toastStore = useToastStore()
+    const dragStore = useDragDropStore()
+    const showToast = (options) => toastStore.push(options)
+    const audio = useAudioPlayer()
+
     // Computed
     const allSongs = computed(() => songs.value)
     const recentSongs = computed(() => songs.value.slice(0, 4))
@@ -279,12 +286,10 @@ export default {
       const playlist = currentPlaylist.value
       if (!playlist) return []
       
-      // Check if playlist has songs array directly
       if (playlist.songs && Array.isArray(playlist.songs)) {
         return playlist.songs
       }
       
-      // Otherwise check for song_ids
       if (playlist.song_ids && Array.isArray(playlist.song_ids)) {
         return songs.value.filter(s => playlist.song_ids.includes(s.id))
       }
@@ -297,7 +302,7 @@ export default {
     })
 
     const storagePercent = computed(() => {
-      const maxStorage = 100 * 1024 * 1024 * 1024 // 100GB in bytes
+      const maxStorage = 100 * 1024 * 1024 * 1024
       return Math.min((totalStorageUsed.value / maxStorage) * 100, 100)
     })
 
@@ -338,17 +343,11 @@ export default {
         artists.value = dbArtists || []
         generalPlaylists.value = dbPlaylists || []
         
-        // Log playlist details
         console.log('📋 Playlists detail:', dbPlaylists)
       } catch (error) {
         console.error('Error refreshing library:', error)
       }
     }
-
-    // Import the toast store directly instead of using inject
-    const toastStore = useToastStore()
-    const showToast = (options) => toastStore.push(options)
-    const audio = useAudioPlayer()
 
     const handleAddContent = async (data) => {
       console.log('Add content:', data)
@@ -356,24 +355,16 @@ export default {
       try {
         switch (data.type) {
           case 'import':
-            // Handle music file imports with Tauri
             if (data.data.files && data.data.files.length > 0) {
               console.log(`Importing ${data.data.files.length} music files...`)
               
-              // Extract file paths - handle both drag/drop and file picker
-              const filePaths = data.data.files.map(f => {
-                // If it's a File object from drag/drop, use the path property
-                // If it's already a path string, use it directly
-                return f.path || f
-              })
+              const filePaths = data.data.files.map(f => f.path || f)
               
-              // Call Tauri command to import files
               const result = await invoke('import_music_files', { filePaths })
               
               if (result.success || result.imported_count > 0) {
                 console.log(`Successfully imported ${result.imported_count} songs`)
                 
-                // Show any errors that occurred
                 if (result.errors && result.errors.length > 0) {
                   console.error('Import errors:', result.errors)
                   showToast({ message: `Imported ${result.imported_count} songs successfully. ${result.failed_count} files failed: ${result.errors.join(', ')}`, type: 'info' })
@@ -388,16 +379,13 @@ export default {
             break
             
           case 'artist':
-            // Handle artist creation with image
             const newArtist = await invoke('create_artist', {
               name: data.data.name,
               genre: data.data.genre || null
             })
             
-            // Upload artist image if provided
             if (data.data.imagePath) {
               try {
-                // Read the image file
                 const imageData = await readBinaryFile(data.data.imagePath)
                 const imageExt = data.data.imagePath.split('.').pop().toLowerCase()
                 
@@ -419,7 +407,6 @@ export default {
             break
             
           case 'playlist':
-            // Handle playlist creation with Tauri
             const newPlaylist = await invoke('create_playlist', {
               name: data.data.name,
               description: data.data.description || null,
@@ -431,7 +418,6 @@ export default {
             break
         }
         
-        // Refresh data from database
         await refreshLibrary()
         
       } catch (error) {
@@ -442,10 +428,8 @@ export default {
       showAddModal.value = false
     }
 
-    // Scan music folder function
     const scanMusicFolder = async () => {
       try {
-        // Open folder selection dialog
         const selected = await open({
           directory: true,
           multiple: false,
@@ -471,7 +455,6 @@ export default {
       }
     }
 
-    // Add song to playlist
     const addSongToPlaylist = async (playlistId, song) => {
       console.log('➕ Adding song to playlist:', { playlistId, song });
       try {
@@ -485,13 +468,10 @@ export default {
       }
     }
 
-    // Handle playlist reordering
     const onReorderPlaylists = async (evt) => {
-      // No longer needed since we removed draggable
       showToast({ message: 'Playlist reordering disabled', type: 'info' })
     }
 
-    // Add this handler
     const handleAllSongsFileDrop = async (filePaths) => {
       console.log('🎵 handleAllSongsFileDrop called with:', filePaths)
       if (!filePaths || filePaths.length === 0) {
@@ -516,7 +496,6 @@ export default {
       }
     }
 
-    // Add this handler
     const handleFileDropToArtist = async (artistId, filePaths) => {
       console.log('🎨 handleFileDropToArtist called with artistId:', artistId, 'paths:', filePaths)
       if (!filePaths || filePaths.length === 0) {
@@ -525,12 +504,10 @@ export default {
       }
       try {
         console.log('🎨 Importing files...')
-        // Import the files
         const result = await invoke('import_music_files', { filePaths })
         console.log('🎨 Import result:', result)
         
         if (result.success || result.imported_count > 0) {
-          // Add imported song IDs to artist
           const songIds = (result.songs || []).map(s => s.id)
           console.log('🎨 Song IDs to add to artist:', songIds)
           
@@ -550,7 +527,6 @@ export default {
       }
     }
 
-    // Remove song from playlist
     const removeSongFromPlaylist = async ({ playlistId, songId }) => {
       try {
         await invoke('remove_song_from_playlist', { playlistId, songId })
@@ -561,46 +537,43 @@ export default {
       }
     }
 
-    // Add this handler for playlist external drop
     const handlePlaylistExternalDrop = async (e, playlistId) => {
-      console.log('🎯 Playlist drop event triggered for playlist:', playlistId);
-      dragOverPlaylistId.value = null;
+      console.log('🎯 Playlist drop for:', playlistId)
+      console.log('🎯 Event dataTransfer types:', [...e.dataTransfer.types])
+      dragOverPlaylistId.value = null
 
       // Check for files first
       if (e.dataTransfer.files?.length) {
-        console.log('📁 Files detected in drop:', e.dataTransfer.files);
-        const paths = [...e.dataTransfer.files].map(f => f.path);
-        await importFiles(paths, { playlistId });
-        await refreshLibrary();
-        return;
+        console.log('📁 Files detected in drop:', e.dataTransfer.files)
+        const paths = [...e.dataTransfer.files].map(f => f.path)
+        await importFiles(paths, { playlistId })
+        await refreshLibrary()
+        return
       }
 
-      // Check for JSON data (dragged songs)
-      const json = e.dataTransfer.getData('application/json');
-      console.log('🎵 JSON data from drop:', json);
-
-      if (json) {
-        try {
-          const song = JSON.parse(json);
-          console.log('🎵 Parsed song data:', song);
-          await addSongToPlaylist(playlistId, song);
-        } catch (error) {
-          console.error('❌ Error parsing dropped data:', error);
+      // Check for dragged song using our store
+      const dragType = e.dataTransfer.getData('text/plain')
+      console.log('🎯 Drag type:', dragType)
+      
+      if (dragType === 'song') {
+        const song = dragStore.getDraggedItem()
+        console.log('🎵 Retrieved song from store:', song)
+        
+        if (song) {
+          await addSongToPlaylist(playlistId, song)
+          dragStore.endDrag()
+        } else {
+          console.warn('⚠️ No song found in drag store')
         }
-      } else {
-        console.warn('⚠️ No data found in drop event');
       }
     }
 
     // Initialize on mount
     onMounted(async () => {
-      // Load library data
       await refreshLibrary()
       
-      // Set demo current song after a delay
       setTimeout(() => {
         if (songs.value.length > 0) {
-          // Convert file path to Tauri asset URL for audio playback
           const song = songs.value[0]
           currentSong.value = {
             id: song.id,
@@ -608,19 +581,17 @@ export default {
             artist: song.artist,
             album: song.album,
             duration: formatDuration(song.duration || 0),
-            path: convertFileSrc(song.path) // Convert to playable URL
+            path: convertFileSrc(song.path)
           }
         }
       })
 
       // Keyboard shortcuts
       document.addEventListener('keydown', (e) => {
-        // Ignore if input, textarea, or contenteditable is focused
         const tag = document.activeElement?.tagName?.toLowerCase()
         const isEditable = document.activeElement?.isContentEditable
         if (['input', 'textarea', 'select'].includes(tag) || isEditable) return
 
-        // --- Playback Controls ---
         if (e.code === 'Space') {
           e.preventDefault()
           audio.togglePlayPause()
@@ -645,20 +616,16 @@ export default {
           audio.toggleMute()
         }
         if (e.key.toLowerCase() === 'n') {
-          // Next track (not implemented, placeholder)
           showToast({ message: 'Next Track (not implemented)', type: 'info' })
         }
         if (e.key.toLowerCase() === 'p') {
-          // Previous track (not implemented, placeholder)
           showToast({ message: 'Previous Track (not implemented)', type: 'info' })
         }
 
-        // --- Navigation ---
         const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
         const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey
         if (ctrlOrCmd && e.key === 'f') {
           e.preventDefault()
-          // Focus search (not implemented, placeholder)
           showToast({ message: 'Focus Search (not implemented)', type: 'info' })
         }
         if (ctrlOrCmd && e.key === '1') {
@@ -686,7 +653,6 @@ export default {
           showToast({ message: 'Open Settings (not implemented)', type: 'info' })
         }
 
-        // --- Quick Actions ---
         if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'n') {
           e.preventDefault()
           setActiveView('playlists')
@@ -704,9 +670,7 @@ export default {
         }
       })
 
-      // Global file drop listeners
       await listen('tauri://file-drop-hover', (event) => {
-        // Don't show overlay, just log for debugging
         console.log('🎯 FILE DROP HOVER EVENT:', event)
       })
       
@@ -715,13 +679,10 @@ export default {
       })
       
       await listen('tauri://file-drop', async (event) => {
-        // The global drop is now just for visual feedback
-        // Actual file handling is done by the specific drop zones
         console.log('📁 Global file drop detected, handled by specific drop zones')
       })
     })
 
-    // Format duration from seconds to "M:SS"
     const formatDuration = (seconds) => {
       const minutes = Math.floor(seconds / 60)
       const secs = Math.floor(seconds % 60)
@@ -765,7 +726,7 @@ export default {
 </script>
 
 <style>
-/* Global Styles */
+/* All existing styles remain unchanged - no modifications needed */
 * {
   margin: 0;
   padding: 0;
@@ -773,7 +734,6 @@ export default {
 }
 
 :root {
-  /* Colors */
   --bg-primary: #0A0A0B;
   --bg-secondary: rgba(255, 255, 255, 0.04);
   --bg-tertiary: rgba(255, 255, 255, 0.08);
@@ -787,30 +747,25 @@ export default {
   --border-color: rgba(255, 255, 255, 0.08);
   --border-hover: rgba(255, 255, 255, 0.12);
   
-  /* Accent Colors */
   --accent-primary: #FF6B6B;
   --accent-secondary: #4ECDC4;
   --accent-tertiary: #45B7D1;
   
-  /* Gradients */
   --gradient-primary: linear-gradient(135deg, #FF6B6B 0%, #4ECDC4 100%);
   --gradient-secondary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   --gradient-tertiary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
   
-  /* Spacing */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
   --spacing-xl: 32px;
   
-  /* Border Radius */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 24px;
   
-  /* Shadows */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.15);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.2);
@@ -834,7 +789,6 @@ body {
   position: relative;
 }
 
-/* Background */
 .app-background {
   position: absolute;
   top: 0;
@@ -886,7 +840,6 @@ body {
   66% { transform: translate(-20px, 20px) scale(0.9); }
 }
 
-/* Main Container */
 .app-container {
   position: relative;
   width: 100%;
@@ -895,7 +848,6 @@ body {
   z-index: 1;
 }
 
-/* Sidebar */
 .sidebar {
   width: 260px;
   height: 100%;
@@ -908,7 +860,6 @@ body {
   overflow: hidden;
 }
 
-/* Traffic Lights */
 .sidebar-header {
   padding: 24px 20px 20px;
   position: relative;
@@ -941,7 +892,6 @@ body {
   background: #28CA42;
 }
 
-/* App Title */
 .app-title {
   display: flex;
   align-items: center;
@@ -965,7 +915,6 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
-/* Navigation */
 .sidebar-nav {
   flex: 1;
   overflow-y: auto;
@@ -1083,7 +1032,6 @@ body {
   color: var(--text-tertiary);
 }
 
-/* Playlist Items */
 .playlist-item {
   font-size: 13px;
   transition: all 0.2s ease;
@@ -1112,7 +1060,6 @@ body {
   color: var(--text-tertiary);
 }
 
-/* Quick Actions */
 .quick-actions {
   padding: 20px;
   border-top: 1px solid var(--border-color);
