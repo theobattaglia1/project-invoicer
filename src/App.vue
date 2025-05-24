@@ -126,9 +126,9 @@
               class="nav-item playlist-item"
               :class="{ active: activeView === 'playlist' && activePlaylistId === element.id, 'drag-over': dragOverPlaylistId === element.id }"
               @click="setActiveView('playlist', element.id)"
-              @dragenter.prevent="dragOverPlaylistId = element.id"
-              @dragover.prevent="(e) => { e.dataTransfer.dropEffect = 'copy' }"
-              @dragleave="dragOverPlaylistId = null"
+              @dragenter.prevent="handleDragEnter(element.id)"
+              @dragover.prevent="handleDragOver"
+              @dragleave="handleDragLeave"
               @drop.prevent="(e) => handlePlaylistExternalDrop(e, element.id)"
             >
               <div class="playlist-cover">
@@ -537,36 +537,82 @@ export default {
       }
     }
 
-    const handlePlaylistExternalDrop = async (e, playlistId) => {
-      console.log('🎯 Playlist drop for:', playlistId)
-      console.log('🎯 Event dataTransfer types:', [...e.dataTransfer.types])
-      dragOverPlaylistId.value = null
+    // FIXED: Drag and drop handlers
+    const handleDragEnter = (playlistId) => {
+      dragOverPlaylistId.value = playlistId
+    }
 
-      // Check for files first
-      if (e.dataTransfer.files?.length) {
-        console.log('📁 Files detected in drop:', e.dataTransfer.files)
-        const paths = [...e.dataTransfer.files].map(f => f.path)
-        await importFiles(paths, { playlistId })
-        await refreshLibrary()
-        return
-      }
+    const handleDragOver = (e) => {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+    }
 
-      // Check for dragged song using our store
-      const dragType = e.dataTransfer.getData('text/plain')
-      console.log('🎯 Drag type:', dragType)
-      
-      if (dragType === 'song') {
-        const song = dragStore.getDraggedItem()
-        console.log('🎵 Retrieved song from store:', song)
-        
-        if (song) {
-          await addSongToPlaylist(playlistId, song)
-          dragStore.endDrag()
-        } else {
-          console.warn('⚠️ No song found in drag store')
-        }
+    const handleDragLeave = (e) => {
+      // Only clear if we're leaving the playlist entirely
+      if (!e.currentTarget.contains(e.relatedTarget)) {
+        dragOverPlaylistId.value = null
       }
     }
+
+    // In App.vue, update handlePlaylistExternalDrop:
+const handlePlaylistExternalDrop = async (e, playlistId) => {
+  console.log('🎯 Drop event for playlist:', playlistId)
+  dragOverPlaylistId.value = null
+
+  // Check for files first
+  if (e.dataTransfer.files?.length) {
+    console.log('📁 Files detected in drop:', e.dataTransfer.files)
+    const paths = [...e.dataTransfer.files].map(f => f.path)
+    await importFiles(paths, { playlistId })
+    await refreshLibrary()
+    return
+  }
+
+  // Check for dragged songs
+  const dragType = e.dataTransfer.getData('text/plain')
+  console.log('🎯 Drag type:', dragType)
+  
+  if (dragType === 'song' || dragType === 'songs') {
+    try {
+      // Try to get data from dataTransfer first
+      const jsonData = e.dataTransfer.getData('application/json')
+      console.log('🎯 JSON data:', jsonData)
+      
+      let songs = []
+      if (jsonData) {
+        const parsed = JSON.parse(jsonData)
+        songs = Array.isArray(parsed) ? parsed : [parsed]
+      } else {
+        // Fall back to store
+        const storeData = dragStore.getDraggedItem()
+        songs = Array.isArray(storeData) ? storeData : [storeData]
+      }
+      
+      console.log('🎯 Songs to add:', songs)
+      
+      if (songs.length > 0) {
+        // Add all songs to playlist
+        for (const song of songs) {
+          if (song) {
+            await addSongToPlaylist(playlistId, song)
+          }
+        }
+        
+        if (songs.length === 1) {
+          showToast({ message: `Added "${songs[0].title}" to playlist!`, type: 'success' })
+        } else {
+          showToast({ message: `Added ${songs.length} songs to playlist!`, type: 'success' })
+        }
+      }
+    } catch (error) {
+      console.error('Drop error:', error)
+      showToast({ message: `Failed to add songs: ${error}`, type: 'error' })
+    }
+  }
+  
+  dragStore.endDrag()
+
+}
 
     // Initialize on mount
     onMounted(async () => {
@@ -719,7 +765,10 @@ export default {
       handleFileDropToArtist,
       handlePlaylistExternalDrop,
       showFileDropOverlay,
-      removeSongFromPlaylist
+      removeSongFromPlaylist,
+      handleDragEnter,
+      handleDragOver,
+      handleDragLeave
     }
   }
 }

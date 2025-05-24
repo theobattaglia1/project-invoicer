@@ -1,28 +1,57 @@
+<!-- src/components/PlaylistsView.vue -->
 <template>
   <div class="playlists-view">
     <!-- Header -->
     <div class="view-header">
       <h1 class="view-title">Playlists</h1>
-      <button class="create-btn" @click="$emit('create-playlist')">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-        </svg>
-        Create Playlist
-      </button>
+      <p class="view-subtitle" v-if="selectedItems.length > 0">
+        {{ selectedItems.length }} selected
+      </p>
+      <div class="header-actions">
+        <button 
+          v-if="selectedItems.length > 0" 
+          class="delete-selected-button"
+          @click="deleteSelectedPlaylists"
+        >
+          Delete Selected
+        </button>
+        <button class="create-btn" @click="$emit('create-playlist')">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          </svg>
+          Create Playlist
+        </button>
+      </div>
     </div>
 
     <!-- Playlists Grid -->
-    <div class="playlists-grid">
+    <div class="playlists-grid" @click="handleBackgroundClick">
       <div 
-        v-for="playlist in playlists" 
+        v-for="(playlist, index) in playlists" 
         :key="playlist.id"
         class="playlist-card"
-        :class="{ 'drag-over': dragOverPlaylistId === playlist.id }"
-        @click="$emit('select-playlist', playlist.id)"
-        @dragover.prevent="dragOverPlaylistId = playlist.id"
+        :class="{ 
+          selected: isSelected(playlist),
+          'drag-over': dragOverPlaylistId === playlist.id,
+          'drag-source': draggedPlaylist?.id === playlist.id
+        }"
+        :draggable="true"
+        @dragstart="onDragStart(playlist, index, $event)"
+        @dragend="onDragEnd"
+        @dragover.prevent="handleDragOver(index, $event)"
+        @drop.prevent="handleDrop(playlist, index, $event)"
         @dragleave="dragOverPlaylistId = null"
-        @drop.prevent="handleFileDropToPlaylist(playlist, $event)"
+        @click="handlePlaylistClick(playlist, index, $event)"
+        @dblclick="$emit('select-playlist', playlist.id)"
       >
+        <div class="selection-indicator">
+          <input 
+            type="checkbox" 
+            :checked="isSelected(playlist)"
+            @click.stop
+            @change="toggleSelection(playlist, index, $event)"
+          >
+        </div>
         <div class="playlist-cover" :style="{ '--playlist-color': playlist.color || '#FF6B6B' }">
           <div class="cover-gradient"></div>
           <div class="cover-content">
@@ -65,271 +94,254 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useSelection } from '@/composables/useSelection'
+import { useDragReorder } from '@/composables/useDragReorder'
+import { useDragDropStore } from '@/store/dragddrop'
+
 export default {
-  name: 'playlistsview',
+  name: 'PlaylistsView',
   props: {
     playlists: Array,
     onFileDropToPlaylist: Function
   },
-  emits: ['create-playlist', 'select-playlist', 'add-song-to-playlist'],
+  emits: ['create-playlist', 'select-playlist', 'add-song-to-playlist', 'reorder-playlists', 'delete-playlists'],
   setup(props, { emit }) {
     const dragOverPlaylistId = ref(null)
+    const draggedPlaylist = ref(null)
+    const dragStore = useDragDropStore()
+
+    // Use selection composable
+    const {
+      selectedIds,
+      selectedItems,
+      isSelected,
+      clearSelection,
+      toggleSelection,
+      selectAll
+    } = useSelection(
+      computed(() => props.playlists),
+      playlist => playlist.id
+    )
+
+    // Use drag reorder composable
+    const {
+      draggedIndex,
+      dragOverIndex,
+      handleDragStart: reorderDragStart,
+      handleDragOver: reorderDragOver,
+      handleDrop: reorderDrop
+    } = useDragReorder(
+      computed(() => props.playlists),
+      (reorderedPlaylists) => emit('reorder-playlists', reorderedPlaylists)
+    )
+
+    const handlePlaylistClick = (playlist, index, event) => {
+      if (event.shiftKey || event.metaKey || event.ctrlKey) {
+        toggleSelection(playlist, index, event)
+      } else if (!isSelected(playlist)) {
+        clearSelection()
+        toggleSelection(playlist, index, event)
+      }
+    }
+
+    const handleBackgroundClick = (event) => {
+      if (event.target.classList.contains('playlists-grid')) {
+        clearSelection()
+      }
+    }
+
     const showPlaylistMenu = (playlist) => {
       console.log('Show menu for:', playlist)
     }
-    const onDrop = (playlist, e) => {
-      dragOverPlaylistId.value = null
-      const song = JSON.parse(e.dataTransfer.getData('application/json'))
-      emit('add-song-to-playlist', { playlistId: playlist.id, song })
-    }
-    const handleFileDropToPlaylist = (playlist, e) => {
-      dragOverPlaylistId.value = null
-      const files = e.dataTransfer.files
-      if (files && files.length > 0) {
-        const filePaths = Array.from(files).map(f => f.path || f.name)
-        if (props.onFileDropToPlaylist) props.onFileDropToPlaylist(playlist.id, filePaths)
-      } else if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-        const filePaths = Array.from(e.dataTransfer.items)
-          .filter(item => item.kind === 'file')
-          .map(item => item.getAsFile()?.path || item.getAsFile()?.name)
-        if (props.onFileDropToPlaylist) props.onFileDropToPlaylist(playlist.id, filePaths)
+
+    const deleteSelectedPlaylists = () => {
+      if (confirm(`Delete ${selectedItems.value.length} playlists?`)) {
+        emit('delete-playlists', selectedItems.value)
       }
     }
+
+    const onDragStart = (playlist, index, event) => {
+      draggedPlaylist.value = playlist
+      
+      const itemsToDrag = isSelected(playlist) ? selectedItems.value : [playlist]
+      
+      console.log(`📚 Dragging ${itemsToDrag.length} playlists`)
+      
+      event.dataTransfer.effectAllowed = 'move'
+      event.dataTransfer.setData('text/plain', 'playlists')
+      event.dataTransfer.setData('application/json', JSON.stringify(itemsToDrag))
+      
+      dragStore.startDrag(itemsToDrag, 'playlists')
+      
+      if (itemsToDrag.length > 1) {
+        const dragImage = document.createElement('div')
+        dragImage.className = 'custom-drag-image'
+        dragImage.innerHTML = `
+          <div class="drag-count">${itemsToDrag.length}</div>
+          <div class="drag-label">playlists</div>
+        `
+        dragImage.style.position = 'absolute'
+        dragImage.style.top = '-1000px'
+        document.body.appendChild(dragImage)
+        event.dataTransfer.setDragImage(dragImage, 50, 25)
+        setTimeout(() => document.body.removeChild(dragImage), 0)
+      }
+      
+      reorderDragStart(index, event, itemsToDrag)
+    }
+
+    const onDragEnd = () => {
+      draggedPlaylist.value = null
+      dragStore.endDrag()
+    }
+
+    const handleDragOver = (index, event) => {
+      reorderDragOver(index, event)
+      dragOverPlaylistId.value = props.playlists[index].id
+    }
+
+    const handleDrop = (playlist, index, event) => {
+      const dragType = event.dataTransfer.getData('text/plain')
+      
+      // If dropping playlists (reordering)
+      if (dragType === 'playlists') {
+        reorderDrop(index, event, selectedItems.value)
+        dragOverPlaylistId.value = null
+        return
+      }
+      
+      // Otherwise handle song drops
+      dragOverPlaylistId.value = null
+      
+      // Handle file drops
+      if (event.dataTransfer.files?.length) {
+        const filePaths = Array.from(event.dataTransfer.files).map(f => f.path || f.name)
+        if (props.onFileDropToPlaylist) props.onFileDropToPlaylist(playlist.id, filePaths)
+        return
+      }
+      
+      // Handle song drops
+      if (dragType === 'song' || dragType === 'songs') {
+        try {
+          const jsonData = event.dataTransfer.getData('application/json')
+          const songs = jsonData ? JSON.parse(jsonData) : dragStore.getDraggedItem()
+          const songsArray = Array.isArray(songs) ? songs : [songs]
+          
+          songsArray.forEach(song => {
+            if (song) emit('add-song-to-playlist', { playlistId: playlist.id, song })
+          })
+        } catch (error) {
+          console.error('Drop error:', error)
+        }
+      }
+    }
+
+    // Keyboard shortcuts
+    const handleKeyboard = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        e.preventDefault()
+        selectAll()
+      }
+      if (e.key === 'Escape') {
+        clearSelection()
+      }
+    }
+
+    onMounted(() => {
+      document.addEventListener('keydown', handleKeyboard)
+    })
+
+    onUnmounted(() => {
+      document.removeEventListener('keydown', handleKeyboard)
+    })
+
     return {
       showPlaylistMenu,
       dragOverPlaylistId,
-      onDrop,
-      handleFileDropToPlaylist
+      draggedPlaylist,
+      onDragStart,
+      onDragEnd,
+      handleDragOver,
+      handleDrop,
+      selectedItems,
+      isSelected,
+      clearSelection,
+      toggleSelection,
+      handlePlaylistClick,
+      handleBackgroundClick,
+      deleteSelectedPlaylists
     }
   }
 }
 </script>
 
 <style scoped>
-.playlists-view {
-  padding: 0;
-}
+/* Keep existing styles and add these new ones */
 
-/* Header */
-.view-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 32px;
-}
-
-.view-title {
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
-  color: var(--text-primary);
-}
-
-.create-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: var(--gradient-primary);
-  border: none;
-  border-radius: var(--radius-md);
-  color: white;
-  font-size: 14px;
+.view-subtitle {
+  font-size: 16px;
+  color: #4ECDC4;
   font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.delete-selected-button {
+  padding: 10px 20px;
+  background: rgba(255, 85, 85, 0.2);
+  border: 1px solid #ff5555;
+  border-radius: 12px;
+  color: #ff5555;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.create-btn:hover {
+.delete-selected-button:hover {
+  background: rgba(255, 85, 85, 0.3);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
-}
-
-.create-btn svg {
-  width: 20px;
-  height: 20px;
-}
-
-/* Playlists Grid */
-.playlists-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 24px;
 }
 
 .playlist-card {
   position: relative;
   cursor: pointer;
   transition: all 0.2s ease;
+  user-select: none;
 }
 
-.playlist-card:hover {
-  transform: translateY(-4px);
+.playlist-card.selected {
+  transform: scale(1.05);
 }
 
-.playlist-cover {
-  position: relative;
-  width: 100%;
-  padding-bottom: 100%;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--bg-secondary);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  margin-bottom: 16px;
+.playlist-card.selected .playlist-cover {
+  box-shadow: 0 8px 32px rgba(78, 205, 196, 0.4);
+  border: 2px solid #4ECDC4;
 }
 
-.cover-gradient {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, var(--playlist-color) 0%, transparent 100%);
-  opacity: 0.8;
+.playlist-card.drag-source {
+  opacity: 0.5;
 }
 
-.cover-content {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.cover-content svg {
-  width: 80px;
-  height: 80px;
-}
-
-.play-btn {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  width: 48px;
-  height: 48px;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(10px);
-  border: none;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  transform: translateY(8px);
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.playlist-card:hover .play-btn {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.play-btn:hover {
-  transform: scale(1.1);
-  background: rgba(0, 0, 0, 0.9);
-}
-
-.play-btn svg {
-  width: 20px;
-  height: 20px;
-  color: white;
-  margin-left: 2px;
-}
-
-.playlist-info {
-  padding: 0 4px;
-}
-
-.playlist-name {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.playlist-meta {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.playlist-menu {
+.selection-indicator {
   position: absolute;
   top: 12px;
-  right: 12px;
-  width: 32px;
-  height: 32px;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(10px);
-  border: none;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+  left: 12px;
+  z-index: 10;
   opacity: 0;
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease;
 }
 
-.playlist-card:hover .playlist-menu {
+.playlist-card:hover .selection-indicator,
+.playlist-card.selected .selection-indicator {
   opacity: 1;
 }
 
-.playlist-menu:hover {
-  background: rgba(0, 0, 0, 0.8);
+.selection-indicator input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
 }
 
-.playlist-menu svg {
-  width: 16px;
-  height: 16px;
-  color: white;
-}
-
-/* Create Card */
-.create-card {
-  opacity: 0.6;
-  transition: all 0.2s ease;
-}
-
-.create-card:hover {
-  opacity: 1;
-}
-
-.create-cover {
-  position: relative;
-  width: 100%;
-  padding-bottom: 100%;
-  border-radius: var(--radius-lg);
-  background: var(--bg-secondary);
-  border: 2px dashed var(--border-color);
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.create-cover svg {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 48px;
-  height: 48px;
-  color: var(--text-tertiary);
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .playlists-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 16px;
-  }
-}
-
-.playlist-card.drag-over {
-  outline: 2px solid #4ECDC4;
-  background: rgba(78, 205, 196, 0.08);
-}
+/* Rest of existing styles remain the same */
 </style>

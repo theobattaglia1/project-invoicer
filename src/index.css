@@ -82,3 +82,40 @@
    .slide-enter-from { transform: translateX(-100%); }
    .slide-leave-to   { transform: translateX(100%); }
    
+   /* Multi-select drag image */
+.custom-drag-image {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(78, 205, 196, 0.5);
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.custom-drag-image .drag-count {
+  font-size: 18px;
+  font-weight: 700;
+  color: #4ECDC4;
+}
+
+.custom-drag-image .drag-label {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Checkbox styling */
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #4ECDC4;
+  cursor: pointer;
+}
+
+input[type="checkbox"]:indeterminate {
+  background-color: #4ECDC4;
+}

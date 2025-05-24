@@ -7,9 +7,28 @@
   >
     <div class="view-header">
       <h1 class="view-title">All Songs</h1>
-      <p class="view-subtitle">{{ songs.length }} songs in your library</p>
+      <p class="view-subtitle">
+        {{ songs.length }} songs in your library
+        <span v-if="selectedItems.length > 0" class="selection-count">
+          • {{ selectedItems.length }} selected
+        </span>
+      </p>
       
       <div class="header-actions">
+        <button 
+          v-if="selectedItems.length > 0" 
+          class="clear-selection-button"
+          @click="clearSelection"
+        >
+          Clear Selection
+        </button>
+        <button 
+          v-if="selectedItems.length === 0" 
+          class="select-all-button"
+          @click="selectAll"
+        >
+          Select All
+        </button>
         <button class="shuffle-button">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
@@ -65,8 +84,17 @@
       </div>
 
       <!-- Songs List -->
-      <div class="songs-list">
+      <div class="songs-list" @click="handleBackgroundClick">
         <div class="list-header">
+          <div class="col-check">
+            <input 
+              type="checkbox" 
+              class="select-all-checkbox"
+              :checked="selectedItems.length === filteredSongs.length && filteredSongs.length > 0"
+              :indeterminate="selectedItems.length > 0 && selectedItems.length < filteredSongs.length"
+              @change="selectedItems.length === filteredSongs.length ? clearSelection() : selectAll()"
+            >
+          </div>
           <div class="col-title">#</div>
           <div class="col-title">Title</div>
           <div class="col-title">Artist</div>
@@ -80,11 +108,24 @@
             v-for="(song, index) in filteredSongs" 
             :key="song.id"
             class="song-row"
+            :class="{ 
+              selected: isSelected(song),
+              'drag-source': draggedSong?.id === song.id
+            }"
             :draggable="true"
-            @dragstart="onDragStart(song, $event)"
+            @dragstart="onDragStart(song, index, $event)"
             @dragend="onDragEnd"
-            @click="playSong(song)"
+            @click="handleSongClick(song, index, $event)"
+            @dblclick="playSong(song)"
           >
+            <div class="col-check">
+              <input 
+                type="checkbox" 
+                :checked="isSelected(song)"
+                @click.stop
+                @change="toggleSelection(song, index, $event)"
+              >
+            </div>
             <div class="col-number">{{ index + 1 }}</div>
             <div class="col-title">
               <div class="song-info">
@@ -125,8 +166,9 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useDragDropStore } from '@/store/dragddrop'
+import { useSelection } from '@/composables/useSelection'
 
 export default {
   name: 'AllSongsView',
@@ -140,6 +182,7 @@ export default {
     const sortBy = ref('title')
     const showSortMenu = ref(false)
     const isDragOver = ref(false)
+    const draggedSong = ref(null)
     const dragStore = useDragDropStore()
     
     const sortOptions = [
@@ -174,6 +217,35 @@ export default {
         }
       })
     })
+
+    // Use selection composable
+    const {
+      selectedIds,
+      selectedItems,
+      isSelected,
+      clearSelection,
+      toggleSelection,
+      selectAll: selectAllItems
+    } = useSelection(filteredSongs, song => song.id)
+
+    const selectAll = () => {
+      selectAllItems()
+    }
+
+    const handleSongClick = (song, index, event) => {
+      if (event.shiftKey || event.metaKey || event.ctrlKey) {
+        toggleSelection(song, index, event)
+      } else if (!isSelected(song)) {
+        clearSelection()
+        toggleSelection(song, index, event)
+      }
+    }
+
+    const handleBackgroundClick = (event) => {
+      if (event.target.classList.contains('songs-list')) {
+        clearSelection()
+      }
+    }
     
     const setSortBy = (value) => {
       sortBy.value = value
@@ -188,16 +260,46 @@ export default {
       console.log('Show menu for:', song)
     }
     
-    const onDragStart = (song, event) => {
-      console.log('🎵 Drag start - song:', song)
+    // Enhanced drag start for multiple items
+    const onDragStart = (song, index, event) => {
+      draggedSong.value = song
+      
+      // Check if dragging a selected item
+      const itemsToDrag = isSelected(song) ? selectedItems.value : [song]
+      
+      console.log(`🎵 Dragging ${itemsToDrag.length} songs`)
+      
+      // Set the allowed effect
       event.dataTransfer.effectAllowed = 'copy'
-      event.dataTransfer.setData('application/json', JSON.stringify(song))
-      dragStore.startDrag(song, 'song')
-      emit('song-drag-start', song)
+      
+      // Set data for single or multiple songs
+      event.dataTransfer.setData('text/plain', 'songs')
+      event.dataTransfer.setData('application/json', JSON.stringify(itemsToDrag))
+      
+      // Store in the drag store
+      dragStore.startDrag(itemsToDrag, 'songs')
+      
+      // Custom drag image for multiple items
+      if (itemsToDrag.length > 1) {
+        const dragImage = document.createElement('div')
+        dragImage.className = 'custom-drag-image'
+        dragImage.innerHTML = `
+          <div class="drag-count">${itemsToDrag.length}</div>
+          <div class="drag-label">songs</div>
+        `
+        dragImage.style.position = 'absolute'
+        dragImage.style.top = '-1000px'
+        document.body.appendChild(dragImage)
+        event.dataTransfer.setDragImage(dragImage, 50, 25)
+        setTimeout(() => document.body.removeChild(dragImage), 0)
+      }
+      
+      emit('song-drag-start', itemsToDrag)
     }
     
     const onDragEnd = () => {
       console.log('🎵 Drag end')
+      draggedSong.value = null
       dragStore.endDrag()
     }
     
@@ -207,13 +309,29 @@ export default {
       if (files && files.length > 0) {
         const filePaths = Array.from(files).map(f => f.path || f.name)
         if (props.onFileDrop) props.onFileDrop(filePaths)
-      } else if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-        const filePaths = Array.from(e.dataTransfer.items)
-          .filter(item => item.kind === 'file')
-          .map(item => item.getAsFile()?.path || item.getAsFile()?.name)
-        if (props.onFileDrop) props.onFileDrop(filePaths)
       }
     }
+
+    // Keyboard shortcuts
+    const handleKeyboard = (e) => {
+      // Select all with Cmd/Ctrl + A
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        e.preventDefault()
+        selectAll()
+      }
+      // Clear selection with Escape
+      if (e.key === 'Escape') {
+        clearSelection()
+      }
+    }
+
+    onMounted(() => {
+      document.addEventListener('keydown', handleKeyboard)
+    })
+
+    onUnmounted(() => {
+      document.removeEventListener('keydown', handleKeyboard)
+    })
     
     return {
       searchQuery,
@@ -227,14 +345,121 @@ export default {
       onDragStart,
       onDragEnd,
       isDragOver,
-      handleFileDrop
+      handleFileDrop,
+      draggedSong,
+      // Selection
+      selectedItems,
+      isSelected,
+      clearSelection,
+      toggleSelection,
+      selectAll,
+      handleSongClick,
+      handleBackgroundClick
     }
   }
 }
 </script>
 
 <style scoped>
-/* Keep all existing styles - no changes needed */
+/* Add to existing styles */
+
+.selection-count {
+  color: #4ECDC4;
+  font-weight: 600;
+}
+
+.clear-selection-button,
+.select-all-button {
+  padding: 8px 16px;
+  background: rgba(78, 205, 196, 0.2);
+  border: 1px solid #4ECDC4;
+  border-radius: 8px;
+  color: #4ECDC4;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-selection-button:hover,
+.select-all-button:hover {
+  background: rgba(78, 205, 196, 0.3);
+  transform: translateY(-1px);
+}
+
+.col-check {
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.select-all-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.list-header {
+  display: grid;
+  grid-template-columns: 40px 50px 1fr 200px 200px 80px 50px;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.song-row {
+  display: grid;
+  grid-template-columns: 40px 50px 1fr 200px 200px 80px 50px;
+  gap: 16px;
+  padding: 12px 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-items: center;
+  user-select: none;
+}
+
+.song-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.song-row.selected {
+  background: rgba(78, 205, 196, 0.15);
+  border: 1px solid rgba(78, 205, 196, 0.3);
+  margin: -1px 0;
+}
+
+.song-row.drag-source {
+  opacity: 0.5;
+}
+
+/* Custom drag image styles - add to global styles */
+:global(.custom-drag-image) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(30, 30, 30, 0.95);
+  border: 1px solid rgba(78, 205, 196, 0.5);
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+:global(.custom-drag-image .drag-count) {
+  font-size: 18px;
+  font-weight: 700;
+  color: #4ECDC4;
+}
+
+/* All other existing styles remain the same */
 .all-songs-view {
   height: 100%;
   display: flex;
@@ -423,36 +648,16 @@ export default {
   padding: 0 32px 32px;
 }
 
-.list-header {
-  display: grid;
-  grid-template-columns: 50px 1fr 200px 200px 80px 50px;
-  gap: 16px;
-  padding: 16px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
 .list-body {
   padding-top: 8px;
 }
 
-.song-row {
-  display: grid;
-  grid-template-columns: 50px 1fr 200px 200px 80px 50px;
-  gap: 16px;
-  padding: 12px 0;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  align-items: center;
+.song-row[draggable="true"] {
+  cursor: grab;
 }
 
-.song-row:hover {
-  background: rgba(255, 255, 255, 0.05);
+.song-row[draggable="true"]:active {
+  cursor: grabbing;
 }
 
 .col-number {

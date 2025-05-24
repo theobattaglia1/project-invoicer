@@ -20,7 +20,7 @@
   
   <script setup>
   import { ref } from 'vue'
-  import { useLibraryStore } from '@/stores/library'
+  import { useLibraryStore } from '@/store/library'
   import { importFiles } from '@/utils/importFiles'   // util we wrote earlier
   
   const lib      = useLibraryStore()
