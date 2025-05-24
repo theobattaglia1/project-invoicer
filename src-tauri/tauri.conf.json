@@ -46,18 +46,19 @@
     "security": {
       "csp": null
     },
-    "windows": [
-      {
-        "title": "My Music App",
-        "width": 1200,
-        "height": 800,
-        "resizable": true,
-        "fullscreen": false,
-        "visible": true,
-        "center": true,
-        "minWidth": 800,
-        "minHeight": 600
-      }
-    ]
+"windows": [
+  {
+    "title": "My Music App",
+    "width": 1200,
+    "height": 800,
+    "resizable": true,
+    "fullscreen": false,
+    "visible": true,
+    "center": true,
+    "minWidth": 800,
+    "minHeight": 600,
+    "fileDropEnabled": false
+  }
+]
   }
 }

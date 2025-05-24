@@ -191,7 +191,7 @@ export default {
     const onDragStart = (song, event) => {
       console.log('🎵 Drag start - song:', song)
       event.dataTransfer.effectAllowed = 'copy'
-      event.dataTransfer.setData('text/plain', 'song')
+      event.dataTransfer.setData('application/json', JSON.stringify(song))
       dragStore.startDrag(song, 'song')
       emit('song-drag-start', song)
     }
