@@ -1,20 +1,15 @@
-<!-- src/components/ArtistsView.vue -->
 <template>
   <div class="artists-view">
     <!-- Header -->
     <div class="view-header">
-      <h1 class="view-title">Artists</h1>
-      <p class="view-subtitle" v-if="selectedItems.length > 0">
-        {{ selectedItems.length }} selected
-      </p>
-      <div class="header-actions">
-        <button 
-          v-if="selectedItems.length > 0" 
-          class="clear-selection-button"
-          @click="clearSelection"
-        >
-          Clear Selection
-        </button>
+      <div class="header-content">
+        <h1 class="view-title">Artists</h1>
+        <p class="view-subtitle" v-if="selectedItems.length > 0">
+          {{ selectedItems.length }} selected
+        </p>
+      </div>
+      
+      <div class="header-controls">
         <div class="search-box">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
@@ -26,12 +21,22 @@
             class="search-input"
           >
         </div>
-        <button class="add-btn" @click="$emit('add-artist')">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-          </svg>
-          Add Artist
-        </button>
+        
+        <div class="header-actions">
+          <button 
+            v-if="selectedItems.length > 0" 
+            class="action-btn ghost"
+            @click="clearSelection"
+          >
+            Cancel
+          </button>
+          <button class="action-btn primary" @click="$emit('add-artist')">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+            Add Artist
+          </button>
+        </div>
       </div>
     </div>
 
@@ -40,21 +45,25 @@
       <div 
         v-for="(artist, index) in filteredArtists" 
         :key="artist.id"
-        class="artist-tile"
+        class="artist-card"
         :class="{ 
           selected: isSelected(artist),
+          highlighted: highlightedArtist?.id === artist.id,
           'drag-over': dragOverArtistId === artist.id 
         }"
         :draggable="true"
         @dragstart="onDragStart(artist, index, $event)"
         @dragend="onDragEnd"
         @click="handleArtistClick(artist, index, $event)"
-        @dblclick="$emit('select-artist', artist.id)"
+        @contextmenu.prevent="showContextMenu($event, artist)"
+        @mouseenter="highlightedArtist = artist"
+        @mouseleave="highlightedArtist = null"
         @dragover.prevent="dragOverArtistId = artist.id"
         @dragleave="dragOverArtistId = null"
         @drop.prevent="handleFileDropToArtist(artist, $event)"
       >
-        <div class="selection-indicator">
+        <!-- Selection checkbox -->
+        <div v-if="selectedItems.length > 0" class="selection-indicator">
           <input 
             type="checkbox" 
             :checked="isSelected(artist)"
@@ -62,263 +71,277 @@
             @change="toggleSelection(artist, index, $event)"
           >
         </div>
+        
+        <!-- Artist image -->
         <div class="artist-image">
-          <div v-if="!artist.image" class="image-placeholder">
-            {{ artist.name.charAt(0) }}
+          <img 
+            v-if="artist.image_path || artist.artwork_path" 
+            :src="getArtworkUrl(artist.artwork_path || artist.image_path)" 
+            :alt="artist.name"
+            @error="handleImageError"
+          />
+          <div v-else class="image-placeholder">
+            {{ artist.name.charAt(0).toUpperCase() }}
           </div>
-          <img v-else :src="artist.image" :alt="artist.name">
-          <div class="artist-overlay">
-            <button class="play-btn">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8 5v14l11-7z"/>
-              </svg>
-            </button>
-          </div>
+          
+          <!-- Play button -->
+          <button class="play-btn" @click.stop="playArtist(artist)">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </button>
         </div>
+        
+        <!-- Artist info -->
         <div class="artist-info">
           <h3 class="artist-name">{{ artist.name }}</h3>
           <p class="artist-meta">
             <span v-if="artist.genre">{{ artist.genre }}</span>
-            <span v-if="artist.genre && artist.followers"> • </span>
-            <span v-if="artist.followers">{{ artist.followers }} followers</span>
+            <span v-else-if="getArtistSongCount(artist) > 0">{{ getArtistSongCount(artist) }} songs</span>
+            <span v-else>No songs</span>
           </p>
         </div>
-        <button class="artist-menu" @click.stop="showArtistMenu(artist)">
+        
+        <!-- Menu button -->
+        <button 
+          v-if="selectedItems.length === 0"
+          class="artist-menu" 
+          @click.stop="showContextMenu($event, artist)"
+        >
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
           </svg>
         </button>
       </div>
+      
+      <!-- Add Artist Card -->
+      <div class="artist-card add-card" @click="$emit('add-artist')">
+        <div class="artist-image">
+          <div class="add-placeholder">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+          </div>
+        </div>
+        <div class="artist-info">
+          <h3 class="artist-name">Add New</h3>
+          <p class="artist-meta">Create artist</p>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
-<script>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+<script setup>
+import { ref, computed, onMounted, onUnmounted, inject } from 'vue'
+import { convertFileSrc } from '@tauri-apps/api/tauri'
 import { useSelection } from '@/composables/useSelection'
-import { useDragDropStore } from '@/store/dragddrop'
+import { useDragDropStore } from '@/store/dragdrop'
+import { useMusicStore } from '@/store/music'
+import { usePlaybackIntegration } from '@/composables/usePlaybackIntegration'
 
-export default {
-  name: 'ArtistsView',
-  props: {
-    artists: Array,
-    onFileDropToArtist: Function
-  },
-  emits: ['add-artist', 'select-artist'],
-  setup(props, { emit }) {
-    const searchQuery = ref('')
-    const dragOverArtistId = ref(null)
-    const dragStore = useDragDropStore()
+const props = defineProps({
+  artists: Array,
+  songs: Array,
+  onFileDropToArtist: Function
+})
 
-    const filteredArtists = computed(() => {
-      if (!searchQuery.value) return props.artists
-      
-      const query = searchQuery.value.toLowerCase()
-      return props.artists.filter(artist => 
-        artist.name.toLowerCase().includes(query) ||
-        (artist.genre && artist.genre.toLowerCase().includes(query))
-      )
-    })
+const emit = defineEmits(['add-artist', 'select-artist', 'update-artist', 'delete-artists'])
 
-    // Use selection composable
-    const {
-      selectedIds,
-      selectedItems,
-      isSelected,
-      clearSelection,
-      toggleSelection,
-      selectAll
-    } = useSelection(filteredArtists, artist => artist.id)
+const searchQuery = ref('')
+const dragOverArtistId = ref(null)
+const highlightedArtist = ref(null)
+const dragStore = useDragDropStore()
+const musicStore = useMusicStore()
+const playback = usePlaybackIntegration()
 
-    const handleArtistClick = (artist, index, event) => {
-      if (event.shiftKey || event.metaKey || event.ctrlKey) {
-        toggleSelection(artist, index, event)
-      } else if (!isSelected(artist)) {
-        clearSelection()
-        toggleSelection(artist, index, event)
-      }
-    }
+const contextMenuRef = inject('contextMenu', null)
 
-    const handleBackgroundClick = (event) => {
-      if (event.target.classList.contains('artists-grid')) {
-        clearSelection()
-      }
-    }
+const filteredArtists = computed(() => {
+  if (!searchQuery.value) return props.artists
+  
+  const query = searchQuery.value.toLowerCase()
+  return props.artists.filter(artist => 
+    artist.name.toLowerCase().includes(query) ||
+    (artist.genre && artist.genre.toLowerCase().includes(query))
+  )
+})
 
-    const onDragStart = (artist, index, event) => {
-      const itemsToDrag = isSelected(artist) ? selectedItems.value : [artist]
-      
-      console.log(`🎨 Dragging ${itemsToDrag.length} artists`)
-      
-      event.dataTransfer.effectAllowed = 'copy'
-      event.dataTransfer.setData('text/plain', 'artists')
-      event.dataTransfer.setData('application/json', JSON.stringify(itemsToDrag))
-      
-      dragStore.startDrag(itemsToDrag, 'artists')
-      
-      if (itemsToDrag.length > 1) {
-        const dragImage = document.createElement('div')
-        dragImage.className = 'custom-drag-image'
-        dragImage.innerHTML = `
-          <div class="drag-count">${itemsToDrag.length}</div>
-          <div class="drag-label">artists</div>
-        `
-        dragImage.style.position = 'absolute'
-        dragImage.style.top = '-1000px'
-        document.body.appendChild(dragImage)
-        event.dataTransfer.setDragImage(dragImage, 50, 25)
-        setTimeout(() => document.body.removeChild(dragImage), 0)
-      }
-    }
+// Use selection composable
+const {
+  selectedIds,
+  selectedItems,
+  isSelected,
+  clearSelection,
+  toggleSelection,
+  selectAll
+} = useSelection(filteredArtists, artist => artist.id)
 
-    const onDragEnd = () => {
-      dragStore.endDrag()
-    }
-
-    const showArtistMenu = (artist) => {
-      console.log('Show menu for:', artist)
-    }
-
-    const handleFileDropToArtist = (artist, e) => {
-      dragOverArtistId.value = null
-      const files = e.dataTransfer.files
-      if (files && files.length > 0) {
-        const filePaths = Array.from(files).map(f => f.path || f.name)
-        if (props.onFileDropToArtist) props.onFileDropToArtist(artist.id, filePaths)
-      }
-    }
-
-    // Keyboard shortcuts
-    const handleKeyboard = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
-        e.preventDefault()
-        selectAll()
-      }
-      if (e.key === 'Escape') {
-        clearSelection()
-      }
-    }
-
-    onMounted(() => {
-      document.addEventListener('keydown', handleKeyboard)
-    })
-
-    onUnmounted(() => {
-      document.removeEventListener('keydown', handleKeyboard)
-    })
-
-    return {
-      searchQuery,
-      filteredArtists,
-      showArtistMenu,
-      dragOverArtistId,
-      handleFileDropToArtist,
-      selectedItems,
-      isSelected,
-      clearSelection,
-      toggleSelection,
-      handleArtistClick,
-      handleBackgroundClick,
-      onDragStart,
-      onDragEnd
+// FIXED: Click handling with navigation
+const handleArtistClick = (artist, index, event) => {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  const multiSelectKey = isMac ? event.metaKey : event.ctrlKey
+  
+  // If holding modifier keys, handle selection
+  if (event.shiftKey || multiSelectKey) {
+    toggleSelection(artist, index, event)
+  } else {
+    // Regular click - navigate to artist
+    // Only navigate if we're not in selection mode
+    if (selectedItems.value.length === 0) {
+      emit('navigate-to-artist', artist.id)
+    } else {
+      // If in selection mode, just clear selection
+      clearSelection()
     }
   }
 }
+
+const handleBackgroundClick = (event) => {
+  if (event.target.classList.contains('artists-grid')) {
+    clearSelection()
+    highlightedArtist.value = null
+  }
+}
+
+// Context menu
+const showContextMenu = (event, artist) => {
+  if (!isSelected(artist)) {
+    clearSelection()
+    toggleSelection(artist, 0, event)
+  }
+  
+  const items = selectedItems.value.length > 0 ? selectedItems.value : [artist]
+  contextMenuRef?.value?.show(event, items, 'artist')
+}
+
+// Artist actions
+const playArtist = async (artist) => {
+  const artistSongs = props.songs?.filter(song => 
+    song.artist?.toLowerCase() === artist.name.toLowerCase()
+  ) || []
+  
+  if (artistSongs.length > 0) {
+    await playback.playSong(artistSongs[0], artistSongs)
+  }
+}
+
+const getArtistSongCount = (artist) => {
+  if (!props.songs) return 0
+  return props.songs.filter(song => 
+    song.artist?.toLowerCase() === artist.name.toLowerCase()
+  ).length
+}
+
+// Drag and drop
+const onDragStart = (artist, index, event) => {
+  const itemsToDrag = isSelected(artist) ? selectedItems.value : [artist]
+  
+  event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer.setData('text/plain', 'artists')
+  event.dataTransfer.setData('application/json', JSON.stringify(itemsToDrag))
+  
+  dragStore.startDrag(itemsToDrag, 'artists')
+}
+
+const onDragEnd = () => {
+  dragStore.endDrag()
+}
+
+const handleFileDropToArtist = (artist, e) => {
+  dragOverArtistId.value = null
+  const files = e.dataTransfer.files
+  if (files && files.length > 0) {
+    const filePaths = Array.from(files).map(f => f.path || f.name)
+    if (props.onFileDropToArtist) props.onFileDropToArtist(artist.id, filePaths)
+  }
+}
+
+// Artwork handling
+const getArtworkUrl = (path) => {
+  if (!path) return null
+  
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path
+  }
+  
+  try {
+    const url = convertFileSrc(path)
+    const cacheBuster = new Date().getTime()
+    return `${url}?t=${cacheBuster}`
+  } catch (error) {
+    console.error('Error converting artwork path:', error)
+    return null
+  }
+}
+
+const handleImageError = (e) => {
+  e.target.style.display = 'none'
+}
+
+// Keyboard shortcuts
+const handleKeyboard = (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+    e.preventDefault()
+    selectAll()
+  }
+  if (e.key === 'Escape') {
+    clearSelection()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeyboard)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyboard)
+})
 </script>
 
 <style scoped>
-/* Keep all existing styles and add these new ones */
-
-.view-subtitle {
-  font-size: 16px;
-  color: #4ECDC4;
-  font-weight: 600;
-  margin-bottom: 16px;
-}
-
-.clear-selection-button {
-  padding: 8px 16px;
-  background: rgba(78, 205, 196, 0.2);
-  border: 1px solid #4ECDC4;
-  border-radius: 8px;
-  color: #4ECDC4;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.clear-selection-button:hover {
-  background: rgba(78, 205, 196, 0.3);
-  transform: translateY(-1px);
-}
-
-.artist-tile {
-  position: relative;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  overflow: hidden;
-  user-select: none;
-}
-
-.artist-tile.selected {
-  background: rgba(78, 205, 196, 0.15);
-  border: 2px solid rgba(78, 205, 196, 0.5);
-  transform: scale(1.02);
-}
-
-.selection-indicator {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 10;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.artist-tile:hover .selection-indicator,
-.artist-tile.selected .selection-indicator {
-  opacity: 1;
-}
-
-.selection-indicator input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
-}
-
-/* Rest of existing styles remain the same */
+/* Keep all the existing styles - they're perfect */
 .artists-view {
-  padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  color: white;
 }
 
+/* Header */
 .view-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 32px;
-  gap: 24px;
+  padding: 24px 32px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(18, 18, 18, 0.4);
+  backdrop-filter: blur(20px);
+}
+
+.header-content {
+  margin-bottom: 20px;
 }
 
 .view-title {
   font-size: 32px;
   font-weight: 700;
   letter-spacing: -0.5px;
-  color: var(--text-primary);
+  margin-bottom: 4px;
 }
 
-.header-actions {
+.view-subtitle {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.header-controls {
   display: flex;
-  align-items: center;
   gap: 16px;
+  align-items: center;
 }
 
 .search-box {
+  flex: 1;
+  max-width: 400px;
   position: relative;
-  width: 300px;
 }
 
 .search-box svg {
@@ -328,75 +351,139 @@ export default {
   transform: translateY(-50%);
   width: 20px;
   height: 20px;
-  color: var(--text-tertiary);
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
 }
 
 .search-input {
   width: 100%;
-  padding: 12px 16px 12px 48px;
-  background: var(--bg-secondary);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
+  padding: 10px 16px 10px 48px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: white;
   font-size: 14px;
-  outline: none;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
-.add-btn {
+.search-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.search-input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.action-btn {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  background: var(--gradient-primary);
   border: none;
-  border-radius: var(--radius-md);
-  color: white;
+  border-radius: 8px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
-.add-btn:hover {
+.action-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.action-btn.primary {
+  background: white;
+  color: black;
+}
+
+.action-btn.primary:hover {
+  background: rgba(255, 255, 255, 0.9);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
 }
 
+.action-btn.ghost {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.action-btn.ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Artists Grid */
 .artists-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 24px;
+  padding: 32px;
+  overflow-y: auto;
+  flex: 1;
 }
 
-.artist-tile::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--gradient-primary);
-  opacity: 0;
-  transition: opacity 0.3s ease;
+.artist-card {
+  position: relative;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
 }
 
-.artist-tile:hover {
+.artist-card:hover {
   transform: translateY(-4px);
-  background: var(--bg-tertiary);
 }
 
-.artist-tile:hover::before {
-  opacity: 0.05;
+.artist-card.selected {
+  transform: scale(1.02);
 }
 
+.artist-card.drag-over {
+  transform: scale(1.02);
+}
+
+.selection-indicator {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+}
+
+.selection-indicator input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: white;
+}
+
+/* Artist Image */
 .artist-image {
   position: relative;
-  width: 160px;
-  height: 160px;
-  margin: 0 auto 20px;
-  border-radius: 50%;
+  width: 100%;
+  aspect-ratio: 1;
+  margin-bottom: 16px;
+  border-radius: 16px;
   overflow: hidden;
-  background: var(--bg-tertiary);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.15s ease;
+}
+
+.artist-card.selected .artist-image {
+  box-shadow: 0 8px 24px rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.artist-card.drag-over .artist-image {
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 24px rgba(255, 255, 255, 0.15);
 }
 
 .image-placeholder {
@@ -407,69 +494,81 @@ export default {
   justify-content: center;
   font-size: 64px;
   font-weight: 700;
-  background: var(--gradient-primary);
-  color: white;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+  color: rgba(255, 255, 255, 0.4);
 }
 
-.artist-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.artist-tile:hover .artist-overlay {
-  opacity: 1;
+.artist-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .play-btn {
-  width: 56px;
-  height: 56px;
-  background: white;
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 48px;
+  height: 48px;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
   border: none;
   border-radius: 50%;
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transform: scale(0.8);
-  transition: all 0.2s ease;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: all 0.15s ease;
+}
+
+.artist-card:hover .play-btn {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .play-btn:hover {
-  transform: scale(0.9);
+  background: rgba(0, 0, 0, 0.9);
+  transform: scale(1.06);
 }
 
+.play-btn svg {
+  width: 20px;
+  height: 20px;
+  margin-left: 2px;
+}
+
+/* Artist Info */
 .artist-info {
-  text-align: center;
-  position: relative;
-  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .artist-name {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .artist-meta {
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
 }
 
+/* Menu Button */
 .artist-menu {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 12px;
+  right: 12px;
   width: 32px;
   height: 32px;
-  background: var(--bg-tertiary);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
   border: none;
   border-radius: 50%;
   display: flex;
@@ -477,16 +576,78 @@ export default {
   justify-content: center;
   cursor: pointer;
   opacity: 0;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   z-index: 2;
 }
 
-.artist-tile:hover .artist-menu {
+.artist-card:hover .artist-menu {
   opacity: 1;
 }
 
-.artist-tile.drag-over {
-  outline: 2px solid #4ECDC4;
-  background: rgba(78, 205, 196, 0.08);
+.artist-menu:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.artist-menu svg {
+  width: 20px;
+  height: 20px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Add Card */
+.add-card {
+  border: 2px dashed rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.15s ease;
+}
+
+.add-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-4px);
+}
+
+.add-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+.add-placeholder svg {
+  width: 48px;
+  height: 48px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.add-card .artist-name {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.add-card .artist-meta {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Scrollbar */
+.artists-grid::-webkit-scrollbar {
+  width: 12px;
+}
+
+.artists-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.artists-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+.artists-grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.12);
+  background-clip: padding-box;
 }
 </style>

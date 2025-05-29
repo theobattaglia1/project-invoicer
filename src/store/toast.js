@@ -1,26 +1,41 @@
+// In your toast store (e.g., store/toast.js)
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
 
-/**
- * Pinia toast store
- *   queue : reactive array [{ id, msg, type, action? }]
- *   push  : add a toast and auto-remove after ms
- *   remove: remove by id (used by close button)
- */
-export const useToastStore = defineStore('toast', () => {
-  const queue = ref([])
-
-  function push (msg, type = 'info', ms = 3000, action = null) {
-    const id = crypto.randomUUID()
-    queue.value.push({ id, msg, type, action })
-
-    // auto dismiss
-    if (ms > 0) setTimeout(() => remove(id), ms)
+export const useToastStore = defineStore('toast', {
+  state: () => ({
+    queue: []
+  }),
+  
+  actions: {
+    push({ msg, type = 'info', duration = 2000, action = null }) {
+      const id = Date.now() + Math.random()
+      
+      this.queue.push({
+        id,
+        msg,
+        type,
+        duration, // Default 2 seconds, much shorter
+        action,
+        timestamp: Date.now()
+      })
+      
+      // Limit queue size to prevent clutter
+      if (this.queue.length > 3) {
+        this.queue.shift()
+      }
+      
+      return id
+    },
+    
+    remove(id) {
+      const index = this.queue.findIndex(t => t.id === id)
+      if (index > -1) {
+        this.queue.splice(index, 1)
+      }
+    },
+    
+    clear() {
+      this.queue = []
+    }
   }
-
-  function remove (id) {
-    queue.value = queue.value.filter(t => t.id !== id)
-  }
-
-  return { queue, push, remove }
 })

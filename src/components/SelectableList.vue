@@ -45,7 +45,7 @@
   </template>
   
   <script>
-  import { ref, computed, onMounted, onUnmounted } from 'vue'
+  import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
   import { useSelection } from '@/composables/useSelection'
   import { useDragReorder } from '@/composables/useDragReorder'
   import { useDragDropStore } from '@/store/dragddrop'
@@ -203,9 +203,9 @@
       })
       
       // Watch selection changes
-      const unwatch = computed(() => selectedItems.value).effect(() => {
-        emit('selection-change', selectedItems.value)
-      })
+      watch(selectedItems, (newItems) => {
+        emit('selection-change', newItems)
+      }, { deep: true })
       
       return {
         selectedItems,

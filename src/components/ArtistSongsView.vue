@@ -65,7 +65,7 @@
               </div>
             </div>
             <div class="song-details">
-              <p class="song-title">{{ song.title }}</p>
+              <p class="song-title">{{ song.name }}</p>
               <p class="song-album">{{ song.album }}</p>
             </div>
             <div class="song-duration">{{ song.duration }}</div>

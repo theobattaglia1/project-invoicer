@@ -1,214 +1,86 @@
 <template>
   <div id="app">
-    <!-- macOS-style Background -->
-    <div class="app-background">
-      <div class="gradient-orb gradient-orb-1"></div>
-      <div class="gradient-orb gradient-orb-2"></div>
-      <div class="gradient-orb gradient-orb-3"></div>
-    </div>
-    
-    <!-- Main Container -->
+    <!-- Main Container with fixed layout -->
     <div class="app-container">
-      <!-- Sidebar -->
-      <aside class="sidebar">
-        <div class="sidebar-header">
-          <div class="traffic-lights">
-            <span class="traffic-light close"></span>
-            <span class="traffic-light minimize"></span>
-            <span class="traffic-light maximize"></span>
-          </div>
-          <div class="app-title">
-            <svg class="app-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="10" fill="url(#icon-gradient)"/>
-              <path d="M10 16.5v-9l6 4.5-6 4.5z" fill="white"/>
-              <defs>
-                <linearGradient id="icon-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style="stop-color:#FF6B6B;stop-opacity:1" />
-                  <stop offset="100%" style="stop-color:#4ECDC4;stop-opacity:1" />
-                </linearGradient>
-              </defs>
-            </svg>
-            <span>Music</span>
-          </div>
-        </div>
+      <!-- Dynamic Sidebar Component -->
+      <DynamicSidebar
+        :active-view="activeView"
+        :active-artist-id="activeArtistId"
+        :active-playlist-id="activePlaylistId"
+        :active-custom-page-id="activeCustomPageId"
+        :songs="songs"
+        :artists="artists"
+        :playlists="generalPlaylists"
+        :custom-pages="customPages"
+        :drag-over-playlist-id="dragOverPlaylistId"
+        @set-active-view="setActiveView"
+        @open-add-modal="openAddModal"
+        @show-context-menu="showContextMenu"
+        @drag-enter="handleDragEnter"
+        @drag-over="handleDragOver"
+        @drag-leave="handleDragLeave"
+        @playlist-drop="handlePlaylistExternalDrop"
+        @create-custom-page="handleCreateCustomPage"
+        @delete-custom-page="handleDeleteCustomPage"
+        @create-folder="handleCreateFolder"
+      />
 
-        <nav class="sidebar-nav">
-          <!-- Quick Access -->
-          <div class="nav-section">
-            <div 
-              class="nav-item"
-              :class="{ active: activeView === 'home' }"
-              @click="activeView = 'home'"
-            >
-              <div class="nav-item-icon">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="currentColor"/>
-                </svg>
-              </div>
-              <span>Home</span>
-            </div>
-
-            <div 
-              class="nav-item"
-              :class="{ active: activeView === 'search' }"
-              @click="activeView = 'search'"
-            >
-              <div class="nav-item-icon">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/>
-                </svg>
-              </div>
-              <span>Search</span>
-            </div>
-          </div>
-
-          <!-- Library -->
-          <div class="nav-section">
-            <div class="section-label">Library</div>
-            
-            <div 
-              class="nav-item"
-              :class="{ active: activeView === 'all-songs' }"
-              @click="activeView = 'all-songs'"
-            >
-              <div class="nav-item-icon gradient-icon">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" fill="currentColor"/>
-                </svg>
-              </div>
-              <span>Songs</span>
-              <span class="nav-badge">{{ allSongs.length }}</span>
-            </div>
-
-            <div 
-              class="nav-item"
-              :class="{ active: activeView === 'artists' }"
-              @click="activeView = 'artists'"
-            >
-              <div class="nav-item-icon gradient-icon">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" fill="currentColor"/>
-                </svg>
-              </div>
-              <span>Artists</span>
-              <span class="nav-badge">{{ artists.length }}</span>
-            </div>
-
-            <div 
-              class="nav-item"
-              :class="{ active: activeView === 'playlists' }"
-              @click="activeView = 'playlists'"
-            >
-              <div class="nav-item-icon gradient-icon">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z" fill="currentColor"/>
-                </svg>
-              </div>
-              <span>Playlists</span>
-              <span class="nav-badge">{{ generalPlaylists.length }}</span>
-            </div>
-          </div>
-
-          <!-- Playlists -->
-          <div class="nav-section">
-            <div class="section-label">
-              Playlists
-              <button class="add-playlist-btn" @click="showAddModal = true">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                </svg>
-              </button>
-            </div>
-            
-            <div 
-              v-for="(element, index) in generalPlaylists"
-              :key="element.id"
-              class="nav-item playlist-item"
-              :class="{ active: activeView === 'playlist' && activePlaylistId === element.id, 'drag-over': dragOverPlaylistId === element.id }"
-              @click="setActiveView('playlist', element.id)"
-              @dragenter.prevent="handleDragEnter(element.id)"
-              @dragover.prevent="handleDragOver"
-              @dragleave="handleDragLeave"
-              @drop.prevent="(e) => handlePlaylistExternalDrop(e, element.id)"
-            >
-              <div class="playlist-cover">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
-                </svg>
-              </div>
-              <span>{{ element.name }}</span>
-            </div>
-          </div>
-        </nav>
-
-        <!-- Quick Actions -->
-        <div class="quick-actions">
-          <button class="action-btn" @click="scanMusicFolder">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-            </svg>
-            Scan Folder
-          </button>
-        </div>
-      </aside>
-
-      <!-- Main Content -->
+      <!-- Main Content Area -->
       <main class="main-content">
-        <div class="content-wrapper">
-          <!-- Dynamic content based on activeView -->
-          <HomeView 
-            v-if="activeView === 'home'" 
-            :artists="artists" 
-            :recentSongs="recentSongs"
-            @view-artists="activeView = 'artists'"
-            @select-artist="(id) => setActiveView('artist-songs', id)"
-            @navigate="(view) => activeView = view"
-          />
-          <AllSongsView 
-            v-else-if="activeView === 'all-songs'" 
-            :songs="allSongs" 
-            :onFileDrop="handleAllSongsFileDrop" 
-          />
-          <ArtistsView 
-            v-else-if="activeView === 'artists'" 
-            :artists="artists" 
-            @add-artist="showAddModal = true" 
-            @select-artist="(id) => setActiveView('artist-songs', id)" 
-            :onFileDropToArtist="handleFileDropToArtist" 
-          />
-          <playlistsview v-else-if="activeView === 'playlists'" :playlists="generalPlaylists" @create-playlist="showAddModal = true" @select-playlist="(id) => setActiveView('playlist', id)" @add-song-to-playlist="({ playlistId, song }) => addSongToPlaylist(playlistId, song)" />
-          <ArtistSongsView 
-            v-else-if="activeView === 'artist-songs'" 
-            :artist="currentArtist" 
-            :songs="currentArtistSongs" 
-            :onFileDropToArtist="handleFileDropToArtist" 
-          />
-          <PlaylistDetailView
-            v-else-if="activeView === 'playlist'"
-            :playlist="currentPlaylist"
-            :songs="currentPlaylistSongs"
-            @remove-song="removeSongFromPlaylist"
-          />
+        <!-- Dynamic Content -->
+        <div class="content-scroll">
+          <component :is="currentViewComponent" 
+                     v-bind="currentViewProps"
+                     @play-song="handlePlaySong"
+                     @add-to-queue="handleAddToQueue"
+                     @show-context-menu="showContextMenu"
+                     @navigate-to-artist="navigateToArtist"
+                     @navigate-to-playlist="navigateToPlaylist"
+                     @navigate="handleNavigation"
+                     @action="handlePageAction"
+                     @update="handlePageUpdate"
+                     @edit-metadata="handleEditMetadata"
+                     @open-add-modal="openAddModal"
+                     @select-songs="handleSelectSongs" />
         </div>
       </main>
-
-      <!-- Now Playing Bar -->
-      <NowPlayingBar v-if="currentSong" :song="currentSong" />
     </div>
 
-    <!-- Add Content Modal -->
-    <AddContentModal 
-      v-if="showAddModal" 
-      @close="showAddModal = false" 
+    <!-- Fixed Now Playing Bar -->
+    <NowPlayingBar 
+      v-if="currentSong"
+      :current-song="currentSong"
+      :is-playing="isPlaying"
+      :current-time="currentTime"
+      :duration="duration"
+      :volume="volume"
+      :is-shuffled="isShuffled"
+      :repeat-mode="repeatMode"
+      @toggle-playback="togglePlayback"
+      @seek="handleSeek"
+      @previous="playPrevious"
+      @next="playNext"
+      @toggle-shuffle="toggleShuffle"
+      @toggle-repeat="toggleRepeat"
+      @volume-change="handleVolumeChange"
+      @navigate-to-artist="navigateToArtist"
+    />
+
+    <!-- Unified Content Modal -->
+    <UnifiedContentModal 
+      ref="unifiedModalRef"
       @add="handleAddContent" 
     />
-    <!-- Toast Notifications -->
-    <Toast />
+    
+    <!-- Global UI Components -->
+    <Toast ref="toastRef" />
+    <ContextMenu ref="contextMenuRef" />
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+// Keep all the existing script content exactly as is
+import { ref, computed, onMounted, onUnmounted, provide } from 'vue'
 import { invoke } from '@tauri-apps/api/tauri'
 import { open } from '@tauri-apps/api/dialog'
 import { convertFileSrc } from '@tauri-apps/api/tauri'
@@ -217,16 +89,22 @@ import { listen } from '@tauri-apps/api/event'
 import HomeView from './components/HomeView.vue'
 import AllSongsView from './components/AllSongsView.vue'
 import ArtistsView from './components/ArtistsView.vue'
-import playlistsview from './components/playlistsview.vue'
+import PlaylistsView from './components/PlaylistsView.vue'
+import ArtistProfileView from './components/ArtistProfileView.vue'
 import ArtistSongsView from './components/ArtistSongsView.vue'
 import PlaylistDetailView from './components/PlaylistDetailView.vue'
 import NowPlayingBar from './components/NowPlayingBar.vue'
-import AddContentModal from './components/AddContentModal.vue'
+import UnifiedContentModal from './components/UnifiedContentModal.vue'
 import Toast from './components/Toast.vue'
-import { useAudioPlayer } from './services/audioPlayer'
+import ContextMenu from './components/ContextMenu.vue'
+import DynamicSidebar from './components/DynamicSidebar.vue'
+// Import the new DynamicPage component
+import DynamicPage from './components/DynamicPage.vue'
+import { usePlaybackIntegration } from '@/composables/usePlaybackIntegration'
 import { importFiles } from '@/utils/importFiles'
 import { useToastStore } from '@/store/toast'
-import { useDragDropStore } from '@/store/dragddrop'
+import { useDragDropStore } from '@/store/dragdrop'
+import { useMusicStore } from '@/store/music'
 
 export default {
   name: 'App',
@@ -234,35 +112,53 @@ export default {
     HomeView,
     AllSongsView,
     ArtistsView,
-    playlistsview,
+    PlaylistsView,
+    ArtistProfileView,
     ArtistSongsView,
     PlaylistDetailView,
     NowPlayingBar,
-    AddContentModal,
-    Toast
+    UnifiedContentModal,
+    Toast,
+    ContextMenu,
+    DynamicSidebar,
+    DynamicPage // Add the new component
   },
   setup() {
+    // Global component refs
+    const contextMenuRef = ref(null)
+    const unifiedModalRef = ref(null)
+    const toastRef = ref(null)
+
+    // Provide these refs so child components can inject and use them
+    provide('contextMenu', contextMenuRef)
+    provide('metadataEditor', unifiedModalRef) // Keep the same name for backward compatibility
+    provide('toast', toastRef)
+
     // Navigation state
     const activeView = ref('home')
     const activeArtistId = ref(null)
     const activePlaylistId = ref(null)
+    const activeCustomPageId = ref(null) // Add custom page ID
 
     // UI state
-    const showAddModal = ref(false)
-    const currentSong = ref(null)
     const dragOverPlaylistId = ref(null)
     const showFileDropOverlay = ref(false)
 
     // Data
     const artists = ref([])
     const songs = ref([])
+    const albums = ref([])
     const generalPlaylists = ref([])
+    const customPages = ref([]) // Add custom pages array
 
     // Store instances
     const toastStore = useToastStore()
     const dragStore = useDragDropStore()
+    const musicStore = useMusicStore()
     const showToast = (options) => toastStore.push(options)
-    const audio = useAudioPlayer()
+    
+    // Audio integration
+    const playback = usePlaybackIntegration()
 
     // Computed
     const allSongs = computed(() => songs.value)
@@ -276,6 +172,10 @@ export default {
       songs.value.filter(s => s.artist_id === activeArtistId.value)
     )
 
+    const currentArtistAlbums = computed(() => 
+      albums.value.filter(a => a.artist_id === activeArtistId.value)
+    )
+
     const currentPlaylist = computed(() => {
       const playlist = generalPlaylists.value.find(p => p.id === activePlaylistId.value)
       console.log('🎵 Current playlist:', playlist)
@@ -284,17 +184,37 @@ export default {
 
     const currentPlaylistSongs = computed(() => {
       const playlist = currentPlaylist.value
+      console.log('🔍 Computing playlist songs for:', playlist)
+      
       if (!playlist) return []
       
       if (playlist.songs && Array.isArray(playlist.songs)) {
+        console.log('🔍 Found playlist.songs:', playlist.songs)
         return playlist.songs
       }
       
       if (playlist.song_ids && Array.isArray(playlist.song_ids)) {
-        return songs.value.filter(s => playlist.song_ids.includes(s.id))
+        console.log('🔍 Found playlist.song_ids:', playlist.song_ids)
+        console.log('🔍 All songs:', songs.value)
+        const filtered = songs.value.filter(s => playlist.song_ids.includes(s.id))
+        console.log('🔍 Filtered songs:', filtered)
+        return filtered
       }
       
       return []
+    })
+
+    // Add current custom page computed
+    const currentCustomPage = computed(() => {
+      if (!activeCustomPageId.value) return null
+      const page = customPages.value.find(p => p.id === activeCustomPageId.value)
+      
+      // If it's a folder, add parent path for breadcrumbs
+      if (page && page.type === 'folder') {
+        page.parentPath = getParentPath(page.id)
+      }
+      
+      return page
     })
 
     const totalStorageUsed = computed(() => {
@@ -306,14 +226,441 @@ export default {
       return Math.min((totalStorageUsed.value / maxStorage) * 100, 100)
     })
 
-    // Methods
+    // Keep all existing computed properties from playback
+    const currentSong = computed(() => playback.currentSong.value)
+    const isPlaying = computed(() => playback.isPlaying.value)
+    const currentTime = computed(() => playback.currentTime.value)
+    const duration = computed(() => playback.duration.value)
+    const volume = computed(() => playback.volume.value)
+    const isShuffled = computed(() => playback.isShuffled.value)
+    const repeatMode = computed(() => playback.repeatMode.value)
+
+    // Updated dynamic component resolution to support custom pages
+    const currentViewComponent = computed(() => {
+      // Check if it's a custom page
+      if (activeView.value.startsWith('custom-')) {
+        return 'DynamicPage'
+      }
+      
+      // Otherwise use existing components
+      switch (activeView.value) {
+        case 'home': return 'HomeView'
+        case 'all-songs': return 'AllSongsView'
+        case 'artists': return 'ArtistsView'
+        case 'playlists': return 'PlaylistsView'
+        case 'artist-profile': return 'ArtistProfileView'
+        case 'artist-songs': return 'ArtistSongsView'
+        case 'playlist': return 'PlaylistDetailView'
+        default: return 'HomeView'
+      }
+    })
+
+    // Updated view props to support custom pages
+    const currentViewProps = computed(() => {
+      // Handle custom pages
+      if (activeView.value.startsWith('custom-')) {
+        return {
+          pageConfig: currentCustomPage.value
+        }
+      }
+      
+      // Existing view props logic
+      switch (activeView.value) {
+        case 'home':
+          return {
+            artists: artists.value,
+            recentSongs: recentSongs.value,
+            playlists: generalPlaylists.value,
+            allSongs: allSongs.value
+          }
+        case 'all-songs':
+          return {
+            songs: allSongs.value,
+            onFileDrop: handleAllSongsFileDrop
+          }
+        case 'artists':
+          return {
+            artists: artists.value,
+            songs: allSongs.value,
+            onFileDropToArtist: handleFileDropToArtist
+          }
+        case 'playlists':
+          return {
+            playlists: generalPlaylists.value,
+            songs: allSongs.value,
+            onFileDropToPlaylist: handleFileDropToPlaylist
+          }
+        case 'artist-profile':
+          return {
+            artist: currentArtist.value,
+            songs: currentArtistSongs.value,
+            playlists: generalPlaylists.value
+          }
+        case 'artist-songs':
+          return {
+            artist: currentArtist.value,
+            songs: currentArtistSongs.value,
+            onFileDropToArtist: handleFileDropToArtist
+          }
+        case 'playlist':
+          return {
+            playlist: currentPlaylist.value,
+            songs: currentPlaylistSongs.value
+          }
+        default:
+          return {}
+      }
+    })
+
+    // Playback control methods
+    const togglePlayback = () => playback.togglePlayPause()
+    const handleSeek = (time) => playback.seek(time)
+    const playNext = () => playback.playNext()
+    const playPrevious = () => playback.playPrevious()
+    const toggleShuffle = () => playback.toggleShuffle()
+    const toggleRepeat = () => playback.toggleRepeat()
+    const handleVolumeChange = (vol) => playback.setVolume(vol)
+
+    // Updated setActiveView to support custom pages
     const setActiveView = (view, id = null) => {
       activeView.value = view
-      if (view === 'artist-songs') {
+      
+      // Reset all IDs first
+      activeArtistId.value = null
+      activePlaylistId.value = null
+      activeCustomPageId.value = null
+      
+      // Set the appropriate ID based on view type
+      if (view === 'artist-songs' || view === 'artist-profile') {
         activeArtistId.value = id
       } else if (view === 'playlist') {
         activePlaylistId.value = id
+      } else if (view.startsWith('custom-')) {
+        activeCustomPageId.value = view.replace('custom-', '')
       }
+    }
+
+    // Helper to get all folders for hierarchy
+    const getAllFolders = () => {
+      return customPages.value.filter(p => p.type === 'folder')
+    }
+
+    // Helper to build parent path for breadcrumbs
+    const getParentPath = (folderId) => {
+      const path = []
+      let currentId = folderId
+      
+      while (currentId) {
+        const folder = customPages.value.find(p => p.id === currentId)
+        if (folder && folder.parentId) {
+          const parent = customPages.value.find(p => p.id === folder.parentId)
+          if (parent) {
+            path.unshift({ id: parent.id, name: parent.title })
+            currentId = parent.parentId
+          } else {
+            break
+          }
+        } else {
+          break
+        }
+      }
+      
+      return path
+    }
+
+    // Custom page management methods
+    const loadCustomPages = () => {
+      try {
+        const saved = localStorage.getItem('customPages')
+        if (saved) {
+          customPages.value = JSON.parse(saved)
+        }
+      } catch (error) {
+        console.error('Error loading custom pages:', error)
+      }
+    }
+
+    const saveCustomPages = () => {
+      try {
+        localStorage.setItem('customPages', JSON.stringify(customPages.value))
+      } catch (error) {
+        console.error('Error saving custom pages:', error)
+      }
+    }
+
+    const handleCreateCustomPage = (pageConfig) => {
+      const newPage = {
+        id: `page-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        ...pageConfig
+      }
+      
+      customPages.value.push(newPage)
+      saveCustomPages()
+      
+      // Navigate to the new page
+      setActiveView(`custom-${newPage.id}`)
+      
+      showToast({ msg: `Created new ${pageConfig.type} page: ${pageConfig.title}`, type: 'success' })
+    }
+
+    const handleDeleteCustomPage = (pageId) => {
+      const index = customPages.value.findIndex(p => p.id === pageId)
+      if (index > -1) {
+        const page = customPages.value[index]
+        
+        // If deleting a folder, also delete all children
+        if (page.type === 'folder') {
+          deleteChildrenOfFolder(pageId)
+        }
+        
+        customPages.value.splice(index, 1)
+        saveCustomPages()
+        
+        // If we're viewing this page, go back to home
+        if (activeCustomPageId.value === pageId) {
+          setActiveView('home')
+        }
+        
+        showToast({ msg: `Deleted page: ${page.title}`, type: 'success' })
+      }
+    }
+
+    const deleteChildrenOfFolder = (folderId) => {
+      const children = customPages.value.filter(p => p.parentId === folderId)
+      children.forEach(child => {
+        if (child.type === 'folder') {
+          deleteChildrenOfFolder(child.id)
+        }
+        const index = customPages.value.findIndex(p => p.id === child.id)
+        if (index > -1) {
+          customPages.value.splice(index, 1)
+        }
+      })
+    }
+
+    const handleUpdateCustomPage = (pageId, updates) => {
+      const page = customPages.value.find(p => p.id === pageId)
+      if (page) {
+        Object.assign(page, updates)
+        saveCustomPages()
+        showToast({ msg: 'Page updated', type: 'success' })
+      }
+    }
+
+    // Handle navigation from custom pages
+    const handleNavigation = (target) => {
+      if (target.type === 'artist') {
+        navigateToArtist(target.id)
+      } else if (target.type === 'playlist') {
+        navigateToPlaylist(target.id)
+      } else if (target.type === 'folder') {
+        // Navigate to folder
+        const folder = customPages.value.find(p => p.id === target.id)
+        if (folder) {
+          // Add parent path for breadcrumbs
+          folder.parentPath = getParentPath(folder.id)
+          setActiveView(`custom-${target.id}`)
+        }
+      } else if (target.type === 'custom') {
+        setActiveView(`custom-${target.id}`)
+      } else if (target.type === 'root') {
+        // Navigate to root/home
+        setActiveView('home')
+      }
+    }
+
+    // Updated handle page actions to support all new features
+    const handlePageAction = (action) => {
+      switch (action.type) {
+        case 'update-data':
+          // Update page data when timeline or other pages modify their content
+          if (activeCustomPageId.value) {
+            const page = customPages.value.find(p => p.id === activeCustomPageId.value)
+            if (page) {
+              page.data = { ...page.data, ...action.data }
+              saveCustomPages()
+            }
+          }
+          break
+        case 'create-playlist':
+          openAddModal('playlist')
+          break
+        case 'import-files':
+          if (action.folderId) {
+            // Import files into a specific folder
+            handleImportToFolder(action.files, action.folderId)
+          } else {
+            openAddModal('import')
+          }
+          break
+        case 'open-file':
+          // Handle file opening
+          console.log('Open file:', action.item)
+          showToast({ msg: 'File opening not implemented yet', type: 'info' })
+          break
+        case 'create-folder':
+          handleCreateFolder(action.parentId, action.parentType)
+          break
+        case 'move-to-folder':
+          // Move items to folder
+          if (action.items && action.target) {
+            moveItemsToFolder(action.items, action.target)
+          }
+          break
+        case 'open-in-tab':
+          // Handle opening in new tab
+          console.log('Open in tab:', action.item)
+          showToast({ msg: 'Tabs not implemented yet', type: 'info' })
+          break
+        case 'rename':
+          // Handle rename
+          if (activeCustomPageId.value && action.item) {
+            handleUpdateCustomPage(activeCustomPageId.value, {
+              data: page.data
+            })
+          }
+          break
+        case 'create-event':
+          openAddModal('event')
+          break
+        case 'view-event':
+          console.log('View event:', action.event)
+          break
+        case 'play':
+          if (action.item) {
+            handlePlaySong(action.item)
+          }
+          break
+        case 'contextMenu':
+          showContextMenu(action.event, action.items || [action.item], action.itemType || 'generic')
+          break
+        case 'create':
+          openAddModal(action.itemType || 'generic')
+          break
+        default:
+          console.log('Unhandled page action:', action)
+      }
+    }
+
+    // Handle page updates (from folder rename, etc)
+    const handlePageUpdate = (update) => {
+      if (activeCustomPageId.value) {
+        const page = customPages.value.find(p => p.id === activeCustomPageId.value)
+        if (page) {
+          if (update.type === 'rename' && update.item) {
+            // Update the item in the page data
+            const itemIndex = page.data.items?.findIndex(i => i.id === update.item.id)
+            if (itemIndex > -1) {
+              page.data.items[itemIndex] = update.item
+              saveCustomPages()
+            }
+          }
+        }
+      }
+    }
+
+    // Add method to create folder with parent
+    const handleCreateFolder = (config = {}) => {
+      const folderConfig = {
+        type: 'folder',
+        title: 'New Folder',
+        icon: 'folder',
+        parentId: config.parentId || null,
+        parentType: config.parentType || null, // 'artist', 'playlist', 'folder', or null
+        data: getDefaultPageData('folder'),
+        config: getDefaultPageConfig('folder')
+      }
+      
+      handleCreateCustomPage(folderConfig)
+    }
+
+    // Add method to move items to folder
+    const moveItemsToFolder = (itemIds, targetFolderId) => {
+      const targetFolder = customPages.value.find(p => p.id === targetFolderId && p.type === 'folder')
+      if (targetFolder) {
+        // Add items to target folder
+        if (!targetFolder.data.items) {
+          targetFolder.data.items = []
+        }
+        
+        // Move items (this is simplified - you'd want to handle different item types)
+        itemIds.forEach(itemId => {
+          if (!targetFolder.data.items.some(i => i.id === itemId)) {
+            targetFolder.data.items.push({ id: itemId, type: 'reference' })
+          }
+        })
+        
+        saveCustomPages()
+        showToast({ msg: `Moved ${itemIds.length} items to ${targetFolder.title}`, type: 'success' })
+      }
+    }
+
+    // Handle importing files to a specific folder
+    const handleImportToFolder = async (files, folderId) => {
+      // This would handle importing files and adding them to the folder
+      console.log('Import files to folder:', { files, folderId })
+      // Implementation would depend on your file handling logic
+      showToast({ msg: 'File import to folder not implemented yet', type: 'info' })
+    }
+
+    // Updated openAddModal to support more types
+    const openAddModal = (type = 'import', preselectedArtist = null) => {
+      console.log('🎯 [App.vue] openAddModal called with:', { 
+        type, 
+        preselectedArtist,
+        artistId: preselectedArtist?.id,
+        artistName: preselectedArtist?.name
+      })
+      
+      // Handle custom page types
+      if (['event', 'task', 'note', 'asset'].includes(type)) {
+        // For now, show a toast - you can implement these modals later
+        showToast({ msg: `Create ${type} modal not implemented yet`, type: 'info' })
+        return
+      }
+      
+      if (type === 'playlist' && preselectedArtist) {
+        // Creating playlist from artist profile
+        const modalOptions = {
+          mode: 'create',
+          type: 'playlist',
+          defaults: {
+            artistId: preselectedArtist.id,
+            artistName: preselectedArtist.name
+          }
+        }
+        console.log('🎯 [App.vue] Calling unifiedModalRef.show with:', modalOptions)
+        unifiedModalRef.value?.show(modalOptions)
+      } else {
+        // Normal create mode
+        unifiedModalRef.value?.show({
+          mode: 'create',
+          type: type,
+          tab: type === 'import' ? 'import' : type
+        })
+      }
+    }
+
+    const closeAddModal = () => {
+      unifiedModalRef.value?.close()
+    }
+
+    const handleCreateArtistPlaylist = (artist) => {
+      console.log('🎨 [App.vue] handleCreateArtistPlaylist called with artist:', {
+        id: artist?.id,
+        name: artist?.name,
+        fullArtistObject: artist
+      })
+      openAddModal('playlist', artist)
+    }
+
+    const openEditModal = (items, type) => {
+      unifiedModalRef.value?.show({
+        mode: 'edit',
+        type: type,
+        items: items
+      })
     }
 
     const formatFileSize = (bytes) => {
@@ -324,97 +671,334 @@ export default {
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
     }
 
+    // Get default data for page types
+    const getDefaultPageData = (type) => {
+      switch (type) {
+        case 'folder':
+          return { 
+            items: [],
+            name: 'New Folder'
+          }
+        case 'calendar':
+          return { events: [] }
+        case 'timeline':
+          return { items: [] }
+        case 'assets':
+          return { assets: [] }
+        case 'moodboard':
+          return { elements: [] }
+        case 'ideas':
+          return { 
+            boards: [
+              { id: 'ideas', name: 'Ideas', color: '#667eea' },
+              { id: 'todo', name: 'To Do', color: '#f59e0b' },
+              { id: 'in-progress', name: 'In Progress', color: '#3b82f6' },
+              { id: 'done', name: 'Done', color: '#10b981' }
+            ],
+            notes: []
+          }
+        case 'dashboard':
+          return {
+            sections: [
+              {
+                id: 'quick-access',
+                type: 'quick-access',
+                title: 'Quick access',
+                items: []
+              },
+              {
+                id: 'recent',
+                type: 'recent',
+                title: 'Recently played',
+                items: [],
+                limit: 8
+              },
+              {
+                id: 'stats',
+                type: 'stats',
+                title: 'Overview',
+                stats: []
+              }
+            ]
+          }
+        default:
+          return {}
+      }
+    }
+
+    // Get default config for page types
+    const getDefaultPageConfig = (type) => {
+      switch (type) {
+        case 'folder':
+          return { 
+            viewMode: 'grid',
+            sortBy: 'name',
+            sortOrder: 'asc'
+          }
+        case 'calendar':
+          return { defaultView: 'month' }
+        case 'timeline':
+          return { viewMode: 'stack' }
+        case 'assets':
+          return { itemsPerPage: 24 }
+        case 'moodboard':
+          return { canvasSize: 2000, gridSize: 20 }
+        case 'ideas':
+          return { itemsPerPage: 20 }
+        default:
+          return {}
+      }
+    }
+
     // Refresh library data from database
     const refreshLibrary = async () => {
       try {
-        const [dbSongs, dbArtists, dbPlaylists] = await Promise.all([
-          invoke('get_all_songs'),
-          invoke('get_all_artists'),
-          invoke('get_all_playlists')
-        ])
+        // Use the music store's refresh method instead
+        await musicStore.refreshLibrary()
+        
+        // Get the data from the store
+        songs.value = musicStore.songs
+        artists.value = musicStore.artists
+        albums.value = musicStore.albums
+        generalPlaylists.value = musicStore.playlists
         
         console.log('📚 Refreshed library data:', {
-          songs: dbSongs?.length || 0,
-          artists: dbArtists?.length || 0,
-          playlists: dbPlaylists?.length || 0
+          songs: songs.value?.length || 0,
+          artists: artists.value?.length || 0,
+          albums: albums.value?.length || 0,
+          playlists: generalPlaylists.value?.length || 0
         })
         
-        songs.value = dbSongs || []
-        artists.value = dbArtists || []
-        generalPlaylists.value = dbPlaylists || []
-        
-        console.log('📋 Playlists detail:', dbPlaylists)
+        console.log('📋 Sample song with artwork:', songs.value?.[0])
       } catch (error) {
         console.error('Error refreshing library:', error)
       }
     }
 
+    // Context menu for playlists in sidebar
+    const showPlaylistContextMenu = (event, playlist) => {
+      contextMenuRef.value?.show(event, [playlist], 'playlist')
+    }
+
+    // Handle album navigation
+    const handleShowAlbum = (album) => {
+      console.log('Show album:', album)
+      // You can implement album view later
+      showToast({ msg: 'Album view not implemented yet', type: 'info' })
+    }
+
+    // Handle playlist actions
+    const handlePlayPlaylist = (playlist) => {
+      musicStore.playPlaylist(playlist.id)
+    }
+
+    const handleUpdatePlaylist = async (playlistId, updatedData) => {
+      try {
+        // Update basic metadata - use camelCase for this command
+        await invoke('update_playlist', {
+          playlistId: playlistId,
+          name: updatedData.name,
+          description: updatedData.description,
+          color: updatedData.color,
+          artistId: updatedData.artistId || null
+        })
+        
+        // Handle artwork if provided
+        if (updatedData.artwork && updatedData.artwork.startsWith('data:')) {
+          // Extract base64 data from data URL
+          const base64Data = updatedData.artwork.split(',')[1]
+          const binaryData = atob(base64Data)
+          const bytes = new Uint8Array(binaryData.length)
+          for (let i = 0; i < binaryData.length; i++) {
+            bytes[i] = binaryData.charCodeAt(i)
+          }
+          
+          await invoke('save_playlist_artwork', {
+            playlistId: playlistId,
+            imageData: Array.from(bytes),
+            extension: 'jpg'
+          })
+        }
+        
+        showToast({ msg: 'Playlist updated successfully!', type: 'success' })
+        await refreshLibrary()
+      } catch (error) {
+        console.error('Error updating playlist:', error)
+        showToast({ msg: `Error: ${error}`, type: 'error' })
+      }
+    }
+
+    const handleDeletePlaylists = async (playlists) => {
+      try {
+        for (const playlist of playlists) {
+          // Use camelCase 'playlistId' as the backend expects
+          await invoke('delete_playlist', { playlistId: playlist.id })
+        }
+        showToast({ msg: `Deleted ${playlists.length} playlist(s)`, type: 'success' })
+        await refreshLibrary()
+      } catch (error) {
+        console.error('Error deleting playlists:', error)
+        showToast({ msg: `Error: ${error}`, type: 'error' })
+      }
+    }
+
+    const handleUploadPlaylistArtwork = async (playlistId) => {
+      try {
+        const selected = await open({
+          multiple: false,
+          filters: [{
+            name: 'Images',
+            extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp']
+          }]
+        })
+        
+        if (selected) {
+          const imageData = await readBinaryFile(selected)
+          const extension = selected.split('.').pop().toLowerCase()
+          
+          await invoke('save_playlist_artwork', {
+            playlistId: playlistId,
+            imageData: Array.from(imageData),
+            extension
+          })
+          
+          showToast({ msg: 'Artwork updated!', type: 'success' })
+          await refreshLibrary()
+        }
+      } catch (error) {
+        console.error('Error uploading artwork:', error)
+        showToast({ msg: `Error: ${error}`, type: 'error' })
+      }
+    }
+
+    const handleAddSongsToPlaylist = async (playlistId, songIds) => {
+      try {
+        await invoke('add_songs_to_playlist', { 
+          playlistId: playlistId,  // Changed to camelCase
+          songIds: songIds         // Changed to camelCase
+        })
+        showToast({ msg: `Added ${songIds.length} songs to playlist!`, type: 'success' })
+        await refreshLibrary()
+      } catch (error) {
+        console.error('Error adding songs to playlist:', error)
+        showToast({ msg: `Error: ${error}`, type: 'error' })
+      }
+    }
+
+    const handleFileDropToPlaylist = async (playlistId, filePaths) => {
+      try {
+        await importFiles(filePaths, { playlistId })
+        await refreshLibrary()
+      } catch (error) {
+        console.error('Error importing files to playlist:', error)
+        showToast({ msg: `Error: ${error}`, type: 'error' })
+      }
+    }
+
+    // Handle artist actions
+    const handleUpdateArtist = async (artistId, updatedData) => {
+      try {
+        // Update basic metadata - use camelCase
+        await invoke('update_artist', {
+          artistId: artistId,
+          name: updatedData.name,
+          genre: updatedData.genre,
+          bio: updatedData.bio
+        })
+        
+        // Handle artwork if provided
+        if (updatedData.artwork && updatedData.artwork.startsWith('data:')) {
+          // Extract base64 data from data URL
+          const base64Data = updatedData.artwork.split(',')[1]
+          const binaryData = atob(base64Data)
+          const bytes = new Uint8Array(binaryData.length)
+          for (let i = 0; i < binaryData.length; i++) {
+            bytes[i] = binaryData.charCodeAt(i)
+          }
+          
+          await invoke('save_artist_image', {
+            artistId: artistId,
+            imageData: Array.from(bytes),
+            extension: 'jpg'
+          })
+        }
+        
+        showToast({ msg: 'Artist updated successfully!', type: 'success' })
+        await refreshLibrary()
+      } catch (error) {
+        console.error('Error updating artist:', error)
+        showToast({ msg: `Error: ${error}`, type: 'error' })
+      }
+    }
+
+    const handleDeleteArtists = async (artists) => {
+      try {
+        for (const artist of artists) {
+          // Try both parameter styles to handle potential inconsistency
+          try {
+            await invoke('delete_artist', { artist_id: artist.id })
+          } catch (error) {
+            // If snake_case fails, try camelCase
+            await invoke('delete_artist', { artistId: artist.id })
+          }
+        }
+        showToast({ msg: `Deleted ${artists.length} artist(s)`, type: 'success' })
+        await refreshLibrary()
+      } catch (error) {
+        console.error('Error deleting artists:', error)
+        showToast({ msg: `Error: ${error}`, type: 'error' })
+      }
+    }
+
+    // Add this debugging code to your App.vue handleAddContent method:
     const handleAddContent = async (data) => {
-      console.log('Add content:', data)
+      console.log('🔍 [App.vue] handleAddContent received:', JSON.stringify(data, null, 2))
       
       try {
         switch (data.type) {
           case 'import':
+            // Handle file import
             if (data.data.files && data.data.files.length > 0) {
-              console.log(`Importing ${data.data.files.length} music files...`)
-              
-              const filePaths = data.data.files.map(f => f.path || f)
-              
-              const result = await invoke('import_music_files', { filePaths })
+              const filePaths = data.data.files.map(f => f.path)
+              const result = await invoke('import_music_files', { file_paths: filePaths })
               
               if (result.success || result.imported_count > 0) {
-                console.log(`Successfully imported ${result.imported_count} songs`)
-                
-                if (result.errors && result.errors.length > 0) {
-                  console.error('Import errors:', result.errors)
-                  showToast({ message: `Imported ${result.imported_count} songs successfully. ${result.failed_count} files failed: ${result.errors.join(', ')}`, type: 'info' })
-                } else {
-                  showToast({ message: `Successfully imported ${result.imported_count} songs!`, type: 'success' })
-                }
+                showToast({ msg: `Imported ${result.imported_count} songs!`, type: 'success' })
+                await refreshLibrary()
               } else {
-                console.error('Import failed:', result.errors)
-                showToast({ message: `Import failed: ${result.errors.join(', ')}`, type: 'error' })
+                showToast({ msg: `Import failed: ${result.errors.join(', ')}`, type: 'error' })
               }
             }
             break
             
           case 'artist':
+            // Create new artist
             const newArtist = await invoke('create_artist', {
               name: data.data.name,
-              genre: data.data.genre || null
+              genre: data.data.genre || null,
+              bio: data.data.bio || null
             })
             
-            if (data.data.imagePath) {
-              try {
-                const imageData = await readBinaryFile(data.data.imagePath)
-                const imageExt = data.data.imagePath.split('.').pop().toLowerCase()
-                
-                const imagePath = await invoke('save_artist_image', {
-                  artistId: newArtist.id,
-                  imageData: Array.from(imageData),
-                  extension: imageExt
-                })
-                
-                newArtist.image_path = imagePath
-                console.log('Artist image saved:', imagePath)
-              } catch (error) {
-                console.error('Failed to save artist image:', error)
-              }
-            }
-            
-            console.log('Added new artist:', newArtist)
-            showToast({ message: `Artist "${newArtist.name}" created successfully!`, type: 'success' })
+            showToast({ msg: `Artist "${newArtist.name}" created successfully!`, type: 'success' })
+            await refreshLibrary()
             break
             
           case 'playlist':
+            console.log('🎯 Creating playlist with data:', {
+              name: data.data.name,
+              artistId: data.data.artistId,
+              fullData: data.data
+            })
+            
             const newPlaylist = await invoke('create_playlist', {
               name: data.data.name,
               description: data.data.description || null,
-              color: data.data.color || null
+              color: data.data.color || null,
+              artistId: data.data.artistId || null  // Use camelCase to match Rust parameter
             })
             
-            console.log('Created new playlist:', newPlaylist)
-            showToast({ message: `Playlist "${newPlaylist.name}" created successfully!`, type: 'success' })
+            console.log('✅ Created new playlist:', newPlaylist)
+            showToast({ msg: `Playlist "${newPlaylist.name}" created successfully!`, type: 'success' })
             break
         }
         
@@ -422,10 +1006,8 @@ export default {
         
       } catch (error) {
         console.error('Error handling content addition:', error)
-        showToast({ message: `Error: ${error}`, type: 'error' })
+        showToast({ msg: `Error: ${error}`, type: 'error' })
       }
-      
-      showAddModal.value = false
     }
 
     const scanMusicFolder = async () => {
@@ -439,37 +1021,40 @@ export default {
         if (selected) {
           console.log('Scanning folder:', selected)
           const result = await invoke('scan_music_directory', {
-            directoryPath: selected
+            directory_path: selected
           })
           
           if (result.success || result.imported_count > 0) {
-            showToast({ message: `Scanned folder successfully! Imported ${result.imported_count} songs.`, type: 'success' })
+            showToast({ msg: `Scanned folder successfully! Imported ${result.imported_count} songs.`, type: 'success' })
             await refreshLibrary()
           } else {
-            showToast({ message: `Scan failed: ${result.errors.join(', ')}`, type: 'error' })
+            showToast({ msg: `Scan failed: ${result.errors.join(', ')}`, type: 'error' })
           }
         }
       } catch (error) {
         console.error('Error scanning folder:', error)
-        showToast({ message: `Error scanning folder: ${error}`, type: 'error' })
+        showToast({ msg: `Error scanning folder: ${error}`, type: 'error' })
       }
     }
 
     const addSongToPlaylist = async (playlistId, song) => {
       console.log('➕ Adding song to playlist:', { playlistId, song });
       try {
-        await invoke('add_songs_to_playlist', { playlistId, songIds: [song.id] })
+        await invoke('add_songs_to_playlist', { 
+          playlistId: playlistId,      // Changed to camelCase
+          songIds: [song.id]           // Changed to camelCase
+        })
         console.log('✅ Song added successfully');
-        showToast({ message: `Added '${song.title}' to playlist!`, type: 'success' })
+        showToast({ msg: `Added '${song.name}' to playlist!`, type: 'success' })
         await refreshLibrary()
       } catch (error) {
         console.error('❌ Failed to add song:', error);
-        showToast({ message: `Failed to add song: ${error}`, type: 'error' })
+        showToast({ msg: `Failed to add song: ${error}`, type: 'error' })
       }
     }
 
     const onReorderPlaylists = async (evt) => {
-      showToast({ message: 'Playlist reordering disabled', type: 'info' })
+      showToast({ msg: 'Playlist reordering disabled', type: 'info' })
     }
 
     const handleAllSongsFileDrop = async (filePaths) => {
@@ -480,19 +1065,19 @@ export default {
       }
       try {
         console.log('🎵 Calling import_music_files with paths:', filePaths)
-        const result = await invoke('import_music_files', { filePaths })
+        const result = await invoke('import_music_files', { file_paths: filePaths })
         console.log('🎵 Import result:', result)
         
         if (result.success || result.imported_count > 0) {
-          showToast({ message: `Imported ${result.imported_count} songs!`, type: 'success' })
+          showToast({ msg: `Imported ${result.imported_count} songs!`, type: 'success' })
           await refreshLibrary()
         } else {
           console.error('🎵 Import failed:', result)
-          showToast({ message: `Import failed: ${result.errors.join(', ')}`, type: 'error' })
+          showToast({ msg: `Import failed: ${result.errors.join(', ')}`, type: 'error' })
         }
       } catch (error) {
         console.error('🎵 Import error:', error)
-        showToast({ message: `Import failed: ${error}`, type: 'error' })
+        showToast({ msg: `Import failed: ${error}`, type: 'error' })
       }
     }
 
@@ -504,7 +1089,7 @@ export default {
       }
       try {
         console.log('🎨 Importing files...')
-        const result = await invoke('import_music_files', { filePaths })
+        const result = await invoke('import_music_files', { file_paths: filePaths })
         console.log('🎨 Import result:', result)
         
         if (result.success || result.imported_count > 0) {
@@ -513,31 +1098,67 @@ export default {
           
           if (songIds.length > 0) {
             console.log('🎨 Adding songs to artist...')
-            await invoke('add_songs_to_artist', { artistId, songIds })
+            await invoke('add_songs_to_artist', { 
+              artist_id: artistId,
+              song_ids: songIds 
+            })
           }
-          showToast({ message: `Imported ${result.imported_count} songs and attached to artist!`, type: 'success' })
+          showToast({ msg: `Imported ${result.imported_count} songs and attached to artist!`, type: 'success' })
           await refreshLibrary()
         } else {
           console.error('🎨 Import failed:', result)
-          showToast({ message: `Import failed: ${result.errors.join(', ')}`, type: 'error' })
+          showToast({ msg: `Import failed: ${result.errors.join(', ')}`, type: 'error' })
         }
       } catch (error) {
         console.error('🎨 Import error:', error)
-        showToast({ message: `Import failed: ${error}`, type: 'error' })
+        showToast({ msg: `Import failed: ${error}`, type: 'error' })
       }
     }
 
     const removeSongFromPlaylist = async ({ playlistId, songId }) => {
       try {
-        await invoke('remove_song_from_playlist', { playlistId, songId })
-        showToast({ message: 'Song removed from playlist', type: 'success' })
+        await invoke('remove_song_from_playlist', { 
+          playlistId: playlistId,  // Changed to camelCase
+          songId: songId          // Changed to camelCase
+        })
+        showToast({ msg: 'Song removed from playlist', type: 'success' })
         await refreshLibrary()
       } catch (error) {
-        showToast({ message: `Failed to remove song: ${error}`, type: 'error' })
+        showToast({ msg: `Failed to remove song: ${error}`, type: 'error' })
       }
     }
 
-    // FIXED: Drag and drop handlers
+    // Add these missing methods that components are expecting
+    const handlePlaySong = (song) => {
+      playback.playSong(song)
+    }
+
+    const handleAddToQueue = (songs) => {
+      playback.addToQueue(songs)
+    }
+
+    const showContextMenu = (event, items, type) => {
+      contextMenuRef.value?.show(event, items, type)
+    }
+
+    const navigateToArtist = (artistId) => {
+      setActiveView('artist-profile', artistId)
+    }
+
+    const navigateToPlaylist = (playlistId) => {
+      setActiveView('playlist', playlistId)
+    }
+
+    const handleEditMetadata = (items, type) => {
+      openEditModal(items, type)
+    }
+
+    const handleSelectSongs = (songs) => {
+      // Handle song selection for bulk operations
+      console.log('Selected songs:', songs)
+    }
+
+    // Drag and drop handlers
     const handleDragEnter = (playlistId) => {
       dragOverPlaylistId.value = playlistId
     }
@@ -554,85 +1175,85 @@ export default {
       }
     }
 
-    // In App.vue, update handlePlaylistExternalDrop:
-const handlePlaylistExternalDrop = async (e, playlistId) => {
-  console.log('🎯 Drop event for playlist:', playlistId)
-  dragOverPlaylistId.value = null
-
-  // Check for files first
-  if (e.dataTransfer.files?.length) {
-    console.log('📁 Files detected in drop:', e.dataTransfer.files)
-    const paths = [...e.dataTransfer.files].map(f => f.path)
-    await importFiles(paths, { playlistId })
-    await refreshLibrary()
-    return
-  }
-
-  // Check for dragged songs
-  const dragType = e.dataTransfer.getData('text/plain')
-  console.log('🎯 Drag type:', dragType)
-  
-  if (dragType === 'song' || dragType === 'songs') {
-    try {
-      // Try to get data from dataTransfer first
-      const jsonData = e.dataTransfer.getData('application/json')
-      console.log('🎯 JSON data:', jsonData)
+    const handlePlaylistExternalDrop = async (e, playlistId) => {
+      console.log('🎯 Drop event for playlist:', playlistId)
+      console.log('🎯 DataTransfer types:', Array.from(e.dataTransfer.types))
+      console.log('🎯 DataTransfer items:', e.dataTransfer.items.length)
+      console.log('🎯 DataTransfer files:', e.dataTransfer.files.length)
       
-      let songs = []
-      if (jsonData) {
-        const parsed = JSON.parse(jsonData)
-        songs = Array.isArray(parsed) ? parsed : [parsed]
-      } else {
-        // Fall back to store
-        const storeData = dragStore.getDraggedItem()
-        songs = Array.isArray(storeData) ? storeData : [storeData]
+      // Check all possible data
+      for (const type of e.dataTransfer.types) {
+        console.log(`🎯 Data for type "${type}":`, e.dataTransfer.getData(type))
       }
       
-      console.log('🎯 Songs to add:', songs)
+      // Check store state
+      console.log('🎯 Store state:', {
+        draggedItem: dragStore.draggedItem,
+        dragType: dragStore.dragType
+      })
       
-      if (songs.length > 0) {
-        // Add all songs to playlist
-        for (const song of songs) {
-          if (song) {
-            await addSongToPlaylist(playlistId, song)
+      dragOverPlaylistId.value = null
+
+      // Check for files first
+      if (e.dataTransfer.files?.length) {
+        console.log('📁 Files detected in drop:', e.dataTransfer.files)
+        const paths = [...e.dataTransfer.files].map(f => f.path)
+        await importFiles(paths, { playlistId })
+        await refreshLibrary()
+        return
+      }
+
+      // Check for internal drag
+      const textData = e.dataTransfer.getData('text/plain')
+      console.log('🎯 Text data:', textData)
+      
+      if (textData && textData.startsWith('internal-drag:')) {
+        try {
+          // Try to get our custom data
+          const customData = e.dataTransfer.getData('application/x-music-player-songs')
+          console.log('🎯 Custom data:', customData)
+          
+          if (customData) {
+            const { items } = JSON.parse(customData)
+            console.log('🎯 Parsed items:', items)
+            
+            for (const song of items) {
+              await addSongToPlaylist(playlistId, song)
+            }
+            
+            showToast({ 
+              msg: items.length === 1 
+                ? `Added "${items[0].name}" to playlist!` 
+                : `Added ${items.length} songs to playlist!`, 
+              type: 'success' 
+            })
+          } else {
+            // Fallback to store
+            const storeItems = dragStore.getDraggedItem()
+            if (storeItems) {
+              const items = Array.isArray(storeItems) ? storeItems : [storeItems]
+              for (const song of items) {
+                await addSongToPlaylist(playlistId, song)
+              }
+            }
           }
-        }
-        
-        if (songs.length === 1) {
-          showToast({ message: `Added "${songs[0].title}" to playlist!`, type: 'success' })
-        } else {
-          showToast({ message: `Added ${songs.length} songs to playlist!`, type: 'success' })
+        } catch (error) {
+          console.error('Drop error:', error)
+        } finally {
+          dragStore.endDrag()
         }
       }
-    } catch (error) {
-      console.error('Drop error:', error)
-      showToast({ message: `Failed to add songs: ${error}`, type: 'error' })
     }
-  }
-  
-  dragStore.endDrag()
-
-}
 
     // Initialize on mount
     onMounted(async () => {
       await refreshLibrary()
-      
-      setTimeout(() => {
-        if (songs.value.length > 0) {
-          const song = songs.value[0]
-          currentSong.value = {
-            id: song.id,
-            title: song.title,
-            artist: song.artist,
-            album: song.album,
-            duration: formatDuration(song.duration || 0),
-            path: convertFileSrc(song.path)
-          }
-        }
-      })
+      loadCustomPages() // Load custom pages
 
-      // Keyboard shortcuts
+      // Listen for library updates from metadata editor
+      window.addEventListener('library-updated', refreshLibrary)
+
+      // Keyboard shortcuts now use playback integration
       document.addEventListener('keydown', (e) => {
         const tag = document.activeElement?.tagName?.toLowerCase()
         const isEditable = document.activeElement?.isContentEditable
@@ -640,39 +1261,39 @@ const handlePlaylistExternalDrop = async (e, playlistId) => {
 
         if (e.code === 'Space') {
           e.preventDefault()
-          audio.togglePlayPause()
+          playback.togglePlayPause()
         }
         if (e.code === 'ArrowLeft') {
           e.preventDefault()
-          audio.skipBackward(10)
+          playback.seek(Math.max(0, playback.currentTime.value - 10))
         }
         if (e.code === 'ArrowRight') {
           e.preventDefault()
-          audio.skipForward(10)
+          playback.seek(playback.currentTime.value + 10)
         }
         if (e.code === 'ArrowUp') {
           e.preventDefault()
-          audio.setVolume(Math.min(audio.volume.value + 10, 100))
+          playback.setVolume(Math.min(playback.volume.value + 10, 100))
         }
         if (e.code === 'ArrowDown') {
           e.preventDefault()
-          audio.setVolume(Math.max(audio.volume.value - 10, 0))
+          playback.setVolume(Math.max(playback.volume.value - 10, 0))
         }
         if (e.key.toLowerCase() === 'm') {
-          audio.toggleMute()
+          playback.toggleMute()
         }
         if (e.key.toLowerCase() === 'n') {
-          showToast({ message: 'Next Track (not implemented)', type: 'info' })
+          playback.playNext()
         }
         if (e.key.toLowerCase() === 'p') {
-          showToast({ message: 'Previous Track (not implemented)', type: 'info' })
+          playback.playPrevious()
         }
 
         const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
         const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey
         if (ctrlOrCmd && e.key === 'f') {
           e.preventDefault()
-          showToast({ message: 'Focus Search (not implemented)', type: 'info' })
+          showToast({ msg: 'Focus Search (not implemented)', type: 'info' })
         }
         if (ctrlOrCmd && e.key === '1') {
           e.preventDefault()
@@ -692,27 +1313,27 @@ const handlePlaylistExternalDrop = async (e, playlistId) => {
         }
         if (ctrlOrCmd && e.key.toLowerCase() === 'k') {
           e.preventDefault()
-          showToast({ message: 'Quick Switcher (not implemented)', type: 'info' })
+          showToast({ msg: 'Quick Switcher (not implemented)', type: 'info' })
         }
         if (ctrlOrCmd && e.key === ',') {
           e.preventDefault()
-          showToast({ message: 'Open Settings (not implemented)', type: 'info' })
+          showToast({ msg: 'Open Settings (not implemented)', type: 'info' })
         }
 
         if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'n') {
           e.preventDefault()
           setActiveView('playlists')
-          showAddModal.value = true
+          openAddModal('playlist')
         }
         if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'a') {
           e.preventDefault()
           setActiveView('artists')
-          showAddModal.value = true
+          openAddModal('artist')
         }
         if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === 'i') {
           e.preventDefault()
           setActiveView('all-songs')
-          showAddModal.value = true
+          openAddModal('import')
         }
       })
 
@@ -729,6 +1350,11 @@ const handlePlaylistExternalDrop = async (e, playlistId) => {
       })
     })
 
+    // Clean up on unmount
+    onUnmounted(() => {
+      window.removeEventListener('library-updated', refreshLibrary)
+    })
+
     const formatDuration = (seconds) => {
       const minutes = Math.floor(seconds / 60)
       const secs = Math.floor(seconds % 60)
@@ -736,22 +1362,46 @@ const handlePlaylistExternalDrop = async (e, playlistId) => {
     }
 
     return {
+      // Refs
+      contextMenuRef,
+      unifiedModalRef,
+      toastRef,
+      
+      // Core state
       activeView,
       activeArtistId,
       activePlaylistId,
-      showAddModal,
-      currentSong,
+      activeCustomPageId,
       artists,
       songs,
+      albums,
       generalPlaylists,
+      customPages,
+      
+      // Computed
       allSongs,
       recentSongs,
       currentArtist,
       currentArtistSongs,
+      currentArtistAlbums,
       currentPlaylist,
       currentPlaylistSongs,
+      currentCustomPage,
       totalStorageUsed,
       storagePercent,
+      currentViewComponent,
+      currentViewProps,
+      
+      // Playback computed
+      currentSong,
+      isPlaying,
+      currentTime,
+      duration,
+      volume,
+      isShuffled,
+      repeatMode,
+      
+      // Methods
       setActiveView,
       handleAddContent,
       formatFileSize,
@@ -763,19 +1413,68 @@ const handlePlaylistExternalDrop = async (e, playlistId) => {
       onReorderPlaylists,
       handleAllSongsFileDrop,
       handleFileDropToArtist,
+      handleFileDropToPlaylist,
       handlePlaylistExternalDrop,
       showFileDropOverlay,
       removeSongFromPlaylist,
       handleDragEnter,
       handleDragOver,
-      handleDragLeave
+      handleDragLeave,
+      showPlaylistContextMenu,
+      handlePlayPlaylist,
+      handleUpdatePlaylist,
+      handleDeletePlaylists,
+      handleUploadPlaylistArtwork,
+      handleAddSongsToPlaylist,
+      handleUpdateArtist,
+      handleDeleteArtists,
+      handleShowAlbum,
+      openAddModal,
+      closeAddModal,
+      openEditModal,
+      handleCreateArtistPlaylist,
+      
+      // Custom page methods
+      handleCreateCustomPage,
+      handleDeleteCustomPage,
+      handleUpdateCustomPage,
+      handleNavigation,
+      handlePageAction,
+      handlePageUpdate,
+      
+      // Folder methods
+      handleCreateFolder,
+      moveItemsToFolder,
+      getAllFolders,
+      getParentPath,
+      
+      // New methods for components
+      handlePlaySong,
+      handleAddToQueue,
+      showContextMenu,
+      navigateToArtist,
+      navigateToPlaylist,
+      handleEditMetadata,
+      handleSelectSongs,
+      
+      // Playback methods
+      togglePlayback,
+      handleSeek,
+      playNext,
+      playPrevious,
+      toggleShuffle,
+      toggleRepeat,
+      handleVolumeChange,
+      
+      // Audio integration
+      playback
     }
   }
 }
 </script>
 
 <style>
-/* All existing styles remain unchanged - no modifications needed */
+/* Reset and Base Styles */
 * {
   margin: 0;
   padding: 0;
@@ -783,382 +1482,79 @@ const handlePlaylistExternalDrop = async (e, playlistId) => {
 }
 
 :root {
-  --bg-primary: #0A0A0B;
-  --bg-secondary: rgba(255, 255, 255, 0.04);
-  --bg-tertiary: rgba(255, 255, 255, 0.08);
-  --bg-hover: rgba(255, 255, 255, 0.06);
-  --bg-active: rgba(255, 255, 255, 0.1);
+  /* Colors */
+  --bg-primary: #121212;
+  --bg-secondary: #181818;
+  --bg-tertiary: #282828;
+  --bg-hover: #333333;
+  --bg-active: #404040;
   
-  --text-primary: rgba(255, 255, 255, 0.95);
-  --text-secondary: rgba(255, 255, 255, 0.6);
-  --text-tertiary: rgba(255, 255, 255, 0.4);
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --text-tertiary: #a7a7a7;
   
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-hover: rgba(255, 255, 255, 0.12);
+  --border-color: #282828;
   
-  --accent-primary: #FF6B6B;
-  --accent-secondary: #4ECDC4;
-  --accent-tertiary: #45B7D1;
+  --accent-primary: #1db954;
+  --accent-hover: #1ed760;
   
-  --gradient-primary: linear-gradient(135deg, #FF6B6B 0%, #4ECDC4 100%);
-  --gradient-secondary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --gradient-tertiary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  
+  /* Spacing */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
   --spacing-xl: 32px;
   
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.2);
-  --shadow-xl: 0 16px 64px rgba(0, 0, 0, 0.25);
+  /* Layout */
+  --sidebar-width: 232px;
+  --now-playing-height: 90px;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--bg-primary);
   color: var(--text-primary);
   overflow: hidden;
-  font-size: 14px;
-  line-height: 1.5;
 }
 
 #app {
   width: 100vw;
   height: 100vh;
-  position: relative;
-}
-
-.app-background {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  overflow: hidden;
-  z-index: 0;
-}
-
-.gradient-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(100px);
-  opacity: 0.5;
-  animation: float 20s ease-in-out infinite;
-}
-
-.gradient-orb-1 {
-  width: 600px;
-  height: 600px;
-  background: var(--gradient-primary);
-  top: -200px;
-  left: -200px;
-}
-
-.gradient-orb-2 {
-  width: 400px;
-  height: 400px;
-  background: var(--gradient-secondary);
-  bottom: -100px;
-  right: -100px;
-  animation-delay: -5s;
-}
-
-.gradient-orb-3 {
-  width: 300px;
-  height: 300px;
-  background: var(--gradient-tertiary);
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation-delay: -10s;
-}
-
-@keyframes float {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -30px) scale(1.1); }
-  66% { transform: translate(-20px, 20px) scale(0.9); }
-}
-
-.app-container {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  z-index: 1;
-}
-
-.sidebar {
-  width: 260px;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(100px) saturate(180%);
-  -webkit-backdrop-filter: blur(100px) saturate(180%);
-  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
-.sidebar-header {
-  padding: 24px 20px 20px;
-  position: relative;
-}
-
-.traffic-lights {
+/* Main Container */
+.app-container {
   display: flex;
-  gap: 8px;
-  position: absolute;
-  top: 24px;
-  left: 20px;
-}
-
-.traffic-light {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 0.5px solid rgba(0, 0, 0, 0.1);
-}
-
-.traffic-light.close {
-  background: #FF5F57;
-}
-
-.traffic-light.minimize {
-  background: #FFBD2E;
-}
-
-.traffic-light.maximize {
-  background: #28CA42;
-}
-
-.app-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 32px;
-  padding: 0 4px;
-}
-
-.app-icon {
-  width: 28px;
-  height: 28px;
-}
-
-.app-title span {
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: -0.5px;
-  background: var(--gradient-primary);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.sidebar-nav {
   flex: 1;
-  overflow-y: auto;
-  padding: 12px 12px 0;
-}
-
-.nav-section {
-  margin-bottom: 24px;
-}
-
-.section-label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-tertiary);
-  padding: 0 12px;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.add-playlist-btn {
-  width: 20px;
-  height: 20px;
-  background: none;
-  border: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-.add-playlist-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text-secondary);
-}
-
-.add-playlist-btn svg {
-  width: 14px;
-  height: 14px;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.nav-item:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.nav-item.active {
-  background: var(--bg-active);
-  color: var(--text-primary);
-}
-
-.nav-item.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 16px;
-  background: var(--accent-primary);
-  border-radius: 0 2px 2px 0;
-}
-
-.nav-item-icon {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  flex-shrink: 0;
-}
-
-.nav-item-icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-.gradient-icon {
-  background: var(--gradient-primary);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.gradient-icon svg {
-  color: white;
-}
-
-.nav-badge {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--text-tertiary);
-}
-
-.playlist-item {
-  font-size: 13px;
-  transition: all 0.2s ease;
-}
-
-.playlist-item.drag-over {
-  background: rgba(78, 205, 196, 0.2) !important;
-  border: 1px solid rgba(78, 205, 196, 0.5);
-  transform: scale(1.02);
-}
-
-.playlist-cover {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  background: var(--bg-tertiary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.playlist-cover svg {
-  width: 14px;
-  height: 14px;
-  color: var(--text-tertiary);
-}
-
-.quick-actions {
-  padding: 20px;
-  border-top: 1px solid var(--border-color);
-}
-
-.action-btn {
-  width: 100%;
-  padding: 12px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.2s ease;
-}
-
-.action-btn:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--border-hover);
-  transform: translateY(-1px);
-}
-
-.action-btn svg {
-  width: 20px;
-  height: 20px;
+  height: calc(100vh - var(--now-playing-height));
+  background: #0a0a0a;
 }
 
 /* Main Content */
 .main-content {
   flex: 1;
-  overflow: hidden;
+  background: #000;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  position: relative;
 }
 
-.content-wrapper {
+.content-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 32px;
+  overflow-x: hidden;
+  position: relative;
+  z-index: 1;
 }
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 12px;
 }
 
 ::-webkit-scrollbar-track {
@@ -1167,41 +1563,20 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  border-radius: 10px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.15);
+  background-clip: padding-box;
 }
 
-/* Animations */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-/* Responsive */
-@media (max-width: 1024px) {
-  .sidebar {
-    width: 220px;
-  }
-}
-
-@media (max-width: 768px) {
-  .sidebar {
-    position: absolute;
-    left: -100%;
-    z-index: 100;
-    transition: left 0.3s ease;
-  }
-  
-  .sidebar.open {
-    left: 0;
-  }
+/* Utility Classes */
+.drag-over {
+  background: rgba(255, 255, 255, 0.08) !important;
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
 }
 </style>

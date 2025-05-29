@@ -1,1021 +1,898 @@
 <template>
-    <div class="artist-profile-view">
-      <!-- Hero Section -->
-      <div class="artist-hero">
-        <div class="hero-background">
-          <img v-if="artist?.image" :src="artist.image" :alt="artist.name" class="hero-bg-image">
-          <div class="hero-gradient"></div>
-        </div>
-        
-        <div class="hero-content">
-          <div class="artist-avatar-large">
-            <img v-if="artist?.image" :src="artist.image" :alt="artist.name">
-            <div v-else class="avatar-placeholder-large">
-              {{ artist?.name.charAt(0) }}
-            </div>
+  <div class="artist-profile-view">
+    <!-- Hero Section -->
+    <div class="artist-hero">
+      <div class="hero-background">
+        <img 
+          v-if="artist?.artwork_path || artist?.image_path" 
+          :src="getArtworkUrl(artist.artwork_path || artist.image_path)" 
+          :alt="artist.name"
+          class="hero-image"
+        />
+        <div v-else class="hero-placeholder">
+          <div class="placeholder-icon">
+            {{ artist?.name.charAt(0).toUpperCase() }}
           </div>
-          
-          <div class="artist-info">
-            <p class="verified-badge" v-if="artist?.verified">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-              </svg>
-              Verified Artist
-            </p>
-            <h1 class="artist-title">{{ artist?.name }}</h1>
-            <p class="artist-stats">{{ formatNumber(monthlyListeners) }} monthly listeners</p>
+        </div>
+        <div class="hero-gradient"></div>
+      </div>
+      
+      <div class="hero-content">
+        <p class="artist-label">ARTIST</p>
+        <h1 class="artist-name">{{ artist?.name }}</h1>
+        <p class="artist-info">
+          <span v-if="artist?.genre">{{ artist.genre }} • </span>
+          <span>{{ songs.length }} songs</span>
+          <span v-if="totalDuration"> • {{ totalDuration }}</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Actions Section -->
+    <div class="actions-section">
+      <button class="play-button" @click="playArtist">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+      </button>
+      
+      <button class="action-button" @click="shufflePlay">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
+        </svg>
+      </button>
+      
+      <button class="action-button" @click="showMoreOptions">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+        </svg>
+      </button>
+      
+      <button class="create-playlist-button" @click="createArtistPlaylist">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/>
+        </svg>
+        Create Playlist
+      </button>
+    </div>
+
+    <!-- Content Section -->
+    <div class="artist-content">
+      <!-- Recent Tracks -->
+      <section class="content-section">
+        <h2 class="section-title">Recent tracks</h2>
+        <div class="tracks-list">
+          <div 
+            v-for="(track, index) in recentlyAddedTracks" 
+            :key="track.id"
+            class="track-item"
+            :class="{ playing: currentSong?.id === track.id }"
+            @click="playSong(track)"
+          >
+            <div class="track-number">
+              <span v-if="currentSong?.id !== track.id">{{ index + 1 }}</span>
+              <div v-else class="playing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
             
-            <div class="hero-actions">
-              <button class="play-button-large" @click="playArtist">
+            <div class="track-cover">
+              <img 
+                v-if="track.artwork_path" 
+                :src="getArtworkUrl(track.artwork_path)" 
+                :alt="track.album"
+              />
+              <div v-else class="cover-placeholder">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                </svg>
+              </div>
+            </div>
+            
+            <div class="track-info">
+              <p class="track-name">{{ track.name }}</p>
+              <p class="track-meta">
+                {{ track.album || 'Unknown Album' }}
+                <span v-if="track.date_added" class="track-date">
+                  • {{ formatRelativeDate(track.date_added) }}
+                </span>
+              </p>
+            </div>
+            
+            <p class="track-duration">{{ formatDuration(track.duration) }}</p>
+            
+            <button class="track-menu" @click.stop="showTrackMenu(track, $event)">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <button class="show-all-button" @click="showAllSongs">
+          Show all songs
+        </button>
+      </section>
+
+      <!-- Playlists -->
+      <section class="content-section" v-if="artistPlaylists.length > 0">
+        <div class="section-header">
+          <h2 class="section-title">Playlists</h2>
+          <button class="see-all-button" @click="showAllPlaylists">
+            Show all
+          </button>
+        </div>
+        <div class="playlists-grid">
+          <div 
+            v-for="playlist in artistPlaylists.slice(0, 6)" 
+            :key="playlist.id"
+            class="playlist-card"
+            @click="openPlaylist(playlist)"
+          >
+            <div class="playlist-cover">
+              <img 
+                v-if="playlist.artwork_path" 
+                :src="getArtworkUrl(playlist.artwork_path)" 
+                :alt="playlist.name"
+              />
+              <div v-else class="playlist-cover-placeholder">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
+                </svg>
+              </div>
+              <button class="playlist-play-button" @click.stop="playPlaylist(playlist)">
                 <svg viewBox="0 0 24 24" fill="currentColor">
                   <path d="M8 5v14l11-7z"/>
                 </svg>
               </button>
-              <button class="follow-button" :class="{ following: isFollowing }" @click="toggleFollow">
-                {{ isFollowing ? 'Following' : 'Follow' }}
-              </button>
-              <button class="more-button">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-                </svg>
-              </button>
             </div>
+            <p class="playlist-name">{{ playlist.name }}</p>
+            <p class="playlist-info">{{ playlist.song_ids?.length || 0 }} songs</p>
           </div>
         </div>
-      </div>
-  
-      <!-- Content Section -->
-      <div class="artist-content">
-        <!-- Popular Tracks -->
-        <section class="content-section">
-          <h2 class="section-title">Popular</h2>
-          <div class="popular-tracks">
-            <div 
-              v-for="(track, index) in popularTracks" 
-              :key="track.id"
-              class="track-item"
-              @click="playSong(track)"
-            >
-              <span class="track-number">{{ index + 1 }}</span>
-              <img v-if="track.cover" :src="track.cover" alt="" class="track-cover">
-              <div v-else class="track-cover-placeholder">
-                <svg viewBox="0 0 40 40" fill="none">
-                  <rect width="40" height="40" fill="rgba(255,255,255,0.05)" rx="4"/>
-                  <path d="M20 12v8.22c-.47-.34-1.02-.55-1.6-.55-1.77 0-3.2 1.43-3.2 3.2s1.43 3.2 3.2 3.2 3.2-1.43 3.2-3.2V16h3.2v-4H20z" fill="rgba(255,255,255,0.2)"/>
-                </svg>
-              </div>
-              <div class="track-info">
-                <p class="track-title">{{ track.title }}</p>
-                <p class="track-plays">{{ formatNumber(track.plays) }}</p>
-              </div>
-              <p class="track-duration">{{ track.duration }}</p>
-              <button class="track-menu" @click.stop="showTrackMenu(track)">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-                </svg>
-              </button>
-            </div>
+      </section>
+
+      <!-- About -->
+      <section class="content-section" v-if="artist?.bio">
+        <h2 class="section-title">About</h2>
+        <div class="about-content">
+          <p class="artist-bio">{{ artist.bio }}</p>
+        </div>
+      </section>
+
+      <!-- Statistics -->
+      <section class="content-section">
+        <h2 class="section-title">Statistics</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <p class="stat-value">{{ songs.length }}</p>
+            <p class="stat-label">Songs</p>
           </div>
-          <button class="show-more-button" @click="showAllSongs">Show all</button>
-        </section>
-  
-        <!-- Albums -->
-        <section class="content-section">
-          <div class="section-header">
-            <h2 class="section-title">Albums</h2>
-            <button class="see-all-button" @click="showAllAlbums">See all</button>
+          <div class="stat-card">
+            <p class="stat-value">{{ artistPlaylists.length }}</p>
+            <p class="stat-label">Playlists</p>
           </div>
-          <div class="albums-grid">
-            <div 
-              v-for="album in albums.slice(0, 6)" 
-              :key="album.id"
-              class="album-card"
-              @click="openAlbum(album)"
-            >
-              <div class="album-cover">
-                <img v-if="album.cover" :src="album.cover" :alt="album.name">
-                <div v-else class="album-cover-placeholder">
-                  <svg viewBox="0 0 100 100" fill="none">
-                    <rect width="100" height="100" fill="url(#album-gradient)" rx="8"/>
-                    <path d="M50 30v20.55c-1.18-.68-2.54-1.1-4-1.1-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8V40h8V30H50z" fill="rgba(255,255,255,0.2)"/>
-                  </svg>
-                </div>
-                <button class="album-play-button" @click.stop="playAlbum(album)">
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8 5v14l11-7z"/>
-                  </svg>
-                </button>
-              </div>
-              <p class="album-name">{{ album.name }}</p>
-              <p class="album-year">{{ album.year }}</p>
-            </div>
+          <div class="stat-card">
+            <p class="stat-value">{{ totalSize }}</p>
+            <p class="stat-label">Total Size</p>
           </div>
-        </section>
-  
-        <!-- Playlists -->
-        <section class="content-section" v-if="artistPlaylists.length > 0">
-          <div class="section-header">
-            <h2 class="section-title">Artist Playlists</h2>
-            <button class="see-all-button" @click="showAllPlaylists">See all</button>
+          <div class="stat-card">
+            <p class="stat-value">{{ mostRecentDate }}</p>
+            <p class="stat-label">Last Added</p>
           </div>
-          <div class="playlists-grid">
-            <div 
-              v-for="playlist in artistPlaylists.slice(0, 6)" 
-              :key="playlist.id"
-              class="playlist-card"
-              @click="openPlaylist(playlist)"
-            >
-              <div class="playlist-cover">
-                <div class="playlist-cover-grid">
-                  <div v-for="i in 4" :key="i" class="grid-item">
-                    <svg viewBox="0 0 50 50" fill="none">
-                      <rect width="50" height="50" :fill="`url(#grad${i})`"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-              <p class="playlist-name">{{ playlist.name }}</p>
-              <p class="playlist-info">{{ playlist.songs?.length || 0 }} songs</p>
-            </div>
-          </div>
-        </section>
-  
-        <!-- About -->
-        <section class="content-section">
-          <h2 class="section-title">About</h2>
-          <div class="about-section">
-            <div class="about-content">
-              <div class="artist-bio" v-if="artist?.bio">
-                <p>{{ artist.bio }}</p>
-              </div>
-              <div v-else class="bio-placeholder">
-                <p>No biography available for this artist yet.</p>
-              </div>
-              
-              <div class="artist-stats-grid">
-                <div class="stat-item">
-                  <p class="stat-value">{{ formatNumber(monthlyListeners) }}</p>
-                  <p class="stat-label">Monthly listeners</p>
-                </div>
-                <div class="stat-item">
-                  <p class="stat-value">{{ albums.length }}</p>
-                  <p class="stat-label">Albums</p>
-                </div>
-                <div class="stat-item">
-                  <p class="stat-value">{{ totalSongs }}</p>
-                  <p class="stat-label">Songs</p>
-                </div>
-              </div>
-            </div>
-            
-            <div class="artist-image-large" v-if="artist?.image">
-              <img :src="artist.image" :alt="artist.name">
-            </div>
-          </div>
-        </section>
-  
-        <!-- Similar Artists -->
-        <section class="content-section" v-if="similarArtists.length > 0">
-          <div class="section-header">
-            <h2 class="section-title">Fans also like</h2>
-            <button class="see-all-button" @click="showSimilarArtists">See all</button>
-          </div>
-          <div class="similar-artists-grid">
-            <div 
-              v-for="similarArtist in similarArtists.slice(0, 6)" 
-              :key="similarArtist.id"
-              class="similar-artist-card"
-              @click="goToArtist(similarArtist)"
-            >
-              <div class="similar-artist-avatar">
-                <img v-if="similarArtist.image" :src="similarArtist.image" :alt="similarArtist.name">
-                <div v-else class="avatar-placeholder">
-                  {{ similarArtist.name.charAt(0) }}
-                </div>
-              </div>
-              <p class="similar-artist-name">{{ similarArtist.name }}</p>
-              <p class="similar-artist-type">Artist</p>
-            </div>
-          </div>
-        </section>
-      </div>
-  
-      <!-- SVG Gradients -->
-      <svg width="0" height="0">
-        <defs>
-          <linearGradient id="album-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
-          </linearGradient>
-          <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#f093fb;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#f5576c;stop-opacity:1" />
-          </linearGradient>
-          <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#4facfe;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#00f2fe;stop-opacity:1" />
-          </linearGradient>
-          <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#43e97b;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#38f9d7;stop-opacity:1" />
-          </linearGradient>
-          <linearGradient id="grad4" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#fa709a;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#fee140;stop-opacity:1" />
-          </linearGradient>
-        </defs>
-      </svg>
+        </div>
+      </section>
     </div>
-  </template>
-  
-  <script>
-  import { ref, computed, onMounted } from 'vue'
-  import { useStore } from 'vuex'
-  
-  export default {
-    name: 'ArtistProfileView',
-    props: {
-      artistId: {
-        type: Number,
-        required: true
-      }
-    },
-    setup(props) {
-      const store = useStore()
-      const isFollowing = ref(false)
-      
-      // Computed properties
-      const artist = computed(() => 
-        store.getters.artistById(props.artistId)
-      )
-      
-      const songs = computed(() => 
-        store.getters.artistSongs(props.artistId)
-      )
-      
-      const albums = computed(() => 
-        store.getters.artistAlbums(props.artistId)
-      )
-      
-      const artistPlaylists = computed(() => 
-        store.state.playlists.filter(p => p.artist_id === props.artistId)
-      )
-      
-      const popularTracks = computed(() => 
-        // In a real app, this would be sorted by play count
-        songs.value.slice(0, 5).map(song => ({
-          ...song,
-          plays: Math.floor(Math.random() * 10000000) // Mock data
-        }))
-      )
-      
-      const monthlyListeners = computed(() => 
-        // Mock data - in real app this would come from analytics
-        Math.floor(Math.random() * 1000000) + 100000
-      )
-      
-      const totalSongs = computed(() => songs.value.length)
-      
-      const similarArtists = computed(() => 
-        // Mock data - in real app this would be based on genre/style analysis
-        store.state.artists.filter(a => a.id !== props.artistId).slice(0, 6)
-      )
-      
-      // Methods
-      const formatNumber = (num) => {
-        if (num >= 1000000) {
-          return `${(num / 1000000).toFixed(1)}M`
-        } else if (num >= 1000) {
-          return `${(num / 1000).toFixed(1)}K`
-        }
-        return num.toString()
-      }
-      
-      const playArtist = () => {
-        store.dispatch('playArtist', props.artistId)
-      }
-      
-      const toggleFollow = () => {
-        isFollowing.value = !isFollowing.value
-        // In real app, save to user preferences
-      }
-      
-      const playSong = (song) => {
-        store.dispatch('playSong', song)
-      }
-      
-      const playAlbum = (album) => {
-        store.dispatch('playAlbum', { album, songs: songs.value })
-      }
-      
-      const openAlbum = (album) => {
-        // Navigate to album view
-        console.log('Open album:', album)
-      }
-      
-      const openPlaylist = (playlist) => {
-        // Navigate to playlist view
-        store.commit('SET_ACTIVE_VIEW', { view: 'playlist', id: playlist.id })
-      }
-      
-      const showTrackMenu = (track) => {
-        console.log('Show menu for track:', track)
-      }
-      
-      const showAllSongs = () => {
-        store.commit('SET_ACTIVE_VIEW', { view: 'artist-songs', id: props.artistId })
-      }
-      
-      const showAllAlbums = () => {
-        console.log('Show all albums')
-      }
-      
-      const showAllPlaylists = () => {
-        console.log('Show all playlists')
-      }
-      
-      const showSimilarArtists = () => {
-        console.log('Show similar artists')
-      }
-      
-      const goToArtist = (artist) => {
-        store.commit('SET_ACTIVE_VIEW', { view: 'artist-profile', id: artist.id })
-      }
-      
-      return {
-        artist,
-        songs,
-        albums,
-        artistPlaylists,
-        popularTracks,
-        monthlyListeners,
-        totalSongs,
-        similarArtists,
-        isFollowing,
-        formatNumber,
-        playArtist,
-        toggleFollow,
-        playSong,
-        playAlbum,
-        openAlbum,
-        openPlaylist,
-        showTrackMenu,
-        showAllSongs,
-        showAllAlbums,
-        showAllPlaylists,
-        showSimilarArtists,
-        goToArtist
-      }
-    }
-  }
-  </script>
-  
-  <style scoped>
-  .artist-profile-view {
-    height: 100%;
-    overflow-y: auto;
-    color: #fff;
-    background: linear-gradient(180deg, rgba(20, 20, 20, 0) 0%, rgba(10, 10, 10, 1) 300px);
-  }
-  
-  /* Hero Section */
-  .artist-hero {
-    position: relative;
-    height: 420px;
-    display: flex;
-    align-items: flex-end;
-    padding: 48px;
-    margin-bottom: 32px;
-  }
-  
-  .hero-background {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    overflow: hidden;
-  }
-  
-  .hero-bg-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    filter: blur(50px) brightness(0.5);
-    transform: scale(1.1);
-  }
-  
-  .hero-gradient {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(transparent 0%, rgba(18, 18, 18, 0.7) 50%, #121212 100%);
-  }
-  
-  .hero-content {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    align-items: flex-end;
-    gap: 32px;
-    width: 100%;
-  }
-  
-  .artist-avatar-large {
-    width: 232px;
-    height: 232px;
-    border-radius: 50%;
-    overflow: hidden;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-    flex-shrink: 0;
-    background: rgba(255, 255, 255, 0.1);
-  }
-  
-  .artist-avatar-large img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .avatar-placeholder-large {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 96px;
-    font-weight: 700;
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.5) 0%, rgba(118, 75, 162, 0.5) 100%);
-    color: rgba(255, 255, 255, 0.6);
-  }
-  
-  .artist-info {
-    flex: 1;
-    padding-bottom: 8px;
-  }
-  
-  .verified-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 13px;
-    color: #3b82f6;
-    margin-bottom: 8px;
-  }
-  
-  .verified-badge svg {
-    width: 16px;
-    height: 16px;
-  }
-  
-  .artist-title {
-    font-size: 96px;
-    font-weight: 900;
-    letter-spacing: -4px;
-    line-height: 1;
-    margin-bottom: 24px;
-  }
-  
-  .artist-stats {
-    font-size: 16px;
-    color: rgba(255, 255, 255, 0.7);
-    margin-bottom: 24px;
-  }
-  
-  .hero-actions {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-  }
-  
-  .play-button-large {
-    width: 56px;
-    height: 56px;
-    background: #1db954;
-    border: none;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-  
-  .play-button-large:hover {
-    transform: scale(1.06);
-    background: #1ed760;
-  }
-  
-  .play-button-large svg {
-    width: 24px;
-    height: 24px;
-    color: #000;
-    margin-left: 2px;
-  }
-  
-  .follow-button {
-    padding: 8px 32px;
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.7);
-    border-radius: 4px;
-    color: #fff;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-  
-  .follow-button:hover {
-    border-color: #fff;
-    transform: scale(1.04);
-  }
-  
-  .follow-button.following {
-    border-color: #1db954;
-  }
-  
-  .more-button {
-    width: 40px;
-    height: 40px;
-    background: transparent;
-    border: none;
-    color: rgba(255, 255, 255, 0.7);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-  }
-  
-  .more-button:hover {
-    color: #fff;
-  }
-  
-  .more-button svg {
-    width: 24px;
-    height: 24px;
-  }
-  
-  /* Content Sections */
-  .artist-content {
-    padding: 0 48px 48px;
-  }
-  
-  .content-section {
-    margin-bottom: 64px;
-  }
-  
-  .section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 24px;
-  }
-  
-  .section-title {
-    font-size: 24px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-  }
-  
-  .see-all-button {
-    background: none;
-    border: none;
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-  
-  .see-all-button:hover {
-    color: #fff;
-  }
-  
-  /* Popular Tracks */
-  .popular-tracks {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  
-  .track-item {
-    display: grid;
-    grid-template-columns: 24px 40px 1fr 60px 40px;
-    gap: 16px;
-    align-items: center;
-    padding: 8px 0;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-  }
-  
-  .track-item:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
-  
-  .track-number {
-    text-align: center;
-    font-size: 16px;
-    color: rgba(255, 255, 255, 0.7);
-  }
-  
-  .track-cover,
-  .track-cover-placeholder {
-    width: 40px;
-    height: 40px;
-    border-radius: 4px;
-    overflow: hidden;
-  }
-  
-  .track-cover img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .track-info {
-    min-width: 0;
-  }
-  
-  .track-title {
-    font-size: 16px;
-    font-weight: 400;
-    margin-bottom: 4px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  
-  .track-plays {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.7);
-  }
-  
-  .track-duration {
-    text-align: right;
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.7);
-  }
-  
-  .track-menu {
-    width: 40px;
-    height: 40px;
-    background: none;
-    border: none;
-    color: rgba(255, 255, 255, 0.7);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: all 0.2s ease;
-  }
-  
-  .track-item:hover .track-menu {
-    opacity: 1;
-  }
-  
-  .track-menu:hover {
-    color: #fff;
-  }
-  
-  .track-menu svg {
-    width: 20px;
-    height: 20px;
-  }
-  
-  .show-more-button {
-    background: none;
-    border: none;
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    padding: 8px 0;
-    transition: all 0.2s ease;
-  }
-  
-  .show-more-button:hover {
-    color: #fff;
-  }
-  
-  /* Albums Grid */
-  .albums-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 24px;
-  }
-  
-  .album-card {
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-  
-  .album-card:hover {
-    transform: translateY(-4px);
-  }
-  
-  .album-cover {
-    position: relative;
-    width: 100%;
-    padding-bottom: 100%;
-    margin-bottom: 16px;
-    border-radius: 8px;
-    overflow: hidden;
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  }
-  
-  .album-cover img {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .album-cover-placeholder {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-  }
-  
-  .album-play-button {
-    position: absolute;
-    bottom: 8px;
-    right: 8px;
-    width: 48px;
-    height: 48px;
-    background: #1db954;
-    border: none;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    opacity: 0;
-    transform: translateY(8px);
-    transition: all 0.3s ease;
-    box-shadow: 0 8px 8px rgba(0, 0, 0, 0.3);
-  }
-  
-  .album-card:hover .album-play-button {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  
-  .album-play-button:hover {
-    transform: scale(1.06);
-    background: #1ed760;
-  }
-  
-  .album-play-button svg {
-    width: 20px;
-    height: 20px;
-    color: #000;
-    margin-left: 2px;
-  }
-  
-  .album-name {
-    font-size: 16px;
-    font-weight: 700;
-    margin-bottom: 4px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  
-  .album-year {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.7);
-  }
-  
-  /* Playlists Grid */
-  .playlists-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 24px;
-  }
-  
-  .playlist-card {
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-  
-  .playlist-card:hover {
-    transform: translateY(-4px);
-  }
-  
-  .playlist-cover {
-    width: 100%;
-    padding-bottom: 100%;
-    position: relative;
-    margin-bottom: 16px;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  }
-  
-  .playlist-cover-grid {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-  }
-  
-  .grid-item {
-    overflow: hidden;
-  }
-  
-  .grid-item svg {
-    width: 100%;
-    height: 100%;
-  }
-  
-  .playlist-name {
-    font-size: 16px;
-    font-weight: 700;
-    margin-bottom: 4px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  
-  .playlist-info {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.7);
-  }
-  
-  /* About Section */
-  .about-section {
-    display: grid;
-    grid-template-columns: 1fr 300px;
-    gap: 48px;
-    align-items: start;
-  }
-  
-  .about-content {
-    max-width: 600px;
-  }
-  
-  .artist-bio {
-    font-size: 16px;
-    line-height: 1.6;
-    color: rgba(255, 255, 255, 0.9);
-    margin-bottom: 32px;
-  }
-  
-  .bio-placeholder {
-    font-size: 16px;
-    color: rgba(255, 255, 255, 0.5);
-    margin-bottom: 32px;
-  }
-  
-  .artist-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 32px;
-  }
-  
-  .stat-item {
-    text-align: center;
-  }
-  
-  .stat-value {
-    font-size: 28px;
-    font-weight: 700;
-    margin-bottom: 4px;
-  }
-  
-  .stat-label {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.7);
-  }
-  
-  .artist-image-large {
-    width: 300px;
-    height: 300px;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  }
-  
-  .artist-image-large img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  /* Similar Artists */
-  .similar-artists-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 24px;
-  }
-  
-  .similar-artist-card {
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-  
-  .similar-artist-card:hover {
-    transform: translateY(-4px);
-  }
-  
-  .similar-artist-avatar {
-    width: 160px;
-    height: 160px;
-    margin: 0 auto 16px;
-    border-radius: 50%;
-    overflow: hidden;
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  }
-  
-  .similar-artist-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .similar-artist-avatar .avatar-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 48px;
-    font-weight: 700;
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
-    color: rgba(255, 255, 255, 0.5);
-  }
-  
-  .similar-artist-name {
-    font-size: 16px;
-    font-weight: 700;
-    margin-bottom: 4px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  
-  .similar-artist-type {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.7);
-  }
-  
-  /* Responsive */
-  @media (max-width: 1200px) {
-    .artist-title {
-      font-size: 72px;
-    }
-    
-    .albums-grid,
-    .playlists-grid {
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    }
-  }
-  
-  @media (max-width: 768px) {
-    .artist-hero {
-      height: auto;
-      padding: 24px;
-    }
-    
-    .hero-content {
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-    }
-    
-    .artist-title {
-      font-size: 48px;
-    }
-    
-    .about-section {
-      grid-template-columns: 1fr;
-    }
-    
-    .artist-image-large {
-      width: 100%;
-      max-width: 400px;
-      margin: 0 auto;
-    }
-  }
-  </style>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, inject } from 'vue'
+import { convertFileSrc } from '@tauri-apps/api/tauri'
+import { useMusicStore } from '@/store/music'
+import { usePlaybackIntegration } from '@/composables/usePlaybackIntegration'
+
+const props = defineProps({
+  artist: Object,
+  songs: Array,
+  playlists: Array
+})
+
+const emit = defineEmits(['show-all-songs', 'show-album', 'show-playlist', 'create-artist-playlist'])
+
+const musicStore = useMusicStore()
+const playback = usePlaybackIntegration()
+const contextMenuRef = inject('contextMenu', null)
+
+// Current playback state
+const currentSong = computed(() => playback.currentSong.value)
+
+// Get artist's playlists
+const artistPlaylists = computed(() => {
+  return props.playlists?.filter(p => p.artist_id === props.artist?.id) || []
+})
+
+// Get recently added tracks
+const recentlyAddedTracks = computed(() => {
+  const sorted = [...(props.songs || [])]
+    .sort((a, b) => {
+      const dateA = a.date_added ? new Date(a.date_added).getTime() : 0
+      const dateB = b.date_added ? new Date(b.date_added).getTime() : 0
+      return dateB - dateA
+    })
+  return sorted.slice(0, 5)
+})
+
+// Calculate total duration
+const totalDuration = computed(() => {
+  const totalSeconds = props.songs?.reduce((total, song) => total + (song.duration || 0), 0) || 0
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`
+  }
+  return `${minutes}m`
+})
+
+// Calculate total file size
+const totalSize = computed(() => {
+  const bytes = props.songs?.reduce((total, song) => total + (song.file_size || 0), 0) || 0
+  return formatFileSize(bytes)
+})
+
+// Get most recent date
+const mostRecentDate = computed(() => {
+  const dates = props.songs
+    ?.map(s => s.date_added ? new Date(s.date_added).getTime() : 0)
+    .filter(d => d > 0) || []
+  
+  if (dates.length === 0) return 'N/A'
+  
+  const mostRecent = new Date(Math.max(...dates))
+  return formatRelativeDate(mostRecent)
+})
+
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+const formatDuration = (seconds) => {
+  if (!seconds) return '0:00'
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+const formatRelativeDate = (date) => {
+  if (!date) return 'Unknown'
+  
+  const now = new Date()
+  const diffMs = now - new Date(date)
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return `${diffDays} days ago`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`
+  
+  return new Date(date).toLocaleDateString()
+}
+
+const getArtworkUrl = (path) => {
+  if (!path) return null
+  const timestamp = new Date().getTime()
+  return convertFileSrc(path) + '?t=' + timestamp
+}
+
+const playArtist = async () => {
+  if (props.songs?.length > 0) {
+    await playback.playSong(props.songs[0], props.songs)
+  }
+}
+
+const shufflePlay = async () => {
+  if (props.songs?.length > 0) {
+    const shuffled = [...props.songs].sort(() => Math.random() - 0.5)
+    await playback.playSong(shuffled[0], shuffled)
+  }
+}
+
+const playSong = async (song) => {
+  await playback.playSong(song, props.songs)
+}
+
+const showTrackMenu = (track, event) => {
+  contextMenuRef?.value?.show(event, [track], 'song')
+}
+
+const showMoreOptions = (event) => {
+  contextMenuRef?.value?.show(event, [props.artist], 'artist')
+}
+
+const showAllSongs = () => {
+  emit('show-all-songs', props.artist)
+}
+
+const createArtistPlaylist = () => {
+  emit('create-artist-playlist', props.artist)
+}
+
+const playPlaylist = async (playlist) => {
+  const playlistSongs = props.songs?.filter(s => 
+    playlist.song_ids?.includes(s.id)
+  ) || []
+  
+  if (playlistSongs.length > 0) {
+    await playback.playSong(playlistSongs[0], playlistSongs)
+  }
+}
+
+const openPlaylist = (playlist) => {
+  emit('show-playlist', playlist)
+}
+
+const showAllPlaylists = () => {
+  console.log('Show all playlists')
+}
+</script>
+
+<style scoped>
+.artist-profile-view {
+  height: 100%;
+  overflow-y: auto;
+  background: #000;
+  color: white;
+}
+
+/* Hero Section */
+.artist-hero {
+  position: relative;
+  height: 40vh;
+  min-height: 340px;
+  max-height: 500px;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 32px 24px;
+}
+
+.hero-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
+.hero-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: brightness(0.5);
+}
+
+.hero-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder-icon {
+  font-size: 200px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.08);
+}
+
+.hero-gradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(transparent 0, rgba(0,0,0,0.5) 100%), 
+              linear-gradient(rgba(0,0,0,0.1) 0, #000 100%);
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+
+.artist-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.artist-name {
+  font-size: clamp(48px, 8vw, 96px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  margin: 0 0 24px;
+}
+
+.artist-info {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Actions Section */
+.actions-section {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 24px 32px;
+  background: linear-gradient(rgba(0,0,0,0.6) 0, #000 100%);
+}
+
+.play-button {
+  width: 56px;
+  height: 56px;
+  background: #1db954;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.play-button:hover {
+  transform: scale(1.04);
+  background: #1ed760;
+}
+
+.play-button svg {
+  width: 24px;
+  height: 24px;
+  color: #000;
+  margin-left: 2px;
+}
+
+.action-button {
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.action-button:hover {
+  color: white;
+  transform: scale(1.04);
+}
+
+.action-button svg {
+  width: 24px;
+  height: 24px;
+}
+
+.create-playlist-button {
+  margin-left: auto;
+  padding: 11px 32px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 500px;
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.create-playlist-button:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.02);
+}
+
+.create-playlist-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Content */
+.artist-content {
+  padding: 0 32px 32px;
+}
+
+.content-section {
+  margin-bottom: 48px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  margin-bottom: 24px;
+}
+
+.section-header .section-title {
+  margin-bottom: 0;
+}
+
+.see-all-button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 4px 8px;
+}
+
+.see-all-button:hover {
+  color: white;
+}
+
+/* Tracks List */
+.tracks-list {
+  margin-bottom: 16px;
+}
+
+.track-item {
+  display: grid;
+  grid-template-columns: 32px 40px 1fr 80px 40px;
+  gap: 16px;
+  align-items: center;
+  padding: 8px 0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.track-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.track-item.playing {
+  color: #1db954;
+}
+
+.track-number {
+  text-align: center;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.playing-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+}
+
+.playing-indicator span {
+  width: 3px;
+  height: 12px;
+  background: #1db954;
+  border-radius: 3px;
+  animation: playing 0.8s ease-in-out infinite;
+}
+
+.playing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.playing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes playing {
+  0%, 100% { height: 12px; opacity: 0.8; }
+  50% { height: 4px; opacity: 1; }
+}
+
+.track-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.track-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cover-placeholder svg {
+  width: 20px;
+  height: 20px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.track-info {
+  min-width: 0;
+}
+
+.track-name {
+  font-size: 16px;
+  font-weight: 400;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-item:hover .track-name {
+  color: white;
+}
+
+.track-meta {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-date {
+  font-size: 12px;
+}
+
+.track-duration {
+  text-align: right;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.track-menu {
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s ease;
+}
+
+.track-item:hover .track-menu {
+  opacity: 1;
+}
+
+.track-menu:hover {
+  color: white;
+}
+
+.track-menu svg {
+  width: 20px;
+  height: 20px;
+}
+
+.show-all-button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px 0;
+  transition: all 0.15s ease;
+}
+
+.show-all-button:hover {
+  color: white;
+}
+
+/* Playlists Grid */
+.playlists-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 24px;
+}
+
+.playlist-card {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.playlist-card:hover {
+  transform: translateY(-4px);
+}
+
+.playlist-cover {
+  position: relative;
+  width: 100%;
+  padding-bottom: 100%;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.playlist-cover img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.playlist-cover-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+}
+
+.playlist-cover-placeholder svg {
+  width: 48px;
+  height: 48px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.playlist-play-button {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 48px;
+  height: 48px;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: all 0.2s ease;
+}
+
+.playlist-card:hover .playlist-play-button {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.playlist-play-button:hover {
+  transform: scale(1.06);
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.playlist-play-button svg {
+  width: 20px;
+  height: 20px;
+  color: white;
+  margin-left: 2px;
+}
+
+.playlist-name {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-info {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* About Section */
+.about-content {
+  max-width: 800px;
+}
+
+.artist-bio {
+  font-size: 16px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: pre-wrap;
+}
+
+/* Statistics Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.stat-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.stat-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-2px);
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Scrollbar */
+.artist-profile-view::-webkit-scrollbar {
+  width: 12px;
+}
+
+.artist-profile-view::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.artist-profile-view::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+.artist-profile-view::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.12);
+  background-clip: padding-box;
+}
+</style>

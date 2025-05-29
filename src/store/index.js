@@ -124,9 +124,9 @@ export default createStore({
     async initializeLibrary({ commit }) {
       try {
         // Load saved data from Tauri
-        const artists = await invoke('get_artists')
-        const songs = await invoke('get_songs')
-        const playlists = await invoke('get_playlists')
+        const artists = await invoke('get_all_artists')
+        const songs = await invoke('get_all_songs')
+        const playlists = await invoke('get_all_playlists')
         
         commit('SET_ARTISTS', artists)
         commit('SET_SONGS', songs)
@@ -139,7 +139,9 @@ export default createStore({
     // Import music files
     async importMusic({ commit, dispatch }, files) {
       try {
-        const importedSongs = await invoke('import_music_files', { files })
+        const importedSongs = await invoke('import_music_files', { 
+          file_paths: files  // Fixed: snake_case
+        })
         commit('ADD_SONGS', importedSongs)
         
         // Update artists if new ones were found
@@ -152,7 +154,9 @@ export default createStore({
     // Scan a directory for music
     async scanMusicFolder({ commit, dispatch }, folderPath) {
       try {
-        const files = await invoke('scan_music_directory', { path: folderPath })
+        const files = await invoke('scan_music_directory', { 
+          directory_path: folderPath  // Fixed: snake_case
+        })
         await dispatch('importMusic', files)
       } catch (error) {
         console.error('Failed to scan folder:', error)
@@ -162,7 +166,10 @@ export default createStore({
     // Add a new artist
     async addArtist({ commit }, artistData) {
       try {
-        const artist = await invoke('create_artist', { data: artistData })
+        const artist = await invoke('create_artist', { 
+          name: artistData.name,
+          genre: artistData.genre || null
+        })
         commit('ADD_ARTIST', artist)
         return artist
       } catch (error) {
@@ -174,7 +181,11 @@ export default createStore({
     // Create a new playlist
     async createPlaylist({ commit }, playlistData) {
       try {
-        const playlist = await invoke('create_playlist', { data: playlistData })
+        const playlist = await invoke('create_playlist', { 
+          name: playlistData.name,
+          description: playlistData.description || null,
+          color: playlistData.color || null
+        })
         commit('ADD_PLAYLIST', playlist)
         return playlist
       } catch (error) {
@@ -186,9 +197,14 @@ export default createStore({
     // Add songs to playlist
     async addSongsToPlaylist({ commit }, { playlistId, songIds }) {
       try {
-        await invoke('add_songs_to_playlist', { playlistId, songIds })
+        await invoke('add_songs_to_playlist', { 
+          playlist_id: playlistId,  // Fixed: snake_case
+          song_ids: songIds         // Fixed: snake_case
+        })
         // Refresh playlist data
-        const updatedPlaylist = await invoke('get_playlist', { id: playlistId })
+        const updatedPlaylist = await invoke('get_playlist_by_id', { 
+          playlist_id: playlistId  // Fixed: snake_case
+        })
         commit('UPDATE_PLAYLIST', { id: playlistId, updates: updatedPlaylist })
       } catch (error) {
         console.error('Failed to add songs to playlist:', error)
@@ -207,7 +223,7 @@ export default createStore({
     },
     
     playAlbum({ commit }, { album, songs }) {
-      const albumSongs = songs.filter(s => s.albumId === album.id)
+      const albumSongs = songs.filter(s => s.album_id === album.id)
       if (albumSongs.length > 0) {
         commit('SET_PLAY_QUEUE', albumSongs)
         commit('SET_CURRENT_SONG', albumSongs[0])
@@ -216,7 +232,7 @@ export default createStore({
     },
     
     playArtist({ commit, state }, artistId) {
-      const artistSongs = state.songs.filter(s => s.artistId === artistId)
+      const artistSongs = state.songs.filter(s => s.artist_id === artistId)
       if (artistSongs.length > 0) {
         const shuffled = state.isShuffle ? 
           [...artistSongs].sort(() => Math.random() - 0.5) : 
@@ -229,8 +245,8 @@ export default createStore({
     
     playPlaylist({ commit, state }, playlistId) {
       const playlist = state.playlists.find(p => p.id === playlistId)
-      if (playlist && playlist.songs) {
-        const songs = playlist.songs.map(songId => 
+      if (playlist && playlist.song_ids) {
+        const songs = playlist.song_ids.map(songId => 
           state.songs.find(s => s.id === songId)
         ).filter(Boolean)
         
@@ -298,12 +314,12 @@ export default createStore({
   getters: {
     // Get all songs for a specific artist
     artistSongs: (state) => (artistId) => {
-      return state.songs.filter(song => song.artistId === artistId)
+      return state.songs.filter(song => song.artist_id === artistId)
     },
     
     // Get all albums for a specific artist
     artistAlbums: (state) => (artistId) => {
-      return state.albums.filter(album => album.artistId === artistId)
+      return state.albums.filter(album => album.artist_id === artistId)
     },
     
     // Get artist by ID
@@ -319,9 +335,9 @@ export default createStore({
     // Get songs for a playlist
     playlistSongs: (state) => (playlistId) => {
       const playlist = state.playlists.find(p => p.id === playlistId)
-      if (!playlist || !playlist.songs) return []
+      if (!playlist || !playlist.song_ids) return []
       
-      return playlist.songs.map(songId => 
+      return playlist.song_ids.map(songId => 
         state.songs.find(s => s.id === songId)
       ).filter(Boolean)
     },
@@ -334,7 +350,7 @@ export default createStore({
       
       return {
         songs: state.songs.filter(song => 
-          song.title.toLowerCase().includes(query) ||
+          song.name.toLowerCase().includes(query) ||
           song.artist?.toLowerCase().includes(query) ||
           song.album?.toLowerCase().includes(query)
         ),
@@ -356,7 +372,7 @@ export default createStore({
       
       switch (state.sortBy) {
         case 'title':
-          return songs.sort((a, b) => a.title.localeCompare(b.title))
+          return songs.sort((a, b) => a.name.localeCompare(b.name))
         case 'artist':
           return songs.sort((a, b) => (a.artist || '').localeCompare(b.artist || ''))
         case 'album':
@@ -364,7 +380,7 @@ export default createStore({
         case 'duration':
           return songs.sort((a, b) => a.duration - b.duration)
         case 'dateAdded':
-          return songs.sort((a, b) => b.dateAdded - a.dateAdded)
+          return songs.sort((a, b) => b.date_added - a.date_added)
         default:
           return songs
       }
@@ -381,8 +397,8 @@ export default createStore({
       const artistCounts = {}
       
       state.songs.forEach(song => {
-        if (song.artistId) {
-          artistCounts[song.artistId] = (artistCounts[song.artistId] || 0) + 1
+        if (song.artist_id) {
+          artistCounts[song.artist_id] = (artistCounts[song.artist_id] || 0) + 1
         }
       })
       

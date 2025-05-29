@@ -33,6 +33,7 @@ serde_json  = "1.0"
 rusqlite    = { version = "0.30", features = ["bundled"] }
 
 # Audio metadata
+lofty = "0.18"  # ADD THIS LINE - This is what your music.rs needs
 id3          = "1.13"
 mp3-duration = "0.1"
 
@@ -44,6 +45,15 @@ chrono = "0.4"
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
+
+# Base64 encoding/decoding for artwork
+base64 = "0.21"
+
+# Additional audio format support (optional but recommended)
+audiotags = "0.4"  # For better metadata support across formats
+
+# UUID generation (if you're using UUIDs for IDs)
+uuid = { version = "1.6", features = ["v4", "serde"] }
 
 # ───────── Feature flags ─────────
 [features]

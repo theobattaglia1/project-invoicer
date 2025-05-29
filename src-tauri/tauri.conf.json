@@ -9,26 +9,26 @@
     "productName": "My Music App",
     "version": "0.1.0"
   },
-    "tauri": {
-      "allowlist": {
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
         "all": false,
-        "shell": {
-          "all": false,
-          "open": true
-        },
-        "dialog": {
-          "all": true
-        },
-        "fs": {
-          "all": true,
-          "scope": ["**"]
-        },
-        "path": {
-          "all": true
-        },
-        "protocol": {
-          "asset": true,
-          "assetScope": ["**"]
+        "open": true
+      },
+      "dialog": {
+        "all": true
+      },
+      "fs": {
+        "all": true,
+        "scope": ["**"]
+      },
+      "path": {
+        "all": true
+      },
+      "protocol": {
+        "asset": true,
+        "assetScope": ["**"]
       }
     },
     "bundle": {
@@ -46,19 +46,19 @@
     "security": {
       "csp": null
     },
-"windows": [
-  {
-    "title": "My Music App",
-    "width": 1200,
-    "height": 800,
-    "resizable": true,
-    "fullscreen": false,
-    "visible": true,
-    "center": true,
-    "minWidth": 800,
-    "minHeight": 600,
-    "fileDropEnabled": false
-  }
-]
+    "windows": [
+      {
+        "title": "My Music App",
+        "width": 1200,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false,
+        "visible": true,
+        "center": true,
+        "minWidth": 800,
+        "minHeight": 600,
+        "fileDropEnabled": false
+      }
+    ]
   }
 }
