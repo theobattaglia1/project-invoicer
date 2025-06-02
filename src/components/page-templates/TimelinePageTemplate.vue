@@ -463,6 +463,24 @@
     setup(props, { emit }) {
       // Inject global services
       const toast = inject('toast')
+      const showToast = inject('showToast')
+      const fileService = inject('fileService')
+      const momentService = inject('momentService')
+      const { convertImageSrc } = fileService
+      const { handleImageError, selectImageForMoment } = momentService
+      const { handleCardClick, showItemContextMenu, deleteMoment, editMoment } = momentService
+      const { handleFileDrop, handleDragEnter, showContextMenu, closeContextMenu } = momentService
+      const { saveMoment, closeModal, addTag, removeTag, setFilter, deleteSelectedItems } = momentService
+      const { resetView, toggleAutoPlay } = momentService
+      const { formatDate } = momentService
+      const { handleBackgroundClick, handleItemClick } = momentService
+      const { convertFileSrc } = fileService
+      const { selectImage } = momentService
+      const { handleWheel, handleKeyboard } = momentService
+      const { setCurrentIndex, navigatePrev, navigateNext } = momentService
+      const { updateDateTime } = momentService
+      const { uniqueTags, getTagCount } = momentService
+      const { sortedItems, filteredItems, currentItem } = momentService   
       
       // Refs
       const containerRef = ref(null)
@@ -743,7 +761,7 @@
         // Update data
         updateItems()
         
-        'Please drop image files'({ 
+        showToast({
           msg: `Deleted ${count} moment${count > 1 ? 's' : ''}`, 
           type: 'success' 
         })
@@ -787,7 +805,7 @@
         items.value = newItems
         updateItems()
         
-        'Please drop image files'({ msg: 'Timeline reordered', type: 'success' })
+        showToast({ msg: 'Timeline reordered', type: 'success' })
       }
   
       const handleBackgroundClick = () => {
@@ -861,7 +879,7 @@
           }
         } catch (error) {
           console.error('Error selecting image:', error)
-          'Please drop image files'({ msg: 'Failed to select image', type: 'error' })
+          showToast({ msg: 'Failed to select image', type: 'error' })
         }
       }
   
@@ -906,7 +924,7 @@
         const imageFiles = files.filter(f => f.type.startsWith('image/'))
         
         if (imageFiles.length === 0) {
-          showToast({ msg: 'Please drop image files', type: 'error' })
+          showToast({ msg: 'Please drop image files', type: 'error' }) // This one is correct
           return
         }
   
@@ -1003,7 +1021,7 @@
         if (index !== -1) {
           items.value.splice(index, 1)
           updateItems()
-          'Please drop image files'({ msg: 'Moment deleted', type: 'success' })
+          showToast({ msg: 'Moment deleted', type: 'success' })
         }
       }
   

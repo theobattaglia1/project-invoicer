@@ -1,3 +1,4 @@
+<!-- src/views/AllSongsView.vue -->
 <template>
   <div class="songs-view">
     <!-- Header -->
@@ -624,12 +625,32 @@ export default {
 </script>
 
 <style scoped>
+:root {
+  --body-font-family: 'Helvetica Neue', Arial, sans-serif;
+  --body-font-size: 14px;
+  --body-font-weight: 400;
+  --body-font-line-height: 1.5;
+  --header-font-family: 'Helvetica Neue', Arial, sans-serif;
+  --header-font-size: 24px;
+  --header-font-weight: 700;
+  --header-font-line-height: 1.2;
+  --hide-images: block;
+}
+
 .songs-view {
   height: 100%;
   display: flex;
   flex-direction: column;
   background: #000;
   color: white;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
+  line-height: var(--body-font-line-height);
+}
+
+.songs-view img {
+  display: var(--hide-images);
 }
 
 /* Header */
@@ -645,15 +666,19 @@ export default {
 }
 
 .view-title {
-  font-size: 32px;
-  font-weight: 700;
+  font-family: var(--header-font-family);
+  font-size: var(--header-font-size);
+  font-weight: var(--header-font-weight);
   margin-bottom: 4px;
   letter-spacing: -0.5px;
+  line-height: var(--header-font-line-height);
 }
 
 .view-subtitle {
-  font-size: 14px;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
   color: rgba(255, 255, 255, 0.6);
+  line-height: var(--body-font-line-height);
 }
 
 .selection-count {
@@ -743,7 +768,8 @@ export default {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   color: rgba(255, 255, 255, 0.8);
-  font-size: 14px;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
@@ -778,7 +804,8 @@ export default {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
-  font-size: 14px;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
 }
 
 .sort-option:hover {
@@ -810,8 +837,9 @@ export default {
   padding: 10px 20px;
   border: none;
   border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -868,6 +896,7 @@ export default {
   gap: 16px;
   padding: 12px 32px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-family: var(--body-font-family);
   font-size: 12px;
   font-weight: 500;
   text-transform: uppercase;
@@ -906,6 +935,10 @@ export default {
   transition: all 0.15s ease;
   align-items: center;
   user-select: none;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
+  line-height: var(--body-font-line-height);
 }
 
 .song-row:hover {
@@ -1009,6 +1042,7 @@ export default {
 }
 
 .song-name {
+  font-family: var(--body-font-family);
   font-size: 14px;
   font-weight: 500;
   overflow: hidden;
@@ -1018,6 +1052,7 @@ export default {
 
 .col-artist,
 .col-album {
+  font-family: var(--body-font-family);
   font-size: 14px;
   color: rgba(255, 255, 255, 0.7);
   overflow: hidden;
@@ -1037,6 +1072,7 @@ export default {
 
 .col-duration {
   text-align: center;
+  font-family: var(--body-font-family);
   font-size: 14px;
   color: rgba(255, 255, 255, 0.5);
   font-variant-numeric: tabular-nums;
@@ -1095,6 +1131,7 @@ export default {
 }
 
 .drop-content p {
+  font-family: var(--header-font-family);
   font-size: 18px;
   color: rgba(255, 255, 255, 0.8);
   font-weight: 500;

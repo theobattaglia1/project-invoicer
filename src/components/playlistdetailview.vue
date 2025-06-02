@@ -209,7 +209,7 @@
                 {{ song.artist }}
               </span>
             </div>
-            <div class="col-album">{{ song.album || '—' }}</div>
+            <div class="col-album">{{ song.album || '-' }}</div>
             <div class="col-duration">{{ formatDuration(song.duration) }}</div>
             
             <div class="col-actions">
@@ -569,8 +569,11 @@ export default {
 .playlist-detail-view {
   height: 100%;
   overflow-y: auto;
-  background: #000;
-  color: white;
+  background: var(--bg-color);
+  color: var(--text-primary, #fff);
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  line-height: var(--body-font-line-height);
 }
 
 /* Hero Section */
@@ -617,7 +620,7 @@ export default {
   right: 0;
   bottom: 0;
   background: linear-gradient(transparent 0, rgba(0,0,0,0.5) 100%), 
-              linear-gradient(rgba(0,0,0,0.1) 0, #000 100%);
+              linear-gradient(rgba(0,0,0,0.1) 0, var(--bg-color) 100%);
 }
 
 .hero-content {
@@ -627,24 +630,28 @@ export default {
 }
 
 .playlist-label {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 8px;
+  font-family: var(--header-font-family);
+  font-size: var(--header-font-size);
+  font-weight: var(--header-font-weight);
+  line-height: var(--header-font-line-height);
   color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
 }
 
 .playlist-name {
+  font-family: var(--header-font-family);
   font-size: clamp(32px, 5vw, 64px);
-  font-weight: 900;
-  line-height: 1;
+  font-weight: var(--header-font-weight);
+  line-height: var(--header-font-line-height);
   letter-spacing: -0.04em;
   margin: 0 0 16px;
+  color: var(--text-primary, #fff);
 }
 
 .playlist-info {
-  font-size: 14px;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  line-height: var(--body-font-line-height);
   color: rgba(255, 255, 255, 0.7);
 }
 
@@ -654,13 +661,13 @@ export default {
   align-items: center;
   gap: 24px;
   padding: 24px 32px;
-  background: linear-gradient(rgba(0,0,0,0.6) 0, #000 100%);
+  background: linear-gradient(rgba(0,0,0,0.6) 0, var(--bg-color) 100%);
 }
 
 .play-button {
   width: 56px;
   height: 56px;
-  background: #1db954;
+  background: var(--accent-color);
   border: none;
   border-radius: 50%;
   display: flex;
@@ -672,7 +679,7 @@ export default {
 
 .play-button:hover {
   transform: scale(1.04);
-  background: #1ed760;
+  background: var(--accent-hover);
 }
 
 .play-button svg {
@@ -687,7 +694,7 @@ export default {
   height: 32px;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
   cursor: pointer;
   padding: 0;
   display: flex;
@@ -697,7 +704,7 @@ export default {
 }
 
 .action-button:hover {
-  color: white;
+  color: var(--text-primary, #fff);
   transform: scale(1.04);
 }
 
@@ -711,11 +718,12 @@ export default {
   margin-left: auto;
   padding: 11px 32px;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--text-secondary, rgba(255, 255, 255, 0.2));
   border-radius: 500px;
-  color: white;
-  font-size: 14px;
-  font-weight: 700;
+  color: var(--text-primary, #fff);
+  font-family: var(--header-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--header-font-weight);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   cursor: pointer;
@@ -727,7 +735,7 @@ export default {
 
 .upload-image-button:hover,
 .edit-button:hover {
-  border-color: rgba(255, 255, 255, 0.4);
+  border-color: var(--text-primary, rgba(255, 255, 255, 0.4));
   transform: scale(1.02);
 }
 
@@ -756,7 +764,7 @@ export default {
   gap: 16px;
   padding: 16px 32px;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--text-secondary, rgba(255, 255, 255, 0.05));
 }
 
 .search-box {
@@ -772,7 +780,7 @@ export default {
   transform: translateY(-50%);
   width: 20px;
   height: 20px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.4));
   pointer-events: none;
 }
 
@@ -780,21 +788,22 @@ export default {
   width: 100%;
   padding: 10px 44px;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--text-secondary, rgba(255, 255, 255, 0.08));
   border-radius: 8px;
-  color: white;
-  font-size: 14px;
+  color: var(--text-primary, #fff);
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
   transition: all 0.15s ease;
 }
 
 .search-input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.4));
 }
 
 .search-input:focus {
   outline: none;
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: var(--text-secondary, rgba(255, 255, 255, 0.15));
 }
 
 .clear-search {
@@ -806,7 +815,7 @@ export default {
   height: 28px;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.4));
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -817,7 +826,7 @@ export default {
 
 .clear-search:hover {
   background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
 }
 
 /* View Options */
@@ -831,10 +840,11 @@ export default {
   gap: 8px;
   padding: 10px 16px;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--text-secondary, rgba(255, 255, 255, 0.08));
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 14px;
+  color: var(--text-secondary, rgba(255, 255, 255, 0.8));
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
@@ -842,7 +852,8 @@ export default {
 
 .sort-button:hover {
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: var(--text-secondary, rgba(255, 255, 255, 0.15));
+  color: var(--text-primary, #fff);
 }
 
 .sort-button svg {
@@ -854,9 +865,9 @@ export default {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  background: rgba(18, 18, 18, 0.95);
+  background: var(--bg-secondary, rgba(18, 18, 18, 0.95));
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--text-secondary, rgba(255, 255, 255, 0.08));
   border-radius: 8px;
   padding: 4px;
   min-width: 180px;
@@ -869,17 +880,20 @@ export default {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
-  font-size: 14px;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.8));
 }
 
 .sort-option:hover {
   background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #fff);
 }
 
 .sort-option.active {
   background: rgba(255, 255, 255, 0.1);
-  color: white;
-  font-weight: 500;
+  color: var(--text-primary, #fff);
+  font-weight: var(--body-font-weight);
 }
 
 /* Selection Actions */
@@ -896,8 +910,9 @@ export default {
   padding: 8px 16px;
   border: none;
   border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -909,13 +924,14 @@ export default {
 
 .action-btn.ghost {
   background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.8));
+  border: 1px solid var(--text-secondary, rgba(255, 255, 255, 0.08));
 }
 
 .action-btn.ghost:hover {
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: var(--text-secondary, rgba(255, 255, 255, 0.15));
+  color: var(--text-primary, #fff);
 }
 
 .action-btn.danger {
@@ -954,19 +970,22 @@ export default {
 .empty-icon svg {
   width: 40px;
   height: 40px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.3));
 }
 
 .empty-state h3 {
-  font-size: 24px;
-  font-weight: 600;
+  font-family: var(--header-font-family);
+  font-size: var(--header-font-size);
+  font-weight: var(--header-font-weight);
   margin-bottom: 8px;
+  color: var(--text-primary, #fff);
 }
 
 .empty-state p,
 .no-results p {
-  font-size: 16px;
-  color: rgba(255, 255, 255, 0.6);
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.6));
 }
 
 /* Table Header */
@@ -975,12 +994,13 @@ export default {
   grid-template-columns: 50px 1fr 200px 200px 80px 50px;
   gap: 16px;
   padding: 12px 32px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 12px;
-  font-weight: 500;
+  border-bottom: 1px solid var(--text-secondary, rgba(255, 255, 255, 0.05));
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.5));
   background: rgba(255, 255, 255, 0.02);
 }
 
@@ -1008,12 +1028,17 @@ export default {
   display: grid;
   grid-template-columns: 50px 1fr 200px 200px 80px 50px;
   gap: 16px;
-  padding: 8px 0;
+  padding: calc(
+    var(--compact-mode) * 4px +
+    (1 - var(--compact-mode)) * 8px
+  ) 0;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
   align-items: center;
   user-select: none;
+  background: transparent;
+  color: var(--text-primary, #fff);
 }
 
 .song-row:hover {
@@ -1029,14 +1054,15 @@ export default {
 }
 
 .song-row.playing {
-  color: #1db954;
+  color: var(--accent-color);
 }
 
 /* Columns */
 .col-number {
   text-align: center;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.5));
 }
 
 .track-number {
@@ -1053,7 +1079,7 @@ export default {
 .playing-indicator span {
   width: 3px;
   height: 12px;
-  background: #1db954;
+  background: var(--accent-color);
   border-radius: 3px;
   animation: playing 0.8s ease-in-out infinite;
 }
@@ -1113,12 +1139,13 @@ export default {
 .artwork-placeholder svg {
   width: 20px;
   height: 20px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.3));
 }
 
 .song-name {
-  font-size: 14px;
-  font-weight: 500;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1126,8 +1153,9 @@ export default {
 
 .col-artist,
 .col-album {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.7));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1136,17 +1164,19 @@ export default {
 .artist-link {
   cursor: pointer;
   transition: all 0.15s ease;
+  color: var(--accent-color);
 }
 
 .artist-link:hover {
-  color: white;
+  color: var(--text-primary, #fff);
   text-decoration: underline;
 }
 
 .col-duration {
   text-align: center;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.5));
   font-variant-numeric: tabular-nums;
 }
 
@@ -1160,7 +1190,7 @@ export default {
   height: 32px;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.5));
   cursor: pointer;
   border-radius: 50%;
   display: flex;
@@ -1171,7 +1201,7 @@ export default {
 
 .action-icon:hover {
   background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-secondary, rgba(255, 255, 255, 0.8));
 }
 
 .action-icon svg {
@@ -1179,7 +1209,7 @@ export default {
   height: 18px;
 }
 
-/* Scrollbar */
+/* Scrollbars */
 .songs-list::-webkit-scrollbar {
   width: 12px;
 }
@@ -1189,14 +1219,14 @@ export default {
 }
 
 .songs-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--text-secondary, rgba(255, 255, 255, 0.08));
   border-radius: 6px;
   border: 3px solid transparent;
   background-clip: padding-box;
 }
 
 .songs-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--text-secondary, rgba(255, 255, 255, 0.12));
   background-clip: padding-box;
 }
 
@@ -1209,14 +1239,14 @@ export default {
 }
 
 .playlist-detail-view::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--text-secondary, rgba(255, 255, 255, 0.08));
   border-radius: 6px;
   border: 3px solid transparent;
   background-clip: padding-box;
 }
 
 .playlist-detail-view::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--text-secondary, rgba(255, 255, 255, 0.12));
   background-clip: padding-box;
 }
 </style>

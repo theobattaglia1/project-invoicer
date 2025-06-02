@@ -1,3 +1,4 @@
+<!-- src/components/ArtistProfileView.vue -->
 <template>
   <div class="artist-profile-view">
     <!-- Hero Section -->
@@ -344,11 +345,20 @@ const showAllPlaylists = () => {
 </script>
 
 <style scoped>
+/* Use CSS variables for fonts and image visibility */
 .artist-profile-view {
   height: 100%;
   overflow-y: auto;
   background: #000;
   color: white;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
+  line-height: var(--body-font-line-height);
+}
+
+.artist-profile-view img {
+  display: var(--hide-images);
 }
 
 /* Hero Section */
@@ -417,18 +427,25 @@ const showAllPlaylists = () => {
   text-transform: uppercase;
   margin-bottom: 12px;
   color: rgba(255, 255, 255, 0.7);
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
 }
 
 .artist-name {
-  font-size: clamp(48px, 8vw, 96px);
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: -0.04em;
+  font-family: var(--header-font-family);
+  font-size: var(--header-font-size);
+  font-weight: var(--header-font-weight);
+  line-height: var(--header-font-line-height);
   margin: 0 0 24px;
+  letter-spacing: -0.04em;
 }
 
 .artist-info {
-  font-size: 14px;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
+  line-height: var(--body-font-line-height);
   color: rgba(255, 255, 255, 0.7);
 }
 
@@ -506,6 +523,9 @@ const showAllPlaylists = () => {
   display: flex;
   align-items: center;
   gap: 8px;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
 }
 
 .create-playlist-button:hover {
@@ -535,9 +555,10 @@ const showAllPlaylists = () => {
 }
 
 .section-title {
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.04em;
+  font-family: var(--header-font-family);
+  font-size: var(--header-font-size);
+  font-weight: var(--header-font-weight);
+  line-height: var(--header-font-line-height);
   margin-bottom: 24px;
 }
 
@@ -549,8 +570,9 @@ const showAllPlaylists = () => {
   background: none;
   border: none;
   color: rgba(255, 255, 255, 0.6);
-  font-size: 12px;
-  font-weight: 700;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   cursor: pointer;
@@ -576,6 +598,10 @@ const showAllPlaylists = () => {
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.15s ease;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
+  line-height: var(--body-font-line-height);
 }
 
 .track-item:hover {
@@ -653,8 +679,9 @@ const showAllPlaylists = () => {
 }
 
 .track-name {
-  font-size: 16px;
-  font-weight: 400;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
   margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -666,7 +693,8 @@ const showAllPlaylists = () => {
 }
 
 .track-meta {
-  font-size: 14px;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
   color: rgba(255, 255, 255, 0.5);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -714,8 +742,9 @@ const showAllPlaylists = () => {
   background: none;
   border: none;
   color: rgba(255, 255, 255, 0.6);
-  font-size: 14px;
-  font-weight: 700;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
   cursor: pointer;
   padding: 8px 0;
   transition: all 0.15s ease;
@@ -816,8 +845,9 @@ const showAllPlaylists = () => {
 }
 
 .playlist-name {
-  font-size: 16px;
-  font-weight: 700;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
   margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -825,7 +855,8 @@ const showAllPlaylists = () => {
 }
 
 .playlist-info {
-  font-size: 14px;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
   color: rgba(255, 255, 255, 0.6);
 }
 
@@ -835,8 +866,9 @@ const showAllPlaylists = () => {
 }
 
 .artist-bio {
-  font-size: 16px;
-  line-height: 1.6;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  line-height: var(--body-font-line-height);
   color: rgba(255, 255, 255, 0.8);
   white-space: pre-wrap;
 }
@@ -863,16 +895,21 @@ const showAllPlaylists = () => {
 }
 
 .stat-value {
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
+  margin-bottom: 8px;
   font-size: 32px;
   font-weight: 700;
-  margin-bottom: 8px;
 }
 
 .stat-label {
-  font-size: 14px;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
   color: rgba(255, 255, 255, 0.6);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  font-size: 14px;
 }
 
 /* Scrollbar */

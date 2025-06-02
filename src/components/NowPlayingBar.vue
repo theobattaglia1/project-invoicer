@@ -46,7 +46,7 @@
           <div class="song-details">
             <div class="song-title">{{ currentSong?.name || 'No song playing' }}</div>
             <div class="song-artist" @click="$emit('navigate-to-artist', currentSong?.artist_id)">
-              {{ currentSong?.artist || '—' }}
+              {{ currentSong?.artist || '-' }}
             </div>
           </div>
           

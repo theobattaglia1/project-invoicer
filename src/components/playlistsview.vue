@@ -1,3 +1,4 @@
+<!-- src/components/PlaylistsView.vue -->
 <template>
   <div class="playlists-view">
     <!-- Header -->
@@ -84,7 +85,6 @@
               <img 
                 :src="getArtworkUrl(playlist.artwork_path)" 
                 :alt="playlist.name"
-                @error="handleImageError"
               />
             </div>
             
@@ -101,7 +101,6 @@
                   v-if="artwork" 
                   :src="getArtworkUrl(artwork)" 
                   :alt="`Cover ${i + 1}`"
-                  @error="handleImageError"
                 />
                 <div v-else class="collage-placeholder">
                   <svg viewBox="0 0 24 24" fill="currentColor">
@@ -179,7 +178,7 @@ const props = defineProps({
   onFileDropToPlaylist: Function
 })
 
-const emit = defineEmits(['create-playlist', 'select-playlist', 'add-song-to-playlist', 'delete-playlists', 'update-playlist', 'play-playlist'])
+const emit = defineEmits(['create-playlist', 'select-playlist', 'add-songs-to-playlist', 'delete-playlists', 'update-playlist', 'play-playlist', 'navigate-to-playlist'])
 
 const musicStore = useMusicStore()
 const playback = usePlaybackIntegration()
@@ -226,7 +225,7 @@ const toggleSelection = (playlist, index, event) => {
   selectedIds.value = new Set(selectedIds.value)
 }
 
-// FIXED: Click handling with navigation
+// Fixed: Click handling with navigation
 const handlePlaylistClick = (playlist, index, event) => {
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
   const multiSelectKey = isMac ? event.metaKey : event.ctrlKey
@@ -250,7 +249,6 @@ const handlePlaylistClick = (playlist, index, event) => {
     toggleSelection(playlist, index, event)
   } else {
     // Regular click - navigate to playlist
-    // Only navigate if we're not in selection mode
     if (selectedItems.value.length === 0) {
       emit('navigate-to-playlist', playlist.id)
     } else {
@@ -300,14 +298,11 @@ const deleteSelectedPlaylists = () => {
 // Artwork handling
 const getArtworkUrl = (path) => {
   if (!path) return null
-  
   if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('asset://')) {
     return path
   }
-  
   try {
-    const convertedUrl = convertFileSrc(path)
-    return convertedUrl
+    return convertFileSrc(path)
   } catch (error) {
     console.error('Error converting path:', error)
     return null
@@ -333,7 +328,6 @@ const getPlaylistArtworks = (playlist) => {
       }
     }
   }
-  
   return artworks
 }
 
@@ -406,12 +400,20 @@ watch(() => [props.playlists, props.songs], () => {
 </script>
 
 <style scoped>
-/* Keep all the existing styles - they're perfect */
+/* Use CSS variables for fonts and image visibility */
 .playlists-view {
   height: 100%;
   display: flex;
   flex-direction: column;
   color: white;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
+  line-height: var(--body-font-line-height);
+}
+
+.playlists-view img {
+  display: var(--hide-images);
 }
 
 /* Header */
@@ -427,14 +429,16 @@ watch(() => [props.playlists, props.songs], () => {
 }
 
 .view-title {
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
+  font-family: var(--header-font-family);
+  font-size: var(--header-font-size);
+  font-weight: var(--header-font-weight);
+  line-height: var(--header-font-line-height);
   margin-bottom: 4px;
 }
 
 .view-subtitle {
-  font-size: 14px;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
   color: rgba(255, 255, 255, 0.6);
 }
 
@@ -468,7 +472,8 @@ watch(() => [props.playlists, props.songs], () => {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   color: white;
-  font-size: 14px;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
   transition: all 0.15s ease;
 }
 
@@ -494,8 +499,9 @@ watch(() => [props.playlists, props.songs], () => {
   padding: 10px 20px;
   border: none;
   border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -735,16 +741,21 @@ watch(() => [props.playlists, props.songs], () => {
 }
 
 .playlist-name {
-  font-size: 16px;
-  font-weight: 600;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .playlist-meta {
-  font-size: 14px;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
   color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
 }
 
 /* Menu button */

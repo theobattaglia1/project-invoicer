@@ -1,3 +1,4 @@
+<!-- File: src/components/ArtistsView.vue -->
 <template>
   <div class="artists-view">
     <!-- Header -->
@@ -12,14 +13,19 @@
       <div class="header-controls">
         <div class="search-box">
           <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 
+                     16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 
+                     5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79
+                     l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5
+                     S7.01 5 9.5 5 14 7.01 14 9.5
+                     11.99 14 9.5 14z"/>
           </svg>
           <input 
             v-model="searchQuery"
             type="text" 
             placeholder="Search artists..."
             class="search-input"
-          >
+          />
         </div>
         
         <div class="header-actions">
@@ -30,7 +36,11 @@
           >
             Cancel
           </button>
-          <button class="action-btn primary" @click="$emit('add-artist')">
+          <!-- EMIT the same event that App.vue is listening for: -->
+          <button 
+            class="action-btn primary" 
+            @click="$emit('open-add-modal', 'artist')"
+          >
             <svg viewBox="0 0 24 24" fill="currentColor">
               <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
             </svg>
@@ -69,7 +79,7 @@
             :checked="isSelected(artist)"
             @click.stop
             @change="toggleSelection(artist, index, $event)"
-          >
+          />
         </div>
         
         <!-- Artist image -->
@@ -97,7 +107,9 @@
           <h3 class="artist-name">{{ artist.name }}</h3>
           <p class="artist-meta">
             <span v-if="artist.genre">{{ artist.genre }}</span>
-            <span v-else-if="getArtistSongCount(artist) > 0">{{ getArtistSongCount(artist) }} songs</span>
+            <span v-else-if="getArtistSongCount(artist) > 0">
+              {{ getArtistSongCount(artist) }} songs
+            </span>
             <span v-else>No songs</span>
           </p>
         </div>
@@ -109,13 +121,21 @@
           @click.stop="showContextMenu($event, artist)"
         >
           <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+            <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2
+                     -2 .9-2 2 .9 2 2 2zm0 2
+                     c-1.1 0-2 .9-2 2s.9 2 2 2
+                     2-.9 2-2-.9-2-2-2zm0 6
+                     c-1.1 0-2 .9-2 2s.9 2 2 2
+                     2-.9 2-2-.9-2-2-2z"/>
           </svg>
         </button>
       </div>
       
       <!-- Add Artist Card -->
-      <div class="artist-card add-card" @click="$emit('add-artist')">
+      <div 
+        class="artist-card add-card" 
+        @click="$emit('open-add-modal', 'artist')"
+      >
         <div class="artist-image">
           <div class="add-placeholder">
             <svg viewBox="0 0 24 24" fill="currentColor">
@@ -146,7 +166,14 @@ const props = defineProps({
   onFileDropToArtist: Function
 })
 
-const emit = defineEmits(['add-artist', 'select-artist', 'update-artist', 'delete-artists'])
+const emit = defineEmits([ 
+  // We no longer need to emit 'add-artist'; 
+  // instead, we emit 'open-add-modal' (caught by App.vue).
+  'open-add-modal', 
+  'select-artist', 
+  'update-artist', 
+  'delete-artists' 
+])
 
 const searchQuery = ref('')
 const dragOverArtistId = ref(null)
@@ -155,11 +182,11 @@ const dragStore = useDragDropStore()
 const musicStore = useMusicStore()
 const playback = usePlaybackIntegration()
 
+// Inject the ContextMenu ref from App.vue
 const contextMenuRef = inject('contextMenu', null)
 
 const filteredArtists = computed(() => {
   if (!searchQuery.value) return props.artists
-  
   const query = searchQuery.value.toLowerCase()
   return props.artists.filter(artist => 
     artist.name.toLowerCase().includes(query) ||
@@ -177,21 +204,17 @@ const {
   selectAll
 } = useSelection(filteredArtists, artist => artist.id)
 
-// FIXED: Click handling with navigation
+// Navigate (or multi‐select) on click
 const handleArtistClick = (artist, index, event) => {
-  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  const isMac = navigator.platform.toUpperCase().includes('MAC')
   const multiSelectKey = isMac ? event.metaKey : event.ctrlKey
-  
-  // If holding modifier keys, handle selection
+
   if (event.shiftKey || multiSelectKey) {
     toggleSelection(artist, index, event)
   } else {
-    // Regular click - navigate to artist
-    // Only navigate if we're not in selection mode
     if (selectedItems.value.length === 0) {
       emit('navigate-to-artist', artist.id)
     } else {
-      // If in selection mode, just clear selection
       clearSelection()
     }
   }
@@ -204,23 +227,25 @@ const handleBackgroundClick = (event) => {
   }
 }
 
-// Context menu
+// Right‐click context menu
 const showContextMenu = (event, artist) => {
   if (!isSelected(artist)) {
     clearSelection()
     toggleSelection(artist, 0, event)
   }
-  
-  const items = selectedItems.value.length > 0 ? selectedItems.value : [artist]
+  const items = selectedItems.value.length > 0 
+    ? selectedItems.value 
+    : [artist]
+
   contextMenuRef?.value?.show(event, items, 'artist')
 }
 
-// Artist actions
+// Play all songs by that artist
 const playArtist = async (artist) => {
-  const artistSongs = props.songs?.filter(song => 
-    song.artist?.toLowerCase() === artist.name.toLowerCase()
-  ) || []
-  
+  const artistSongs = props.songs
+    ?.filter(song => song.artist?.toLowerCase() === artist.name.toLowerCase())
+    || []
+
   if (artistSongs.length > 0) {
     await playback.playSong(artistSongs[0], artistSongs)
   }
@@ -233,14 +258,16 @@ const getArtistSongCount = (artist) => {
   ).length
 }
 
-// Drag and drop
+// Drag & Drop
 const onDragStart = (artist, index, event) => {
-  const itemsToDrag = isSelected(artist) ? selectedItems.value : [artist]
-  
+  const itemsToDrag = isSelected(artist) 
+    ? selectedItems.value 
+    : [artist]
+
   event.dataTransfer.effectAllowed = 'copy'
   event.dataTransfer.setData('text/plain', 'artists')
   event.dataTransfer.setData('application/json', JSON.stringify(itemsToDrag))
-  
+
   dragStore.startDrag(itemsToDrag, 'artists')
 }
 
@@ -253,18 +280,18 @@ const handleFileDropToArtist = (artist, e) => {
   const files = e.dataTransfer.files
   if (files && files.length > 0) {
     const filePaths = Array.from(files).map(f => f.path || f.name)
-    if (props.onFileDropToArtist) props.onFileDropToArtist(artist.id, filePaths)
+    if (props.onFileDropToArtist) {
+      props.onFileDropToArtist(artist.id, filePaths)
+    }
   }
 }
 
-// Artwork handling
+// Resolve local file → `file://` URL for Tauri
 const getArtworkUrl = (path) => {
   if (!path) return null
-  
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path
   }
-  
   try {
     const url = convertFileSrc(path)
     const cacheBuster = new Date().getTime()
@@ -279,9 +306,9 @@ const handleImageError = (e) => {
   e.target.style.display = 'none'
 }
 
-// Keyboard shortcuts
+// Keyboard shortcuts: ⌘+A to select all, Esc to clear
 const handleKeyboard = (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') {
     e.preventDefault()
     selectAll()
   }
@@ -300,7 +327,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Keep all the existing styles - they're perfect */
+/* (all existing styles unchanged) */
 .artists-view {
   height: 100%;
   display: flex;
@@ -494,7 +521,11 @@ onUnmounted(() => {
   justify-content: center;
   font-size: 64px;
   font-weight: 700;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
   color: rgba(255, 255, 255, 0.4);
 }
 

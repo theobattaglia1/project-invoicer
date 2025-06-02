@@ -1,12 +1,11 @@
-// src/composables/useContextMenu.js
-
+// File: src/composables/useContextMenu.js
 import { inject } from 'vue'
 import { useToastStore } from '@/store/toast'
 import { useMusicStore } from '@/store/music'
+import { useTreeStore } from '@/store/tree'
 import { invoke } from '@tauri-apps/api/tauri'
 import { writeText } from '@tauri-apps/api/clipboard'
 
-// Global references
 let contextMenuInstance = null
 let metadataEditorInstance = null
 
@@ -21,129 +20,113 @@ export function registerMetadataEditor(instance) {
 export function useContextMenu() {
   const toast = useToastStore()
   const musicStore = useMusicStore()
-  
-  // Try to get the metadata editor (unified modal) from injection
+  const treeStore = useTreeStore()
   const metadataEditor = inject('metadataEditor', null)
 
-  // Handler for edit metadata
   const handleEditMetadata = (items, type) => {
-    console.log('🎯 handleEditMetadata called with:', { items, type })
-    
-    // Use the injected metadata editor if available, otherwise use the global instance
     const editor = metadataEditor?.value || metadataEditor || metadataEditorInstance
-    
-    if (editor && editor.show) {
-      // The unified modal expects a different API
+    if (editor?.show) {
       editor.show({
         mode: 'edit',
-        type: type,
+        type,
         items: Array.isArray(items) ? items : [items]
       })
     } else {
-      console.error('No metadata editor instance available or show method not found', editor)
       toast.push({ msg: 'Metadata editor not available', type: 'error' })
     }
   }
 
-  // Handler for playing songs/playlists/artists
-  const handlePlay = (item) => {
-    musicStore.playSong(item.id)
-  }
+  const handleDelete = async (items, type) => {
+    const count = items.length
+    const plural = count > 1 ? 's' : ''
+    const confirmed = confirm(`Are you sure you want to delete ${count} ${type}${plural}?`)
+    if (!confirmed) return
 
-  const handlePlayPlaylist = (playlist) => {
-    musicStore.playPlaylist(playlist.id)
-  }
-
-  const handlePlayArtist = async (artist) => {
     try {
-      const songs = await invoke('get_artist_songs', { artist_id: artist.id })
-      if (songs && songs.length > 0) {
-        musicStore.playQueue(songs)
+      const deletable = ['folder', 'page', 'smart-folder']
+      if (deletable.includes(type)) {
+        for (const item of items) {
+          treeStore.deleteNode(item.id)
+        }
+
+        toast.push({
+          msg: `Deleted ${count} ${type}${plural}`,
+          type: 'success',
+          action: {
+            label: 'Undo',
+            handler: () => treeStore.undo()
+          }
+        })
       } else {
-        toast.push({ msg: 'No songs found for this artist', type: 'info' })
+        for (const item of items) {
+          if (type === 'song') {
+            await invoke('delete_song', { song_id: item.id })
+          } else if (type === 'playlist') {
+            await invoke('delete_playlist', { playlistId: item.id })
+          } else if (type === 'artist') {
+            await invoke('delete_artist', { artist_id: item.id })
+          }
+        }
+
+        toast.push({ msg: `Deleted ${count} ${type}${plural}`, type: 'success' })
+        await musicStore.refreshLibrary()
       }
-    } catch (error) {
-      console.error('Error playing artist:', error)
-      toast.push({ msg: 'Failed to play artist', type: 'error' })
+    } catch (err) {
+      toast.push({ msg: `Failed to delete ${type}${plural}`, type: 'error' })
     }
   }
 
-  // Handler for shuffling
-  const handleShufflePlaylist = (playlist) => {
-    musicStore.shufflePlaylist(playlist.id)
-  }
+  const handleDuplicate = (item) => {
+    const cloneTree = (sourceId, parentId = null) => {
+      const original = treeStore.findNode(sourceId)
+      if (!original) return null
 
-  const handleShuffleArtist = async (artist) => {
-    try {
-      const songs = await invoke('get_artist_songs', { artist_id: artist.id })
-      if (songs && songs.length > 0) {
-        const shuffled = [...songs].sort(() => Math.random() - 0.5)
-        musicStore.playQueue(shuffled)
-      } else {
-        toast.push({ msg: 'No songs found for this artist', type: 'info' })
+      const cloneId = `${original.type}-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+      const copy = {
+        ...original,
+        id: cloneId,
+        title: `Copy of ${original.title}`,
+        parentId
       }
-    } catch (error) {
-      console.error('Error shuffling artist:', error)
-      toast.push({ msg: 'Failed to shuffle artist', type: 'error' })
+
+      treeStore.nodes.push(copy)
+
+      const children = treeStore.getChildren(original.id)
+      for (const child of children) {
+        cloneTree(child.id, cloneId)
+      }
+
+      return copy
     }
+
+    cloneTree(item.id, item.parentId)
+    treeStore.save()
+    toast.push({ msg: `Duplicated "${item.title}"`, type: 'success' })
   }
 
-  // Handler for adding to queue
-  const handleAddToQueue = (items) => {
-    const songs = Array.isArray(items) ? items : [items]
-    songs.forEach(song => musicStore.addToQueue(song))
-    toast.push({ 
-      msg: `Added ${songs.length} song${songs.length > 1 ? 's' : ''} to queue`, 
-      type: 'success' 
+  const handleEditSmartFolder = (item) => {
+    const current = item.config?.query || ''
+    const input = prompt('Edit smart folder query:', current)
+    if (!input) return
+    treeStore.updateNode(item.id, {
+      title: `Smart: "${input}"`,
+      config: { ...item.config, query: input.trim() }
     })
+    toast.push({ msg: 'Smart folder updated', type: 'success' })
   }
 
-  // Handler for adding to playlist
-  const handleAddToPlaylist = async (playlistId, items) => {
-    try {
-      const songIds = items.map(item => item.id)
-      await invoke('add_songs_to_playlist', {
-        playlist_id: playlistId,
-        song_ids: songIds
-      })
-      toast.push({ 
-        msg: `Added ${items.length} song${items.length > 1 ? 's' : ''} to playlist`, 
-        type: 'success' 
-      })
-      // Refresh library to update playlist
-      await musicStore.refreshLibrary()
-    } catch (error) {
-      console.error('Error adding to playlist:', error)
-      toast.push({ msg: 'Failed to add to playlist', type: 'error' })
-    }
+  const handleEditTags = (item) => {
+    const current = (item.tags || []).join(', ')
+    const input = prompt('Enter comma-separated tags:', current)
+    if (input === null) return
+    const tags = input
+      .split(',')
+      .map(t => t.trim())
+      .filter(Boolean)
+    treeStore.updateNode(item.id, { tags })
+    toast.push({ msg: 'Tags updated', type: 'success' })
   }
 
-  // Handler for creating new playlist with songs
-  const handleCreateNewPlaylist = (items) => {
-    // Use the unified modal to create a new playlist
-    const editor = metadataEditor?.value || metadataEditor || metadataEditorInstance
-    
-    if (editor && editor.show) {
-      // Store the songs temporarily so we can add them after playlist creation
-      window._pendingSongsForNewPlaylist = items
-      
-      editor.show({
-        mode: 'create',
-        type: 'playlist',
-        tab: 'playlist'
-      })
-      
-      toast.push({ 
-        msg: 'Create a playlist, then the selected songs will be added', 
-        type: 'info' 
-      })
-    } else {
-      console.error('No metadata editor instance available')
-      toast.push({ msg: 'Cannot create playlist', type: 'error' })
-    }
-  }
-
-  // Handler for copying file path
   const handleCopyPath = async (item) => {
     try {
       if (item.file_path || item.path) {
@@ -153,69 +136,23 @@ export function useContextMenu() {
         toast.push({ msg: 'No file path available', type: 'error' })
       }
     } catch (error) {
-      console.error('Error copying path:', error)
       toast.push({ msg: 'Failed to copy file path', type: 'error' })
     }
   }
 
-  // Handler for deleting items
-  const handleDelete = async (items, type) => {
-    const count = items.length
-    const itemType = type === 'song' ? 'song' : type === 'playlist' ? 'playlist' : 'artist'
-    const plural = count > 1 ? 's' : ''
-    
-    // Confirm deletion
-    const confirmed = confirm(`Are you sure you want to delete ${count} ${itemType}${plural}?`)
-    if (!confirmed) return
-    
-    try {
-      for (const item of items) {
-        if (type === 'song') {
-          // Try both parameter styles to handle inconsistency
-          try {
-            await invoke('delete_song', { song_id: item.id })
-          } catch (error) {
-            // If snake_case fails, try camelCase
-            await invoke('delete_song', { songId: item.id })
-          }
-        } else if (type === 'playlist') {
-          // Based on the error, delete_playlist expects playlistId (camelCase)
-          await invoke('delete_playlist', { playlistId: item.id })
-        } else if (type === 'artist') {
-          // Try both parameter styles to handle inconsistency
-          try {
-            await invoke('delete_artist', { artist_id: item.id })
-          } catch (error) {
-            // If snake_case fails, try camelCase
-            await invoke('delete_artist', { artistId: item.id })
-          }
-        }
-      }
-      
-      toast.push({ 
-        msg: `Deleted ${count} ${itemType}${plural}`, 
-        type: 'success' 
-      })
-      
-      // Refresh library
-      await musicStore.refreshLibrary()
-    } catch (error) {
-      console.error('Error deleting items:', error)
-      toast.push({ msg: `Failed to delete ${itemType}${plural}`, type: 'error' })
-    }
+  const handleTogglePin = (item) => {
+    const newState = !item.pinned
+    treeStore.updateNode(item.id, { pinned: newState })
+    toast.push({ msg: newState ? 'Pinned' : 'Unpinned', type: 'success' })
   }
 
   return {
     handleEditMetadata,
-    handlePlay,
-    handleAddToQueue,
-    handlePlayPlaylist,
-    handleShufflePlaylist,
-    handlePlayArtist,
-    handleShuffleArtist,
-    handleAddToPlaylist,
-    handleCreateNewPlaylist,
+    handleDelete,
+    handleDuplicate,
+    handleEditSmartFolder,
+    handleEditTags,
     handleCopyPath,
-    handleDelete
+    handleTogglePin
   }
 }

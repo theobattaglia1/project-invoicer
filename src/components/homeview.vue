@@ -1,3 +1,4 @@
+<!-- src/views/HomeView.vue -->
 <template>
   <div class="home-view">
     <!-- Header -->
@@ -357,11 +358,31 @@ export default {
 </script>
 
 <style scoped>
+:root {
+  --body-font-family: 'Helvetica Neue', Arial, sans-serif;
+  --body-font-size: 14px;
+  --body-font-weight: 400;
+  --body-font-line-height: 1.5;
+  --header-font-family: 'Helvetica Neue', Arial, sans-serif;
+  --header-font-size: 24px;
+  --header-font-weight: 700;
+  --header-font-line-height: 1.2;
+  --hide-images: block;
+}
+
 .home-view {
   padding: 24px 32px;
   color: white;
   max-width: 1400px;
   margin: 0 auto;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
+  line-height: var(--body-font-line-height);
+}
+
+.home-view img {
+  display: var(--hide-images);
 }
 
 /* Header */
@@ -370,15 +391,19 @@ export default {
 }
 
 .view-title {
-  font-size: 28px;
-  font-weight: 700;
+  font-family: var(--header-font-family);
+  font-size: var(--header-font-size);
+  font-weight: var(--header-font-weight);
   margin-bottom: 4px;
   letter-spacing: -0.5px;
+  line-height: var(--header-font-line-height);
 }
 
 .view-subtitle {
-  font-size: 13px;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
   color: rgba(255, 255, 255, 0.5);
+  line-height: var(--body-font-line-height);
 }
 
 /* Sections */
@@ -394,9 +419,11 @@ export default {
 }
 
 .section-title {
+  font-family: var(--header-font-family);
   font-size: 20px;
-  font-weight: 600;
+  font-weight: var(--header-font-weight);
   letter-spacing: -0.3px;
+  line-height: var(--header-font-line-height);
   margin-bottom: 0;
 }
 
@@ -404,6 +431,7 @@ export default {
   background: none;
   border: none;
   color: rgba(255, 255, 255, 0.5);
+  font-family: var(--body-font-family);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -439,6 +467,10 @@ export default {
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
+  line-height: var(--body-font-line-height);
 }
 
 .quick-card:hover {
@@ -472,16 +504,18 @@ export default {
 }
 
 .quick-card-info h3 {
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--header-font-family);
+  font-size: 16px;
+  font-weight: var(--header-font-weight);
   margin-bottom: 4px;
-  line-height: 1.2;
+  line-height: var(--header-font-line-height);
 }
 
 .quick-card-info p {
-  font-size: 11px;
+  font-family: var(--body-font-family);
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.5);
-  line-height: 1.2;
+  line-height: var(--body-font-line-height);
 }
 
 .quick-play-btn {
@@ -528,6 +562,10 @@ export default {
 .artist-card {
   cursor: pointer;
   transition: all 0.2s ease;
+  font-family: var(--body-font-family);
+  font-size: var(--body-font-size);
+  font-weight: var(--body-font-weight);
+  line-height: var(--body-font-line-height);
 }
 
 .content-card:hover,
@@ -587,8 +625,9 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-family: var(--header-font-family);
   font-size: 36px;
-  font-weight: 600;
+  font-weight: var(--header-font-weight);
   background: rgba(255, 255, 255, 0.03);
   color: rgba(255, 255, 255, 0.5);
 }
@@ -636,22 +675,24 @@ export default {
 }
 
 .card-title {
-  font-size: 13px;
-  font-weight: 500;
+  font-family: var(--header-font-family);
+  font-size: 14px;
+  font-weight: var(--header-font-weight);
   margin-bottom: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.3;
+  line-height: var(--header-font-line-height);
 }
 
 .card-subtitle {
-  font-size: 11px;
+  font-family: var(--body-font-family);
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.5);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.3;
+  line-height: var(--body-font-line-height);
 }
 
 /* Empty State */
@@ -680,15 +721,19 @@ export default {
 }
 
 .empty-state h3 {
+  font-family: var(--header-font-family);
   font-size: 20px;
-  font-weight: 600;
+  font-weight: var(--header-font-weight);
   margin-bottom: 8px;
+  line-height: var(--header-font-line-height);
 }
 
 .empty-state p {
+  font-family: var(--body-font-family);
   font-size: 14px;
   color: rgba(255, 255, 255, 0.5);
   margin-bottom: 24px;
+  line-height: var(--body-font-line-height);
 }
 
 .add-music-btn {
@@ -697,6 +742,7 @@ export default {
   border: none;
   border-radius: 20px;
   color: black;
+  font-family: var(--body-font-family);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
