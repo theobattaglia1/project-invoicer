@@ -3,7 +3,8 @@
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
     "devPath": "http://localhost:8080",
-    "distDir": "../dist"
+    "distDir": "../dist",
+    "withGlobalTauri": false
   },
   "package": {
     "productName": "Project & Invoice Tracker",
@@ -25,7 +26,7 @@
         "removeDir": true,
         "removeFile": true,
         "exists": true,
-        "scope": ["$APPDATA/*", "$APPDATA/**", "$DOWNLOAD/*", "$DOWNLOAD/**", "$DOCUMENT/*", "$DOCUMENT/**"]
+        "scope": ["$APPDATA/*", "$APPDATA/**", "$DOWNLOAD/*", "$DOWNLOAD/**", "$DOCUMENT/*", "$DOCUMENT/**", "$RESOURCE/*", "$RESOURCE/**"]
       },
       "path": {
         "all": true
@@ -45,7 +46,8 @@
         "icons/128x128@2x.png",
         "icons/icon.icns",
         "icons/icon.ico"
-      ]
+      ],
+      "resources": ["assets/*"]
     },
     "security": {
       "csp": null

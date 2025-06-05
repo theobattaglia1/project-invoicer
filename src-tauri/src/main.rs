@@ -4,58 +4,13 @@
     windows_subsystem = "windows"
 )]
 
-use serde::{Deserialize, Serialize};
-use tauri::Manager;
 use std::path::PathBuf;
 
 mod database;
 mod pdf_generator;
 
-use database::*;
-use pdf_generator::{generate_invoice_pdf, InvoiceData, LineItem};
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Artist {
-    id: String,
-    name: String,
-    email: Option<String>,
-    phone: Option<String>,
-    address: Option<String>,
-    notes: Option<String>,
-    created_at: String,
-    updated_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Project {
-    id: String,
-    artist_id: String,
-    name: String,
-    description: Option<String>,
-    status: String,
-    start_date: Option<String>,
-    end_date: Option<String>,
-    budget: f64,
-    created_at: String,
-    updated_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Invoice {
-    id: String,
-    artist_id: String,
-    project_id: Option<String>,
-    invoice_number: String,
-    amount: f64,
-    status: String,
-    issue_date: String,
-    due_date: String,
-    paid_date: Option<String>,
-    items: String, // JSON string
-    notes: Option<String>,
-    created_at: String,
-    updated_at: String,
-}
+use database::{Artist, Project, Invoice};
+use pdf_generator::{generate_invoice_pdf as generate_pdf, InvoiceData, LineItem};
 
 // Artist Commands
 #[tauri::command]
@@ -240,49 +195,15 @@ async fn generate_invoice_pdf(invoice_id: String, output_path: String) -> Result
     
     // Prepare invoice data
     let invoice_data = InvoiceData {
-        invoice: database::Invoice {
-            id: invoice.id,
-            artist_id: invoice.artist_id,
-            project_id: invoice.project_id,
-            invoice_number: invoice.invoice_number,
-            amount: invoice.amount,
-            status: invoice.status,
-            issue_date: invoice.issue_date,
-            due_date: invoice.due_date,
-            paid_date: invoice.paid_date,
-            items: invoice.items,
-            notes: invoice.notes,
-            created_at: invoice.created_at,
-            updated_at: invoice.updated_at,
-        },
-        artist: database::Artist {
-            id: artist.id,
-            name: artist.name,
-            email: artist.email,
-            phone: artist.phone,
-            address: artist.address,
-            notes: artist.notes,
-            created_at: artist.created_at,
-            updated_at: artist.updated_at,
-        },
-        project: project.map(|p| database::Project {
-            id: p.id,
-            artist_id: p.artist_id,
-            name: p.name,
-            description: p.description,
-            status: p.status,
-            start_date: p.start_date,
-            end_date: p.end_date,
-            budget: p.budget,
-            created_at: p.created_at,
-            updated_at: p.updated_at,
-        }),
+        invoice: invoice.clone(),
+        artist: artist.clone(),
+        project: project.clone(),
         line_items,
     };
     
     // Generate PDF
     let path = PathBuf::from(output_path);
-    generate_invoice_pdf(invoice_data, path.clone())
+    generate_pdf(invoice_data, path.clone())
         .map_err(|e| format!("Failed to generate PDF: {}", e))?;
     
     Ok(path.to_string_lossy().to_string())

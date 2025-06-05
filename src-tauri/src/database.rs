@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use uuid::Uuid;
 use chrono::Utc;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Artist {
     pub id: String,
     pub name: String,
@@ -17,7 +17,7 @@ pub struct Artist {
     pub updated_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
     pub id: String,
     pub artist_id: String,
@@ -31,7 +31,7 @@ pub struct Project {
     pub updated_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Invoice {
     pub id: String,
     pub artist_id: String,
