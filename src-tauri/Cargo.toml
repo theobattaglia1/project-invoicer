@@ -12,7 +12,7 @@ tauri-build = { version = "1.5", features = [] }
 
 [dependencies]
 # Tauri core
-tauri = { version = "1.5", features = ["shell-open"] }
+tauri = { version = "1.5", features = ["shell-open", "fs-all", "path-all"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -32,6 +32,10 @@ tokio = { version = "1", features = ["full"] }
 
 # Directory utilities
 dirs = "5.0"
+
+# PDF Generation
+printpdf = "0.7"
+rusttype = "0.9"
 
 [features]
 default = ["custom-protocol"]

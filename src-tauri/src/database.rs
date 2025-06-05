@@ -1,5 +1,5 @@
 // src-tauri/src/database.rs
-use rusqlite::{Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -160,7 +160,7 @@ pub fn create_artist(
     conn.execute(
         "INSERT INTO artists (id, name, email, phone, address, notes, created_at, updated_at) 
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        &[&id, &name, &email, &phone, &address, &notes, &now, &now],
+        params![&id, &name, &email, &phone, &address, &notes, &now, &now],
     )?;
     
     Ok(Artist {
@@ -189,12 +189,12 @@ pub fn update_artist(
     conn.execute(
         "UPDATE artists SET name = ?2, email = ?3, phone = ?4, address = ?5, 
          notes = ?6, updated_at = ?7 WHERE id = ?1",
-        &[&artist_id, &name, &email, &phone, &address, &notes, &now],
+        params![&artist_id, &name, &email, &phone, &address, &notes, &now],
     )?;
     
     let created_at: String = conn.query_row(
         "SELECT created_at FROM artists WHERE id = ?1",
-        [&artist_id],
+        params![&artist_id],
         |row| row.get(0),
     )?;
     
@@ -212,7 +212,7 @@ pub fn update_artist(
 
 pub fn delete_artist(artist_id: String) -> Result<()> {
     let conn = get_connection()?;
-    conn.execute("DELETE FROM artists WHERE id = ?1", [&artist_id])?;
+    conn.execute("DELETE FROM artists WHERE id = ?1", params![&artist_id])?;
     Ok(())
 }
 
@@ -251,7 +251,7 @@ pub fn get_projects_by_artist(artist_id: String) -> Result<Vec<Project>> {
          WHERE artist_id = ?1 ORDER BY created_at DESC"
     )?;
     
-    let projects = stmt.query_map([&artist_id], |row| {
+    let projects = stmt.query_map(params![&artist_id], |row| {
         Ok(Project {
             id: row.get(0)?,
             artist_id: row.get(1)?,
@@ -287,10 +287,10 @@ pub fn create_project(
         "INSERT INTO projects (id, artist_id, name, description, status, 
          start_date, end_date, budget, created_at, updated_at) 
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-        (
+        params![
             &id, &artist_id, &name, &description, &status,
             &start_date, &end_date, &budget, &now, &now
-        ),
+        ],
     )?;
     
     Ok(Project {
@@ -323,15 +323,15 @@ pub fn update_project(
         "UPDATE projects SET name = ?2, description = ?3, status = ?4, 
          start_date = ?5, end_date = ?6, budget = ?7, updated_at = ?8 
          WHERE id = ?1",
-        (
+        params![
             &project_id, &name, &description, &status,
             &start_date, &end_date, &budget, &now
-        ),
+        ],
     )?;
     
     let (artist_id, created_at): (String, String) = conn.query_row(
         "SELECT artist_id, created_at FROM projects WHERE id = ?1",
-        [&project_id],
+        params![&project_id],
         |row| Ok((row.get(0)?, row.get(1)?)),
     )?;
     
@@ -351,7 +351,7 @@ pub fn update_project(
 
 pub fn delete_project(project_id: String) -> Result<()> {
     let conn = get_connection()?;
-    conn.execute("DELETE FROM projects WHERE id = ?1", [&project_id])?;
+    conn.execute("DELETE FROM projects WHERE id = ?1", params![&project_id])?;
     Ok(())
 }
 
@@ -394,7 +394,7 @@ pub fn get_invoices_by_artist(artist_id: String) -> Result<Vec<Invoice>> {
          FROM invoices WHERE artist_id = ?1 ORDER BY created_at DESC"
     )?;
     
-    let invoices = stmt.query_map([&artist_id], |row| {
+    let invoices = stmt.query_map(params![&artist_id], |row| {
         Ok(Invoice {
             id: row.get(0)?,
             artist_id: row.get(1)?,
@@ -435,10 +435,10 @@ pub fn create_invoice(
         "INSERT INTO invoices (id, artist_id, project_id, invoice_number, amount, 
          status, issue_date, due_date, paid_date, items, notes, created_at, updated_at) 
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
-        (
+        params![
             &id, &artist_id, &project_id, &invoice_number, &amount,
             &status, &issue_date, &due_date, &None::<String>, &items, &notes, &now, &now
-        ),
+        ],
     )?;
     
     Ok(Invoice {
@@ -482,15 +482,15 @@ pub fn update_invoice(
         "UPDATE invoices SET invoice_number = ?2, amount = ?3, status = ?4, 
          issue_date = ?5, due_date = ?6, paid_date = ?7, items = ?8, 
          notes = ?9, updated_at = ?10 WHERE id = ?1",
-        (
+        params![
             &invoice_id, &invoice_number, &amount, &status,
             &issue_date, &due_date, &paid_date, &items, &notes, &now
-        ),
+        ],
     )?;
     
     let (artist_id, project_id, created_at): (String, Option<String>, String) = conn.query_row(
         "SELECT artist_id, project_id, created_at FROM invoices WHERE id = ?1",
-        [&invoice_id],
+        params![&invoice_id],
         |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
     )?;
     
@@ -513,6 +513,6 @@ pub fn update_invoice(
 
 pub fn delete_invoice(invoice_id: String) -> Result<()> {
     let conn = get_connection()?;
-    conn.execute("DELETE FROM invoices WHERE id = ?1", [&invoice_id])?;
+    conn.execute("DELETE FROM invoices WHERE id = ?1", params![&invoice_id])?;
     Ok(())
 }

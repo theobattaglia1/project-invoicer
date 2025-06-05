@@ -1,3 +1,4 @@
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
@@ -5,7 +6,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        brand: '#ff5860',
+        brand: '#1db954',
         sidebar: '#1c1c1e',
       },
       spacing: {
@@ -13,9 +14,5 @@ module.exports = {
       },
     },
   },
-  plugins: [
-    require('@tailwindcss/forms'),
-    require('@tailwindcss/typography'),
-    require('@tailwindcss/line-clamp'),
-  ],
+  plugins: [],
 }

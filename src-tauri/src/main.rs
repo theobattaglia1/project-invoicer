@@ -6,9 +6,13 @@
 
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
+use std::path::PathBuf;
 
 mod database;
+mod pdf_generator;
+
 use database::*;
+use pdf_generator::{generate_invoice_pdf, InvoiceData, LineItem};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Artist {
@@ -207,6 +211,90 @@ async fn delete_invoice(invoice_id: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+// PDF Generation Command
+#[tauri::command]
+async fn generate_invoice_pdf(invoice_id: String, output_path: String) -> Result<String, String> {
+    // Get invoice data
+    let invoices = database::get_all_invoices().map_err(|e| e.to_string())?;
+    let invoice = invoices.into_iter()
+        .find(|i| i.id == invoice_id)
+        .ok_or("Invoice not found")?;
+    
+    // Get artist data
+    let artists = database::get_all_artists().map_err(|e| e.to_string())?;
+    let artist = artists.into_iter()
+        .find(|a| a.id == invoice.artist_id)
+        .ok_or("Artist not found")?;
+    
+    // Get project data if exists
+    let project = if let Some(project_id) = &invoice.project_id {
+        let projects = database::get_all_projects().map_err(|e| e.to_string())?;
+        projects.into_iter().find(|p| &p.id == project_id)
+    } else {
+        None
+    };
+    
+    // Parse line items from JSON
+    let line_items: Vec<LineItem> = serde_json::from_str(&invoice.items)
+        .map_err(|e| format!("Failed to parse line items: {}", e))?;
+    
+    // Prepare invoice data
+    let invoice_data = InvoiceData {
+        invoice: database::Invoice {
+            id: invoice.id,
+            artist_id: invoice.artist_id,
+            project_id: invoice.project_id,
+            invoice_number: invoice.invoice_number,
+            amount: invoice.amount,
+            status: invoice.status,
+            issue_date: invoice.issue_date,
+            due_date: invoice.due_date,
+            paid_date: invoice.paid_date,
+            items: invoice.items,
+            notes: invoice.notes,
+            created_at: invoice.created_at,
+            updated_at: invoice.updated_at,
+        },
+        artist: database::Artist {
+            id: artist.id,
+            name: artist.name,
+            email: artist.email,
+            phone: artist.phone,
+            address: artist.address,
+            notes: artist.notes,
+            created_at: artist.created_at,
+            updated_at: artist.updated_at,
+        },
+        project: project.map(|p| database::Project {
+            id: p.id,
+            artist_id: p.artist_id,
+            name: p.name,
+            description: p.description,
+            status: p.status,
+            start_date: p.start_date,
+            end_date: p.end_date,
+            budget: p.budget,
+            created_at: p.created_at,
+            updated_at: p.updated_at,
+        }),
+        line_items,
+    };
+    
+    // Generate PDF
+    let path = PathBuf::from(output_path);
+    generate_invoice_pdf(invoice_data, path.clone())
+        .map_err(|e| format!("Failed to generate PDF: {}", e))?;
+    
+    Ok(path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn get_downloads_directory() -> Result<String, String> {
+    dirs::download_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .ok_or_else(|| "Could not find downloads directory".to_string())
+}
+
 fn main() {
     // Initialize database on startup
     if let Err(e) = database::init() {
@@ -243,6 +331,9 @@ fn main() {
             create_invoice,
             update_invoice,
             delete_invoice,
+            // PDF generation
+            generate_invoice_pdf,
+            get_downloads_directory,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

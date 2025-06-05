@@ -98,6 +98,7 @@
       v-if="showModal"
       :type="modalType"
       :item="modalItem"
+      :defaultData="modalDefaultData"
       @close="closeModal"
       @save="handleSave"
     />
@@ -131,6 +132,7 @@ export default {
     const showModal = ref(false)
     const modalType = ref('artist')
     const modalItem = ref(null)
+    const modalDefaultData = ref(null)
     const toastRef = ref(null)
 
     const stats = computed(() => ({
@@ -152,23 +154,27 @@ export default {
         modalType.value = 'artist'
       }
       modalItem.value = null
+      modalDefaultData.value = null
       showModal.value = true
     }
 
     const closeModal = () => {
       showModal.value = false
       modalItem.value = null
+      modalDefaultData.value = null
     }
 
-    const handleCreate = (type, item = null) => {
+    const handleCreate = (type, defaultData = null) => {
       modalType.value = type
-      modalItem.value = item
+      modalItem.value = null
+      modalDefaultData.value = defaultData
       showModal.value = true
     }
 
     const handleUpdate = (type, item) => {
       modalType.value = type
       modalItem.value = item
+      modalDefaultData.value = null
       showModal.value = true
     }
 
@@ -250,6 +256,7 @@ export default {
       showModal,
       modalType,
       modalItem,
+      modalDefaultData,
       toastRef,
       openCreateModal,
       closeModal,
