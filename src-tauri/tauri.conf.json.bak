@@ -5,8 +5,7 @@
   },
   "tauri": {
     "bundle": {
-      "identifier": "com.theobattaglia1.projectinvoicer",
-      "icon": []
+      "identifier": "com.theobattaglia1.projectinvoicer"
     }
   }
 }

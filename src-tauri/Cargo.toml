@@ -14,13 +14,7 @@ tauri-build = { version = "1.5", features = [] }
 # ───────── Runtime dependencies ─────────
 [dependencies]
 # Tauri core
-tauri = { version = "1.5", features = [
-  "shell-open",
-  "dialog-all",
-  "fs-all",
-  "path-all",
-  "protocol-asset"
-] }
+tauri = { version = "1.5", features = [] }
 
 # Crypto hash for duplicate detection
 sha1 = "0.10"
