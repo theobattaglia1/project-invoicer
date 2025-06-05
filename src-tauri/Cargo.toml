@@ -1,55 +1,38 @@
 [package]
-name        = "my-music-app"
-version     = "0.1.0"
-description = "A beautiful music player built with Tauri and Vue"
-authors     = ["Your Name"]
-license     = ""
-repository  = ""
-edition     = "2021"
+name = "project-invoicer"
+version = "0.1.0"
+description = "A Project & Invoice Tracker built with Tauri"
+authors = ["Your Name"]
+license = ""
+repository = ""
+edition = "2021"
 
-# ───────── Build script ─────────
 [build-dependencies]
 tauri-build = { version = "1.5", features = [] }
 
-# ───────── Runtime dependencies ─────────
 [dependencies]
 # Tauri core
-tauri = { version = "1.5", features = [] }
-
-# Crypto hash for duplicate detection
-sha1 = "0.10"
+tauri = { version = "1.5", features = ["shell-open"] }
 
 # Serialization
-serde       = { version = "1.0", features = ["derive"] }
-serde_json  = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 # Database
-rusqlite    = { version = "0.30", features = ["bundled"] }
+rusqlite = { version = "0.30", features = ["bundled"] }
 
-# Audio metadata
-lofty = "0.18"  # ADD THIS LINE - This is what your music.rs needs
-id3          = "1.13"
-mp3-duration = "0.1"
-
-# File system
-walkdir = "2"
+# UUID generation
+uuid = { version = "1.6", features = ["v4", "serde"] }
 
 # Date/Time
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
-# Base64 encoding/decoding for artwork
-base64 = "0.21"
+# Directory utilities
+dirs = "5.0"
 
-# Additional audio format support (optional but recommended)
-audiotags = "0.4"  # For better metadata support across formats
-
-# UUID generation (if you're using UUIDs for IDs)
-uuid = { version = "1.6", features = ["v4", "serde"] }
-
-# ───────── Feature flags ─────────
 [features]
-default          = ["custom-protocol"]
-custom-protocol  = ["tauri/custom-protocol"]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
