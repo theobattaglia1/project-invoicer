@@ -134,10 +134,12 @@
                 @click="generatePDF(invoice)" 
                 class="btn-icon pdf"
                 title="Generate PDF"
+                :disabled="generatingPDF[invoice.id]"
               >
-                <svg viewBox="0 0 24 24" fill="currentColor">
+                <svg v-if="!generatingPDF[invoice.id]" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M7 11.5h1v-1H7v1zM19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5c0 .83-.67 1.5-1.5 1.5H7v2H5.5V9H8c.83 0 1.5.67 1.5 1.5v1zm5-1H13v4h-1.5V9h3v1.5zm4 3c0 .83-.67 1.5-1.5 1.5h-2.5V9H18c.83 0 1.5.67 1.5 1.5v3zM16.5 10.5H17v3h-.5v-3z"/>
                 </svg>
+                <div v-else class="spinner-small"></div>
               </button>
               <button 
                 v-if="invoice.status === 'pending'" 
@@ -168,7 +170,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useArtistStore } from '@/store/artistStore'
 import { useProjectStore } from '@/store/projectStore'
 import { useInvoiceStore } from '@/store/invoiceStore'
@@ -189,6 +191,7 @@ const invoices = ref([])
 const projects = ref([])
 const selectedInvoices = ref([])
 const lastSelectedIndex = ref(-1)
+const generatingPDF = reactive({})
 
 const artist = computed(() => artistStore.getArtistById(props.artistId))
 
@@ -486,7 +489,7 @@ onMounted(() => {
 }
 
 .content-title {
-  font-size: 20px;
+  font-size: 32px;
   font-weight: 700;
   color: white;
   margin: 0;
@@ -588,7 +591,7 @@ onMounted(() => {
 }
 
 .stat-value {
-  font-size: 20px;
+  font-size: 32px;
   font-weight: 700;
   color: white;
   margin-bottom: 8px;
@@ -765,9 +768,23 @@ onMounted(() => {
   color: #f44336;
 }
 
+.btn-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .btn-icon svg {
   width: 16px;
   height: 16px;
+}
+
+.spinner-small {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
 /* Loading & Empty States */
@@ -803,7 +820,7 @@ onMounted(() => {
 }
 
 .empty-state h3 {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 600;
   color: white;
   margin: 0 0 8px 0;

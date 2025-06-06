@@ -558,7 +558,7 @@ onMounted(() => {
 }
 
 .view-title {
-  font-size: 18px;
+  font-size: 48px;
   font-weight: 700;
   color: white;
   margin: 0;
@@ -704,7 +704,7 @@ onMounted(() => {
 }
 
 .stat-value {
-  font-size: 20px;
+  font-size: 32px;
   font-weight: 700;
   color: white;
   margin: 0 0 4px 0;
