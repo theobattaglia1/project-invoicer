@@ -31,7 +31,12 @@ export const useArtistStore = defineStore('artists', {
           .select('*')
           .order('name')
         
-        if (error) throw error
+        if (error) {
+          console.error('Supabase error:', error)
+          throw error
+        }
+        
+        console.log('Artists loaded:', data)
         this.artists = data || []
       } catch (err) {
         this.error = err.message
@@ -43,9 +48,11 @@ export const useArtistStore = defineStore('artists', {
 
     async createArtist(artistData) {
       try {
+        console.log('Creating artist with data:', artistData)
+        
         const { data, error } = await supabase
           .from('artists')
-          .insert([{
+          .insert({
             name: artistData.name,
             company_name: artistData.company_name || null,
             email: artistData.email || null,
@@ -53,15 +60,21 @@ export const useArtistStore = defineStore('artists', {
             address: artistData.address || null,
             wire_details: artistData.wire_details || null,
             notes: artistData.notes || null
-          }])
+          })
           .select()
           .single()
         
-        if (error) throw error
+        if (error) {
+          console.error('Supabase error:', error)
+          throw error
+        }
+        
+        console.log('Artist created:', data)
         this.artists.push(data)
         return data
       } catch (err) {
         this.error = err.message
+        console.error('Create artist error:', err)
         throw err
       }
     },
@@ -84,7 +97,10 @@ export const useArtistStore = defineStore('artists', {
           .select()
           .single()
         
-        if (error) throw error
+        if (error) {
+            console.error('Supabase error:', error)
+            throw error
+        }
         
         const index = this.artists.findIndex(a => a.id === id)
         if (index !== -1) {
