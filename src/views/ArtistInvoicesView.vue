@@ -382,8 +382,15 @@ const bulkTrash = async () => {
 }
 
 const generatePDF = async (invoice) => {
+  console.log('New PDF generation code is running');
   try {
-    generatingPDF[invoice.id] = true
+    if (!generatingPDF) {
+      console.error('generatingPDF is not defined - using fallback');
+      window.generatingPDF = window.generatingPDF || {};
+      window.generatingPDF[invoice.id] = true;
+    } else {
+      generatingPDF[invoice.id] = true;
+    }
     
     // Get related data
     const artist = artistStore.getArtistById(invoice.artist_id)
