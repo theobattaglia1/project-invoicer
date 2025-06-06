@@ -3,7 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/store/authStore'
 
 // Views
-import LoginView from '@/views/LoginView.vue'
+import LoginView from '@/components/auth/LoginView.vue'
 import ArtistListView from '@/views/ArtistListView.vue'
 import ArtistLayout from '@/layouts/ArtistLayout.vue'
 import ArtistOverviewView from '@/views/ArtistOverviewView.vue'

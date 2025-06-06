@@ -1,259 +1,240 @@
 // src/store/authStore.js
 import { defineStore } from 'pinia'
-import { supabase, auth } from '@/lib/supabase'
-import { useArtistStore } from './artistStore'
+import { auth, supabase } from '@/lib/supabase'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null,
     profile: null,
     permissions: [],
-    loading: false,
-    initialized: false
+    initialized: false,
+    loading: false
   }),
 
   getters: {
     isAuthenticated: (state) => !!state.user,
     
-    userRole: (state) => state.profile?.role || null,
-    
     isOwner: (state) => state.profile?.role === 'owner',
+    
+    isTeam: (state) => ['owner', 'editor', 'invoicer'].includes(state.profile?.role),
     
     isArtist: (state) => state.profile?.role === 'artist',
     
-    isTeamMember: (state) => ['editor', 'invoicer'].includes(state.profile?.role),
+    userRole: (state) => state.profile?.role || null,
     
-    // Check if user can view a specific artist
-    canViewArtist: (state) => (artistId) => {
-      if (!state.profile) return false
-      
-      // Owners can see all
-      if (state.profile.role === 'owner') return true
-      
-      // Artists can only see themselves
-      if (state.profile.role === 'artist') {
-        return state.profile.artist_id === artistId
+    canViewArtist: (state) => {
+      return (artistId) => {
+        if (!state.isAuthenticated) return false
+        
+        // Owners can view all artists
+        if (state.isOwner) return true
+        
+        // Artists can only view their own profile
+        if (state.isArtist) {
+          return state.profile?.artist_id === artistId
+        }
+        
+        // Team members check permissions
+        return state.permissions.some(p => p.artist_id === artistId)
       }
-      
-      // Team members check permissions
-      return state.permissions.some(p => 
-        p.artist_id === artistId && 
-        ['view', 'edit', 'invoice'].includes(p.permission)
-      )
     },
     
-    // Check if user can edit
-    canEditArtist: (state) => (artistId) => {
-      if (!state.profile) return false
-      if (state.profile.role === 'owner') return true
-      
-      return state.permissions.some(p => 
-        p.artist_id === artistId && 
-        ['edit'].includes(p.permission)
-      )
+    canEditArtist: (state) => {
+      return (artistId) => {
+        if (!state.isAuthenticated) return false
+        
+        // Owners can edit all
+        if (state.isOwner) return true
+        
+        // Artists cannot edit
+        if (state.isArtist) return false
+        
+        // Check if user has edit permission
+        return state.permissions.some(p => 
+          p.artist_id === artistId && 
+          p.permission === 'edit'
+        )
+      }
     },
     
-    // Check if user can create/edit invoices
-    canInvoiceArtist: (state) => (artistId) => {
-      if (!state.profile) return false
-      if (state.profile.role === 'owner') return true
-      
-      return state.permissions.some(p => 
-        p.artist_id === artistId && 
-        ['invoice', 'edit'].includes(p.permission)
-      )
-    },
-    
-    // Get filtered artists based on permissions
-    visibleArtists: (state) => {
-      const artistStore = useArtistStore()
-      if (!state.profile) return []
-      
-      // Owners see all
-      if (state.profile.role === 'owner') {
-        return artistStore.artists
+    canInvoiceArtist: (state) => {
+      return (artistId) => {
+        if (!state.isAuthenticated) return false
+        
+        // Owners and invoicers can invoice all
+        if (state.isOwner || state.profile?.role === 'invoicer') return true
+        
+        // Artists cannot invoice
+        if (state.isArtist) return false
+        
+        // Check if user has invoice permission
+        return state.permissions.some(p => 
+          p.artist_id === artistId && 
+          p.permission === 'invoice'
+        )
       }
-      
-      // Artists see only themselves
-      if (state.profile.role === 'artist') {
-        return artistStore.artists.filter(a => a.id === state.profile.artist_id)
-      }
-      
-      // Team members see based on permissions
-      const allowedArtistIds = state.permissions.map(p => p.artist_id)
-      return artistStore.artists.filter(a => allowedArtistIds.includes(a.id))
-    },
-    
-    // Get list of artist IDs user can access
-    allowedArtistIds: (state) => {
-      if (!state.profile) return []
-      
-      if (state.profile.role === 'owner') {
-        // Owner can see all - return null to indicate no filtering needed
-        return null
-      }
-      
-      if (state.profile.role === 'artist') {
-        return [state.profile.artist_id]
-      }
-      
-      return [...new Set(state.permissions.map(p => p.artist_id))]
     }
   },
 
   actions: {
     async initialize() {
-      if (this.initialized) return
-      
-      this.loading = true
       try {
-        // Check for existing session
+        // Get current user from Supabase
         const user = await auth.getUser()
+        
         if (user) {
-          await this.loadUserData(user)
+          this.user = user
+          
+          // Fetch user profile from user_profiles table
+          const { data: profile, error } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single()
+          
+          if (!error && profile) {
+            this.profile = profile
+            
+            // If team member, fetch their permissions
+            if (this.isTeam && !this.isOwner) {
+              const { data: permissions } = await supabase
+                .from('user_artist_permissions')
+                .select('*')
+                .eq('user_id', user.id)
+              
+              this.permissions = permissions || []
+            }
+          }
         }
         
-        // Listen for auth changes
+        this.initialized = true
+        
+        // Set up auth state listener
         auth.onAuthStateChange(async (event, session) => {
-          if (event === 'SIGNED_IN' && session?.user) {
-            await this.loadUserData(session.user)
-          } else if (event === 'SIGNED_OUT') {
-            this.clearUserData()
+          if (session?.user) {
+            this.user = session.user
+            
+            // Fetch updated profile
+            const { data: profile } = await supabase
+              .from('user_profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single()
+            
+            if (profile) {
+              this.profile = profile
+              
+              // Fetch permissions if team member
+              if (this.isTeam && !this.isOwner) {
+                const { data: permissions } = await supabase
+                  .from('user_artist_permissions')
+                  .select('*')
+                  .eq('user_id', session.user.id)
+                
+                this.permissions = permissions || []
+              }
+            }
+          } else {
+            this.user = null
+            this.profile = null
+            this.permissions = []
           }
         })
-        
-        this.initialized = true
       } catch (error) {
         console.error('Failed to initialize auth:', error)
-      } finally {
-        this.loading = false
+        this.initialized = true
       }
     },
-    
-    async loadUserData(user) {
-      this.user = user
-      
-      // Load user profile
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-      
-      if (profile) {
-        this.profile = profile
-      }
-      
-      // Load permissions if team member
-      if (this.isTeamMember) {
-        const { data: permissions } = await supabase
-          .from('user_artist_permissions')
-          .select('*')
-          .eq('user_id', user.id)
-        
-        this.permissions = permissions || []
-      }
-    },
-    
-    clearUserData() {
-      this.user = null
-      this.profile = null
-      this.permissions = []
-    },
-    
-    async signIn(email, password) {
+
+    async login(email, password) {
       this.loading = true
       try {
         const { data, error } = await auth.signIn(email, password)
+        
         if (error) throw error
         
-        // User data will be loaded by the auth state change listener
-        return { success: true }
+        if (data.user) {
+          this.user = data.user
+          
+          // Fetch user profile
+          const { data: profile, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', data.user.id)
+            .single()
+          
+          if (!profileError && profile) {
+            this.profile = profile
+            
+            // Fetch permissions if team member
+            if (this.isTeam && !this.isOwner) {
+              const { data: permissions } = await supabase
+                .from('user_artist_permissions')
+                .select('*')
+                .eq('user_id', data.user.id)
+              
+              this.permissions = permissions || []
+            }
+          }
+          
+          return { success: true }
+        }
       } catch (error) {
-        console.error('Sign in error:', error)
-        return { success: false, error: error.message }
+        console.error('Login error:', error)
+        return { 
+          success: false, 
+          error: error.message || 'Failed to login' 
+        }
       } finally {
         this.loading = false
       }
     },
-    
-    async signOut() {
+
+    async logout() {
       try {
-        await auth.signOut()
-        this.clearUserData()
-        return { success: true }
+        const { error } = await auth.signOut()
+        if (error) throw error
+        
+        this.user = null
+        this.profile = null
+        this.permissions = []
       } catch (error) {
-        console.error('Sign out error:', error)
-        return { success: false, error: error.message }
+        console.error('Logout error:', error)
       }
     },
-    
-    async createUser(email, password, name, role, artistId = null) {
-      // Only owners can create users
-      if (!this.isOwner) {
-        throw new Error('Unauthorized')
-      }
+
+    async updateProfile(updates) {
+      if (!this.user) return { success: false, error: 'Not authenticated' }
       
       try {
-        const metadata = { name, role }
-        if (role === 'artist' && artistId) {
-          metadata.artist_id = artistId
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .update({
+            ...updates,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', this.user.id)
+          .select()
+          .single()
+        
+        if (error) throw error
+        
+        this.profile = data
+        return { success: true, data }
+      } catch (error) {
+        console.error('Profile update error:', error)
+        return { 
+          success: false, 
+          error: error.message || 'Failed to update profile' 
         }
-        
-        const { data, error } = await auth.signUp(email, password, metadata)
-        if (error) throw error
-        
-        return { success: true, user: data.user }
-      } catch (error) {
-        console.error('Create user error:', error)
-        return { success: false, error: error.message }
       }
     },
-    
-    async grantPermission(userId, artistId, permission) {
-      if (!this.isOwner) {
-        throw new Error('Unauthorized')
-      }
-      
-      try {
-        const { error } = await supabase
-          .from('user_artist_permissions')
-          .insert({
-            user_id: userId,
-            artist_id: artistId,
-            permission: permission,
-            granted_by: this.user.id
-          })
-        
-        if (error) throw error
-        return { success: true }
-      } catch (error) {
-        console.error('Grant permission error:', error)
-        return { success: false, error: error.message }
-      }
-    },
-    
-    async revokePermission(userId, artistId, permission) {
-      if (!this.isOwner) {
-        throw new Error('Unauthorized')
-      }
-      
-      try {
-        const { error } = await supabase
-          .from('user_artist_permissions')
-          .delete()
-          .match({
-            user_id: userId,
-            artist_id: artistId,
-            permission: permission
-          })
-        
-        if (error) throw error
-        return { success: true }
-      } catch (error) {
-        console.error('Revoke permission error:', error)
-        return { success: false, error: error.message }
-      }
+
+    // Helper to check if user has any permission for an artist
+    hasAnyPermissionForArtist(artistId) {
+      if (this.isOwner) return true
+      if (this.isArtist && this.profile?.artist_id === artistId) return true
+      return this.permissions.some(p => p.artist_id === artistId)
     }
   }
 })

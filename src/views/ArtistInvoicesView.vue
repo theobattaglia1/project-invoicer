@@ -176,7 +176,7 @@ import { open as openDialog } from '@tauri-apps/api/shell'
 import { useArtistStore } from '@/store/artistStore'
 import { useProjectStore } from '@/store/projectStore'
 import { useInvoiceStore } from '@/store/invoiceStore'
-import ArtistLayout from '@/components/ArtistLayout.vue'
+import ArtistLayout from '@/layouts/ArtistLayout.vue'
 
 const props = defineProps({
   artistId: {

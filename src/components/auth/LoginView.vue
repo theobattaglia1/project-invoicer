@@ -1,33 +1,34 @@
 <template>
   <div class="login-view">
     <div class="login-container">
-      <!-- Logo -->
       <div class="login-logo">
-        <img src="@/assets/logo-white.png" alt="AMF" />
+        <!-- Your logo here -->
       </div>
       
-      <h1 class="login-title">Welcome Back</h1>
+      <h1 class="login-title">Welcome back</h1>
       <p class="login-subtitle">Sign in to your account</p>
       
       <form @submit.prevent="handleLogin" class="login-form">
         <div class="form-group">
-          <label>Email</label>
-          <input 
-            v-model="email" 
-            type="email" 
+          <label for="email">Email</label>
+          <input
+            id="email"
+            v-model="email"
+            type="email"
+            placeholder="Enter your email"
             required
-            placeholder="you@example.com"
             :disabled="loading"
           />
         </div>
         
         <div class="form-group">
-          <label>Password</label>
-          <input 
-            v-model="password" 
-            type="password" 
+          <label for="password">Password</label>
+          <input
+            id="password"
+            v-model="password"
+            type="password"
+            placeholder="Enter your password"
             required
-            placeholder="••••••••"
             :disabled="loading"
           />
         </div>
@@ -43,7 +44,7 @@
       </form>
       
       <div class="login-footer">
-        <p>Having trouble? Contact your administrator.</p>
+        <p>Need help? Contact support</p>
       </div>
     </div>
   </div>
@@ -66,22 +67,25 @@ const handleLogin = async () => {
   error.value = ''
   loading.value = true
   
-  const result = await authStore.signIn(email.value, password.value)
-  
-  if (result.success) {
-    // Redirect based on role
-    if (authStore.isArtist) {
-      // Artists go directly to their overview
-      router.push(`/artist/${authStore.profile.artist_id}/overview`)
+  try {
+    const result = await authStore.login(email.value, password.value)
+    
+    if (result.success) {
+      // Router navigation guard will handle redirect based on role
+      if (authStore.isArtist) {
+        router.push(`/artist/${authStore.profile.artist_id}/overview`)
+      } else {
+        router.push('/')
+      }
     } else {
-      // Team members and owner go to main artists list
-      router.push('/')
+      error.value = result.error || 'Login failed'
     }
-  } else {
-    error.value = result.error || 'Invalid email or password'
+  } catch (err) {
+    error.value = 'An unexpected error occurred'
+    console.error('Login error:', err)
+  } finally {
+    loading.value = false
   }
-  
-  loading.value = false
 }
 </script>
 
@@ -139,11 +143,6 @@ const handleLogin = async () => {
   display: flex;
   justify-content: center;
   margin-bottom: 32px;
-}
-
-.login-logo img {
-  height: 48px;
-  width: auto;
 }
 
 .login-title {
