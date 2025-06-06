@@ -15,7 +15,6 @@ import ArtistTrashView from '@/views/ArtistTrashView.vue'
 import AllProjectsView from '@/views/AllProjectsView.vue'
 import AllInvoicesView from '@/views/AllInvoicesView.vue'
 import UserManagementView from '@/views/UserManagementView.vue'
-import InvoiceImportView from '@/views/InvoiceImportView.vue' // TEMPORARY IMPORT
 
 const routes = [
   {
@@ -90,13 +89,6 @@ const routes = [
         path: 'users',
         name: 'UserManagement',
         component: UserManagementView,
-        meta: { requiresTeam: true, requiresOwner: true }
-      },
-      // TEMPORARY IMPORT ROUTE - REMOVE AFTER USE
-      {
-        path: 'import-invoices',
-        name: 'InvoiceImport',
-        component: InvoiceImportView,
         meta: { requiresTeam: true, requiresOwner: true }
       }
     ]

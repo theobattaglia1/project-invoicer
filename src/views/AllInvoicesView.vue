@@ -33,12 +33,48 @@
             Clear
           </button>
         </div>
+        <button v-if="authStore.isOwner && !showImportSection" @click="initializeImport" class="btn-action">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M9 3V1h6v2H9zM8 4h8v2H8V4zm0 3h8v2H8V7zm0 3h8v2H8v-2zm-1 3h10v2H7v-2zm-1 3h12v2H6v-2zm-1 3h14v2H5v-2z"/>
+          </svg>
+          Import Data
+        </button>
         <button @click="createInvoice" class="btn-primary">
           <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
           </svg>
           Create Invoice
         </button>
+      </div>
+    </div>
+
+    <!-- Temporary Import Section -->
+    <div v-if="showImportSection" class="import-section">
+      <div class="import-header">
+        <h3>Import Invoices for Jack Schrepferman</h3>
+        <button @click="showImportSection = false" class="btn-close">×</button>
+      </div>
+      
+      <div class="import-summary">
+        <p>Ready to import {{ groupedInvoices.length }} invoices with a total of ${{ totalImportAmount.toLocaleString() }}</p>
+      </div>
+      
+      <div class="import-preview">
+        <div v-for="group in groupedInvoices" :key="group.artist" class="import-group">
+          <h4>{{ group.artist }}</h4>
+          <p>{{ group.tracks.length }} tracks - ${{ group.totalAmount.toLocaleString() }}</p>
+        </div>
+      </div>
+      
+      <button @click="performImport" :disabled="importing" class="btn-import">
+        {{ importing ? 'Importing...' : 'Start Import' }}
+      </button>
+      
+      <div v-if="importResults.length > 0" class="import-results">
+        <h4>Results:</h4>
+        <div v-for="result in importResults" :key="result.artist">
+          {{ result.artist }}: {{ result.success ? '✓ Success' : '✗ Failed' }}
+        </div>
       </div>
     </div>
 
@@ -238,10 +274,13 @@ import { ref, computed, onMounted, reactive } from 'vue'
 import { useInvoiceStore } from '@/store/invoiceStore'
 import { useArtistStore } from '@/store/artistStore'
 import { useProjectStore } from '@/store/projectStore'
+import { useAuthStore } from '@/store/authStore'
+import { supabase } from '@/lib/supabase'
 
 const invoiceStore = useInvoiceStore()
 const artistStore = useArtistStore()
 const projectStore = useProjectStore()
+const authStore = useAuthStore()
 
 const searchQuery = ref('')
 const statusFilter = ref('')
@@ -249,6 +288,343 @@ const artistFilter = ref('')
 const generatingPDF = reactive({})
 const selectedInvoices = ref([])
 const lastSelectedIndex = ref(-1)
+
+// Import-related state
+const showImportSection = ref(false)
+const importing = ref(false)
+const importResults = ref([])
+const jackSchrepfermanId = '77ad8f58-a932-4c2a-b7f9-09fbf15b57b2'
+
+// The invoice data
+const invoiceImportData = [
+  {
+    artist: "Sleinza",
+    track: "High and Dry",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: 2000,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: true,
+    upstreamAmount: null
+  },
+  {
+    artist: "Dasha",
+    track: "42",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: "IN DROPBOX",
+    invoiced: true,
+    invoicedAmount: 1000,
+    paid: true,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: true,
+    upstreamAmount: null
+  },
+  {
+    artist: "Jonas Conner",
+    track: "Oh, Appalacia",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: 5000,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: null,
+    upstreamAmount: null
+  },
+  {
+    artist: "Jonas Conner",
+    track: "Too Young, Too Dumb",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: 5000,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: null,
+    upstreamAmount: null
+  },
+  {
+    artist: "Kenzie Cait",
+    track: "Downtown",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: 2000,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: null,
+    upstreamAmount: null
+  },
+  {
+    artist: "Conall Cafferty",
+    track: "If You Ever Wanna Fall",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: 500,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: false,
+    upstreamAmount: 7500
+  },
+  {
+    artist: "Conall Cafferty",
+    track: "What Don't You See",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: 500,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: false,
+    upstreamAmount: 7500
+  },
+  {
+    artist: "Conall Cafferty",
+    track: "Dog At Your Doorstep",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: 500,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: false,
+    upstreamAmount: 7500
+  },
+  {
+    artist: "Ryman",
+    track: "Lose",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: 650,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: false,
+    upstreamAmount: 4500
+  },
+  {
+    artist: "Midwest",
+    track: "Car Seats",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: "IN DROPBOX",
+    invoiced: true,
+    invoicedAmount: 1000,
+    paid: true,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: true,
+    upstreamAmount: null
+  },
+  {
+    artist: "Casper Sage",
+    track: "Flow State",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: null,
+    invoiced: true,
+    invoicedAmount: 1000,
+    paid: true,
+    linkToRoyaltiesHub: "IN DISTROKID",
+    upstreamed: null,
+    upstreamAmount: null
+  },
+  {
+    artist: "Sleinza",
+    track: "Habits",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: null,
+    invoiced: null,
+    invoicedAmount: null,
+    paid: null,
+    linkToRoyaltiesHub: "IN TOO LOST",
+    upstreamed: null,
+    upstreamAmount: null
+  },
+  {
+    artist: "Sleinza",
+    track: "Doctor, Doctor",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: null,
+    invoiced: null,
+    invoicedAmount: null,
+    paid: null,
+    linkToRoyaltiesHub: "IN TOO LOST",
+    upstreamed: null,
+    upstreamAmount: null
+  },
+  {
+    artist: "Sleinza",
+    track: "To The West",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: null,
+    invoiced: null,
+    invoicedAmount: null,
+    paid: null,
+    linkToRoyaltiesHub: "IN TOO LOST",
+    upstreamed: null,
+    upstreamAmount: null
+  },
+  {
+    artist: "Conall Cafferty",
+    track: "Straight Line",
+    delivered: false,
+    termsAgreed: true,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: 500,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: false,
+    upstreamAmount: 7500
+  },
+  {
+    artist: "Conall Cafferty",
+    track: "Don't Say You Love Me",
+    delivered: false,
+    termsAgreed: true,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: 500,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: false,
+    upstreamAmount: 7500
+  },
+  {
+    artist: "Jonas Conner",
+    track: "Home Ain't a Place No More",
+    delivered: false,
+    termsAgreed: true,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: 5000,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: null,
+    upstreamAmount: null
+  },
+  {
+    artist: "Jonas Conner",
+    track: "33s",
+    delivered: false,
+    termsAgreed: true,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: 5000,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: null,
+    upstreamAmount: null
+  },
+  {
+    artist: "Jonas Conner",
+    track: "Muscle It Up",
+    delivered: false,
+    termsAgreed: true,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: 5000,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: null,
+    upstreamAmount: null
+  },
+  {
+    artist: "Jonas Conner",
+    track: "Tears to Cry",
+    delivered: false,
+    termsAgreed: true,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: 5000,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: null,
+    upstreamAmount: null
+  },
+  {
+    artist: "Kenzie Cait",
+    track: "Phantom Pain",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: "IN DROPBOX",
+    invoiced: true,
+    invoicedAmount: 1250,
+    paid: true,
+    linkToRoyaltiesHub: "IN DISTROKID",
+    upstreamed: false,
+    upstreamAmount: null
+  },
+  {
+    artist: "Kenzie Cait",
+    track: "20 + ALONE",
+    delivered: true,
+    termsAgreed: true,
+    linkToProducerAgreement: "IN DROPBOX",
+    invoiced: true,
+    invoicedAmount: 1250,
+    paid: true,
+    linkToRoyaltiesHub: "IN DISTROKID",
+    upstreamed: false,
+    upstreamAmount: null
+  },
+  {
+    artist: "Hudson Ingram",
+    track: "Mr. Optimist",
+    delivered: true,
+    termsAgreed: false,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: null,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: null,
+    upstreamAmount: null,
+    pendingTerms: true
+  },
+  {
+    artist: "Reklaws",
+    track: "NDA",
+    delivered: false,
+    termsAgreed: false,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: 2000,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: false,
+    upstreamAmount: null
+  },
+  {
+    artist: "Tom Siletto/Amelie Kalia",
+    track: "Carolina",
+    delivered: true,
+    termsAgreed: false,
+    linkToProducerAgreement: "*NOT RECIEVED*",
+    invoiced: false,
+    invoicedAmount: null,
+    paid: false,
+    linkToRoyaltiesHub: "*NOT RECIEVED*",
+    upstreamed: false,
+    upstreamAmount: null,
+    pendingTerms: true
+  }
+]
 
 const loading = computed(() => invoiceStore.loading)
 const artists = computed(() => artistStore.sortedArtists)
@@ -326,6 +702,38 @@ const displayedStats = computed(() => {
     overdue,
     overdueCount: overdueInvoices.length
   }
+})
+
+// Import-related computed properties
+const groupedInvoices = computed(() => {
+  const grouped = {}
+  
+  invoiceImportData.forEach(track => {
+    if (track.invoicedAmount === null || track.invoicedAmount === undefined) {
+      return
+    }
+    
+    if (!grouped[track.artist]) {
+      grouped[track.artist] = {
+        artist: track.artist,
+        tracks: [],
+        totalAmount: 0,
+        allPaid: true
+      }
+    }
+    
+    grouped[track.artist].tracks.push(track)
+    grouped[track.artist].totalAmount += track.invoicedAmount
+    if (!track.paid) {
+      grouped[track.artist].allPaid = false
+    }
+  })
+  
+  return Object.values(grouped)
+})
+
+const totalImportAmount = computed(() => {
+  return invoiceImportData.reduce((sum, track) => sum + (track.invoicedAmount || 0), 0)
 })
 
 const getInvoiceStatus = (invoice) => {
@@ -519,6 +927,100 @@ const markAsPaid = async (invoice) => {
   }
 }
 
+// Import-related methods
+const initializeImport = () => {
+  showImportSection.value = true
+  importResults.value = []
+}
+
+const generateInvoiceNumber = (artistName) => {
+  const prefix = 'JS'
+  const artistInitials = artistName
+    .split(/[\s\/]+/)
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 4)
+  const timestamp = Date.now().toString().slice(-6)
+  return `${prefix}-${artistInitials}-${timestamp}`
+}
+
+const createLineItem = (track) => {
+  return {
+    description: track.track,
+    amount: track.invoicedAmount || 0,
+    artist: track.artist,
+    songProject: track.track,
+    company: 'Jack Schrepferman Productions',
+    delivered: track.delivered || false,
+    termsAgreed: track.termsAgreed || false,
+    invoiced: track.invoiced || false,
+    upstreamed: track.upstreamed || false,
+    upstreamAmount: track.upstreamAmount || 0,
+    attachmentUrl: '',
+    attachmentName: ''
+  }
+}
+
+const performImport = async () => {
+  importing.value = true
+  importResults.value = []
+  
+  try {
+    for (const invoiceGroup of groupedInvoices.value) {
+      try {
+        const invoiceNumber = generateInvoiceNumber(invoiceGroup.artist)
+        const issueDate = new Date()
+        const dueDate = new Date()
+        dueDate.setDate(dueDate.getDate() + 30)
+        
+        const lineItems = invoiceGroup.tracks.map(track => createLineItem(track))
+        
+        const invoiceData = {
+          artist_id: jackSchrepfermanId,
+          invoice_number: invoiceNumber,
+          amount: invoiceGroup.totalAmount,
+          status: invoiceGroup.allPaid ? 'paid' : 'pending',
+          issue_date: issueDate.toISOString().split('T')[0],
+          due_date: dueDate.toISOString().split('T')[0],
+          bill_to: `${invoiceGroup.artist}\n[Address to be added]`,
+          items: JSON.stringify(lineItems),
+          notes: 'Imported from spreadsheet',
+          paid_date: invoiceGroup.allPaid ? issueDate.toISOString().split('T')[0] : null
+        }
+        
+        const { data, error } = await supabase
+          .from('invoices')
+          .insert([invoiceData])
+          .select()
+          .single()
+        
+        if (error) throw error
+        
+        importResults.value.push({
+          artist: invoiceGroup.artist,
+          success: true,
+          invoiceNumber: invoiceNumber
+        })
+        
+      } catch (error) {
+        console.error(`Failed to import invoice for ${invoiceGroup.artist}:`, error)
+        importResults.value.push({
+          artist: invoiceGroup.artist,
+          success: false,
+          error: error.message
+        })
+      }
+    }
+    
+    // Refresh the invoice list
+    await invoiceStore.loadInvoices()
+    
+  } finally {
+    importing.value = false
+  }
+}
+
 const showToast = (message, type) => {
   // Get the toast component from the parent App.vue
   const app = document.querySelector('#app').__vue_app__
@@ -634,6 +1136,116 @@ onMounted(() => {
 .btn-action svg {
   width: 16px;
   height: 16px;
+}
+
+/* Import Section */
+.import-section {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 32px;
+}
+
+.import-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.import-header h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+}
+
+.btn-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.import-summary {
+  margin-bottom: 24px;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.import-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.import-group {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.import-group h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 8px 0;
+}
+
+.import-group p {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+.btn-import {
+  padding: 12px 32px;
+  background: #1db954;
+  color: white;
+  border: none;
+  border-radius: 24px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-import:hover:not(:disabled) {
+  background: #1ed760;
+}
+
+.btn-import:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.import-results {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.import-results h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 12px 0;
 }
 
 /* Stats Cards */
