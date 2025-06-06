@@ -198,13 +198,13 @@ watch(() => artistId.value, async (newId) => {
 }
 
 .artist-avatar span {
-  font-size: 32px;
+  font-size: 20px;
   font-weight: 700;
   color: white;
 }
 
 .artist-name {
-  font-size: 40px;
+  font-size: 18px;
   font-weight: 700;
   color: white;
   margin: 0 0 8px 0;

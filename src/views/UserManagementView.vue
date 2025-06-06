@@ -355,7 +355,7 @@
   }
   
   .view-title {
-    font-size: 48px;
+    font-size: 18px;
     font-weight: 700;
     color: white;
     margin: 0;
@@ -494,7 +494,7 @@
   }
   
   .modal-header h2 {
-    font-size: 24px;
+    font-size: 18px;
     font-weight: 700;
     color: white;
     margin: 0;
@@ -510,7 +510,7 @@
     border: none;
     border-radius: 50%;
     color: rgba(255, 255, 255, 0.5);
-    font-size: 24px;
+    font-size: 18px;
     cursor: pointer;
     transition: all 0.2s ease;
   }

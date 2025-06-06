@@ -294,7 +294,7 @@ onMounted(async () => {
 }
 
 .stat-value {
-  font-size: 32px;
+  font-size: 20px;
   font-weight: 700;
   color: white;
   margin: 0 0 12px 0;
@@ -322,7 +322,7 @@ onMounted(async () => {
 }
 
 .section-title {
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 700;
   color: white;
   margin: 0 0 24px 0;

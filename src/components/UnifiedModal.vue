@@ -527,7 +527,7 @@ watch(() => formData.value.items, () => {
 }
 
 .modal-title {
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 700;
   color: white;
   margin: 0;
@@ -732,7 +732,7 @@ watch(() => formData.value.items, () => {
 }
 
 .total-amount {
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 700;
   color: #1db954;
 }

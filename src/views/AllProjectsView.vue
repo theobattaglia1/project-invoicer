@@ -193,7 +193,7 @@
   }
   
   .view-title {
-    font-size: 48px;
+    font-size: 18px;
     font-weight: 700;
     color: white;
     margin: 0;
@@ -432,7 +432,7 @@
   }
   
   .empty-state h3 {
-    font-size: 24px;
+    font-size: 18px;
     font-weight: 600;
     color: white;
     margin: 0 0 8px 0;
