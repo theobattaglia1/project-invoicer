@@ -1,13 +1,13 @@
 // src/composables/useAuth.js
 import { useRouter } from 'vue-router'
-import { signOut } from '@/lib/supabase'
+import { auth } from '@/lib/supabase'
 
 export const useAuth = () => {
   const router = useRouter()
   
   const logout = async () => {
     try {
-      const { error } = await signOut()
+      const { error } = await auth.signOut()
       if (error) throw error
       
       // Clear any local storage items

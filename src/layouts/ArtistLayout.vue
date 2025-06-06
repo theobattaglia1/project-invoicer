@@ -89,41 +89,35 @@ import { useProjectStore } from '@/store/projectStore'
 import { useInvoiceStore } from '@/store/invoiceStore'
 import { useAuthStore } from '@/store/authStore'
 
-const props = defineProps({
-  artistId: {
-    type: String,
-    required: true
-  }
-})
-
 const route = useRoute()
 const artistStore = useArtistStore()
 const projectStore = useProjectStore()
 const invoiceStore = useInvoiceStore()
 const authStore = useAuthStore()
 
-const emit = defineEmits(['create', 'update', 'delete'])
+// Get artistId from route
+const artistId = computed(() => route.params.artistId)
 
-const artist = computed(() => artistStore.getArtistById(props.artistId))
+const artist = computed(() => artistStore.getArtistById(artistId.value))
 
 const projectCount = computed(() => 
-  projectStore.getProjectsByArtist(props.artistId).length
+  projectStore.getProjectsByArtist(artistId.value).length
 )
 
 const activeInvoiceCount = computed(() => 
-  invoiceStore.getInvoicesByArtist(props.artistId)
+  invoiceStore.getInvoicesByArtist(artistId.value)
     .filter(i => !['archived', 'trashed'].includes(i.status)).length
 )
 
 const invoiceCount = computed(() => activeInvoiceCount.value)
 
 const archivedCount = computed(() => 
-  invoiceStore.getInvoicesByArtist(props.artistId)
+  invoiceStore.getInvoicesByArtist(artistId.value)
     .filter(i => i.status === 'archived').length
 )
 
 const trashedCount = computed(() => 
-  invoiceStore.getInvoicesByArtist(props.artistId)
+  invoiceStore.getInvoicesByArtist(artistId.value)
     .filter(i => i.status === 'trashed').length
 )
 
@@ -135,6 +129,9 @@ const getInitials = (name) => {
     .toUpperCase()
     .slice(0, 2)
 }
+
+// Emit events up to parent
+const emit = defineEmits(['create', 'update', 'delete'])
 
 const handleCreate = (type, defaultData) => {
   emit('create', type, defaultData)
@@ -149,7 +146,7 @@ const handleDelete = (type, id) => {
 }
 
 // Reload data when artist changes
-watch(() => props.artistId, async (newId) => {
+watch(() => artistId.value, async (newId) => {
   if (newId) {
     // Load artist-specific data if needed
     await projectStore.loadProjectsByArtist(newId)

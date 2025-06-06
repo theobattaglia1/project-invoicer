@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/authStore'
 
 // Views
 import LoginView from '@/components/auth/LoginView.vue'
+import MainLayout from '@/layouts/MainLayout.vue'
 import ArtistListView from '@/views/ArtistListView.vue'
 import ArtistLayout from '@/layouts/ArtistLayout.vue'
 import ArtistOverviewView from '@/views/ArtistOverviewView.vue'
@@ -23,60 +24,67 @@ const routes = [
   },
   {
     path: '/',
-    name: 'Artists',
-    component: ArtistListView,
-    meta: { requiresAuth: true, requiresTeam: true }
-  },
-  {
-    path: '/artist/:artistId',
-    component: ArtistLayout,
+    component: MainLayout,
     meta: { requiresAuth: true },
     children: [
       {
-        path: 'overview',
-        name: 'ArtistOverview',
-        component: ArtistOverviewView,
-        props: true
+        path: '',
+        name: 'Artists',
+        component: ArtistListView,
+        meta: { requiresTeam: true }
+      },
+      {
+        path: 'artist/:artistId',
+        component: ArtistLayout,
+        props: true,
+        children: [
+          {
+            path: 'overview',
+            name: 'ArtistOverview',
+            component: ArtistOverviewView,
+            props: true
+          },
+          {
+            path: 'projects',
+            name: 'ArtistProjects',
+            component: ArtistProjectsView,
+            props: true
+          },
+          {
+            path: 'invoices',
+            name: 'ArtistInvoices', 
+            component: ArtistInvoicesView,
+            props: true
+          },
+          {
+            path: 'archived',
+            name: 'ArtistArchived',
+            component: ArtistArchivedView,
+            props: true,
+            meta: { requiresTeam: true }
+          },
+          {
+            path: 'trash',
+            name: 'ArtistTrash',
+            component: ArtistTrashView,
+            props: true,
+            meta: { requiresTeam: true }
+          }
+        ]
       },
       {
         path: 'projects',
-        name: 'ArtistProjects',
-        component: ArtistProjectsView,
-        props: true
+        name: 'AllProjects',
+        component: AllProjectsView,
+        meta: { requiresTeam: true }
       },
       {
         path: 'invoices',
-        name: 'ArtistInvoices', 
-        component: ArtistInvoicesView,
-        props: true
-      },
-      {
-        path: 'archived',
-        name: 'ArtistArchived',
-        component: ArtistArchivedView,
-        props: true,
-        meta: { requiresTeam: true }
-      },
-      {
-        path: 'trash',
-        name: 'ArtistTrash',
-        component: ArtistTrashView,
-        props: true,
+        name: 'AllInvoices',
+        component: AllInvoicesView,
         meta: { requiresTeam: true }
       }
     ]
-  },
-  {
-    path: '/projects',
-    name: 'AllProjects',
-    component: AllProjectsView,
-    meta: { requiresAuth: true, requiresTeam: true }
-  },
-  {
-    path: '/invoices',
-    name: 'AllInvoices',
-    component: AllInvoicesView,
-    meta: { requiresAuth: true, requiresTeam: true }
   }
 ]
 
