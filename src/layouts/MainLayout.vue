@@ -27,6 +27,19 @@
             </svg>
             <span>Invoices</span>
           </router-link>
+          
+          <!-- Users link - only visible to owners -->
+          <router-link 
+            v-if="authStore.isOwner"
+            to="/users" 
+            class="nav-link" 
+            :class="{ active: $route.name === 'UserManagement' }"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+            </svg>
+            <span>Users</span>
+          </router-link>
         </nav>
         
         <div class="sidebar-footer">
@@ -37,6 +50,7 @@
             <div class="user-details">
               <p class="user-name">{{ authStore.profile?.name || 'User' }}</p>
               <p class="user-email">{{ authStore.user?.email }}</p>
+              <p class="user-role">{{ formatRole(authStore.profile?.role) }}</p>
             </div>
           </div>
           <button @click="logout" class="btn-logout">
@@ -72,8 +86,8 @@
   </template>
   
   <script setup>
-  import { ref, onMounted } from 'vue'
-  import { useRouter } from 'vue-router'
+  import { ref, onMounted, watch } from 'vue'
+  import { useRouter, useRoute } from 'vue-router'
   import { useAuthStore } from '@/store/authStore'
   import { useArtistStore } from '@/store/artistStore'
   import { useProjectStore } from '@/store/projectStore'
@@ -83,6 +97,7 @@
   import UnifiedModal from '@/components/UnifiedModal.vue'
   
   const router = useRouter()
+  const route = useRoute()
   const authStore = useAuthStore()
   const artistStore = useArtistStore()
   const projectStore = useProjectStore()
@@ -99,6 +114,11 @@
     defaultData: null
   })
   
+  // Debug route changes
+  watch(() => route.path, (newPath) => {
+    console.log('Route changed to:', newPath)
+  })
+  
   const getUserInitials = () => {
     const name = authStore.profile?.name || authStore.user?.email || 'U'
     return name
@@ -107,6 +127,17 @@
       .join('')
       .toUpperCase()
       .slice(0, 2)
+  }
+  
+  const formatRole = (role) => {
+    const roleMap = {
+      owner: 'Owner',
+      editor: 'Editor',
+      invoicer: 'Invoicer',
+      artist: 'Artist',
+      viewer: 'Viewer'
+    }
+    return roleMap[role] || role
   }
   
   // Modal handlers
@@ -202,6 +233,7 @@
   
   // Load initial data
   onMounted(async () => {
+    console.log('MainLayout mounted, current route:', route.path)
     try {
       await Promise.all([
         artistStore.loadArtists(),
@@ -334,6 +366,15 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  
+  .user-role {
+    font-size: 11px;
+    color: #1db954;
+    margin: 2px 0 0 0;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
   
   .btn-logout {

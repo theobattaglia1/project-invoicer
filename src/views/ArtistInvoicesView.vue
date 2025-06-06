@@ -1,172 +1,170 @@
 <template>
-  <ArtistLayout :artistId="artistId">
-    <div class="invoices-content">
-      <!-- Header with Actions -->
-      <div class="content-header">
-        <div class="header-left">
-          <h2 class="content-title">Invoices</h2>
-          <div v-if="selectedInvoices.length > 0" class="selection-info">
-            <span class="selection-count">{{ selectedInvoices.length }} selected</span>
-            <span class="selection-total">${{ selectedTotal.toFixed(2) }}</span>
-          </div>
+  <div class="invoices-content">
+    <!-- Header with Actions -->
+    <div class="content-header">
+      <div class="header-left">
+        <h2 class="content-title">Invoices</h2>
+        <div v-if="selectedInvoices.length > 0" class="selection-info">
+          <span class="selection-count">{{ selectedInvoices.length }} selected</span>
+          <span class="selection-total">${{ selectedTotal.toFixed(2) }}</span>
         </div>
-        <div class="header-actions">
-          <div v-if="selectedInvoices.length > 0" class="bulk-actions">
-            <button @click="bulkUpdateStatus('paid')" class="btn-action">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-              </svg>
-              Mark Paid
-            </button>
-            <button @click="bulkArchive" class="btn-action">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/>
-              </svg>
-              Archive
-            </button>
-            <button @click="bulkTrash" class="btn-action danger">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-              </svg>
-              Delete
-            </button>
-            <button @click="clearSelection" class="btn-action secondary">
-              Clear
-            </button>
-          </div>
-          <button @click="createInvoice" class="btn-primary">
-            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+      </div>
+      <div class="header-actions">
+        <div v-if="selectedInvoices.length > 0" class="bulk-actions">
+          <button @click="bulkUpdateStatus('paid')" class="btn-action">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
             </svg>
-            New Invoice
+            Mark Paid
+          </button>
+          <button @click="bulkArchive" class="btn-action">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/>
+            </svg>
+            Archive
+          </button>
+          <button @click="bulkTrash" class="btn-action danger">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </svg>
+            Delete
+          </button>
+          <button @click="clearSelection" class="btn-action secondary">
+            Clear
           </button>
         </div>
-      </div>
-
-      <!-- Stats Cards (updated to show selection stats when items are selected) -->
-      <div class="stats-grid">
-        <div class="stat-card" :class="{ highlighted: selectedInvoices.length > 0 }">
-          <div class="stat-value">${{ displayedStats.total.toFixed(2) }}</div>
-          <div class="stat-label">{{ selectedInvoices.length > 0 ? 'Selected Total' : 'Total Revenue' }}</div>
-        </div>
-        <div class="stat-card" :class="{ highlighted: selectedInvoices.length > 0 && displayedStats.pendingCount > 0 }">
-          <div class="stat-value">${{ displayedStats.pending.toFixed(2) }}</div>
-          <div class="stat-label">Pending ({{ displayedStats.pendingCount }})</div>
-        </div>
-        <div class="stat-card" :class="{ highlighted: selectedInvoices.length > 0 && displayedStats.paidCount > 0 }">
-          <div class="stat-value">${{ displayedStats.paid.toFixed(2) }}</div>
-          <div class="stat-label">Paid ({{ displayedStats.paidCount }})</div>
-        </div>
-        <div class="stat-card" :class="{ highlighted: selectedInvoices.length > 0 && displayedStats.overdueCount > 0 }">
-          <div class="stat-value">{{ displayedStats.overdueCount }}</div>
-          <div class="stat-label">Overdue</div>
-        </div>
-      </div>
-
-      <!-- Invoices Table -->
-      <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading invoices...</p>
-      </div>
-
-      <div v-else-if="invoices.length === 0" class="empty-state">
-        <svg class="empty-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-        </svg>
-        <h3>No invoices yet</h3>
-        <p>Create your first invoice for {{ artist?.name }}</p>
-        <button @click="createInvoice" class="btn-primary">Create Invoice</button>
-      </div>
-
-      <div v-else class="table-container">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th class="checkbox-column">
-                <input 
-                  type="checkbox" 
-                  :checked="isAllSelected"
-                  :indeterminate="isIndeterminate"
-                  @change="toggleSelectAll"
-                />
-              </th>
-              <th>Invoice #</th>
-              <th>Project</th>
-              <th>Issue Date</th>
-              <th>Due Date</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr 
-              v-for="(invoice, index) in sortedInvoices" 
-              :key="invoice.id"
-              :class="{ selected: isSelected(invoice.id) }"
-              @click="handleRowClick($event, invoice, index)"
-            >
-              <td class="checkbox-column" @click.stop>
-                <input 
-                  type="checkbox" 
-                  :checked="isSelected(invoice.id)"
-                  @change="toggleSelection(invoice.id)"
-                />
-              </td>
-              <td class="invoice-number">{{ invoice.invoice_number }}</td>
-              <td>
-                <div v-if="getProject(invoice.project_id)" class="project-name">
-                  {{ getProject(invoice.project_id).name }}
-                </div>
-                <div v-else class="no-project">No project</div>
-              </td>
-              <td>{{ formatDate(invoice.issue_date) }}</td>
-              <td :class="{ 'overdue': isOverdue(invoice) }">
-                {{ formatDate(invoice.due_date) }}
-              </td>
-              <td class="amount">${{ invoice.amount.toFixed(2) }}</td>
-              <td>
-                <span :class="['status-badge', `status-${getInvoiceStatus(invoice)}`]">
-                  {{ formatStatus(getInvoiceStatus(invoice)) }}
-                </span>
-              </td>
-              <td class="actions" @click.stop>
-                <button 
-                  @click="generatePDF(invoice)" 
-                  class="btn-icon pdf"
-                  title="Generate PDF"
-                >
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M7 11.5h1v-1H7v1zM19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5c0 .83-.67 1.5-1.5 1.5H7v2H5.5V9H8c.83 0 1.5.67 1.5 1.5v1zm5-1H13v4h-1.5V9h3v1.5zm4 3c0 .83-.67 1.5-1.5 1.5h-2.5V9H18c.83 0 1.5.67 1.5 1.5v3zM16.5 10.5H17v3h-.5v-3z"/>
-                  </svg>
-                </button>
-                <button 
-                  v-if="invoice.status === 'pending'" 
-                  @click="markAsPaid(invoice)" 
-                  class="btn-icon success"
-                  title="Mark as paid"
-                >
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                  </svg>
-                </button>
-                <button @click="editInvoice(invoice)" class="btn-icon">
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                  </svg>
-                </button>
-                <button @click="deleteInvoice(invoice)" class="btn-icon danger">
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                  </svg>
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <button @click="createInvoice" class="btn-primary">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          </svg>
+          New Invoice
+        </button>
       </div>
     </div>
-  </ArtistLayout>
+
+    <!-- Stats Cards (updated to show selection stats when items are selected) -->
+    <div class="stats-grid">
+      <div class="stat-card" :class="{ highlighted: selectedInvoices.length > 0 }">
+        <div class="stat-value">${{ displayedStats.total.toFixed(2) }}</div>
+        <div class="stat-label">{{ selectedInvoices.length > 0 ? 'Selected Total' : 'Total Revenue' }}</div>
+      </div>
+      <div class="stat-card" :class="{ highlighted: selectedInvoices.length > 0 && displayedStats.pendingCount > 0 }">
+        <div class="stat-value">${{ displayedStats.pending.toFixed(2) }}</div>
+        <div class="stat-label">Pending ({{ displayedStats.pendingCount }})</div>
+      </div>
+      <div class="stat-card" :class="{ highlighted: selectedInvoices.length > 0 && displayedStats.paidCount > 0 }">
+        <div class="stat-value">${{ displayedStats.paid.toFixed(2) }}</div>
+        <div class="stat-label">Paid ({{ displayedStats.paidCount }})</div>
+      </div>
+      <div class="stat-card" :class="{ highlighted: selectedInvoices.length > 0 && displayedStats.overdueCount > 0 }">
+        <div class="stat-value">{{ displayedStats.overdueCount }}</div>
+        <div class="stat-label">Overdue</div>
+      </div>
+    </div>
+
+    <!-- Invoices Table -->
+    <div v-if="loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading invoices...</p>
+    </div>
+
+    <div v-else-if="invoices.length === 0" class="empty-state">
+      <svg class="empty-icon" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+      </svg>
+      <h3>No invoices yet</h3>
+      <p>Create your first invoice for {{ artist?.name }}</p>
+      <button @click="createInvoice" class="btn-primary">Create Invoice</button>
+    </div>
+
+    <div v-else class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="checkbox-column">
+              <input 
+                type="checkbox" 
+                :checked="isAllSelected"
+                :indeterminate="isIndeterminate"
+                @change="toggleSelectAll"
+              />
+            </th>
+            <th>Invoice #</th>
+            <th>Project</th>
+            <th>Issue Date</th>
+            <th>Due Date</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr 
+            v-for="(invoice, index) in sortedInvoices" 
+            :key="invoice.id"
+            :class="{ selected: isSelected(invoice.id) }"
+            @click="handleRowClick($event, invoice, index)"
+          >
+            <td class="checkbox-column" @click.stop>
+              <input 
+                type="checkbox" 
+                :checked="isSelected(invoice.id)"
+                @change="toggleSelection(invoice.id)"
+              />
+            </td>
+            <td class="invoice-number">{{ invoice.invoice_number }}</td>
+            <td>
+              <div v-if="getProject(invoice.project_id)" class="project-name">
+                {{ getProject(invoice.project_id).name }}
+              </div>
+              <div v-else class="no-project">No project</div>
+            </td>
+            <td>{{ formatDate(invoice.issue_date) }}</td>
+            <td :class="{ 'overdue': isOverdue(invoice) }">
+              {{ formatDate(invoice.due_date) }}
+            </td>
+            <td class="amount">${{ invoice.amount.toFixed(2) }}</td>
+            <td>
+              <span :class="['status-badge', `status-${getInvoiceStatus(invoice)}`]">
+                {{ formatStatus(getInvoiceStatus(invoice)) }}
+              </span>
+            </td>
+            <td class="actions" @click.stop>
+              <button 
+                @click="generatePDF(invoice)" 
+                class="btn-icon pdf"
+                title="Generate PDF"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M7 11.5h1v-1H7v1zM19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5c0 .83-.67 1.5-1.5 1.5H7v2H5.5V9H8c.83 0 1.5.67 1.5 1.5v1zm5-1H13v4h-1.5V9h3v1.5zm4 3c0 .83-.67 1.5-1.5 1.5h-2.5V9H18c.83 0 1.5.67 1.5 1.5v3zM16.5 10.5H17v3h-.5v-3z"/>
+                </svg>
+              </button>
+              <button 
+                v-if="invoice.status === 'pending'" 
+                @click="markAsPaid(invoice)" 
+                class="btn-icon success"
+                title="Mark as paid"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+              </button>
+              <button @click="editInvoice(invoice)" class="btn-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+              </button>
+              <button @click="deleteInvoice(invoice)" class="btn-icon danger">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                </svg>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -176,7 +174,6 @@ import { open as openDialog } from '@tauri-apps/api/shell'
 import { useArtistStore } from '@/store/artistStore'
 import { useProjectStore } from '@/store/projectStore'
 import { useInvoiceStore } from '@/store/invoiceStore'
-import ArtistLayout from '@/layouts/ArtistLayout.vue'
 
 const props = defineProps({
   artistId: {
@@ -455,8 +452,7 @@ onMounted(() => {
 
 <style scoped>
 .invoices-content {
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .content-header {

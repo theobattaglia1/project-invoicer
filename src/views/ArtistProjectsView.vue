@@ -1,85 +1,83 @@
 <template>
-  <ArtistLayout :artistId="artistId">
-    <div class="projects-content">
-      <!-- Header -->
-      <div class="content-header">
-        <h2 class="content-title">Projects</h2>
-        <button @click="createProject" class="btn-primary">
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-          </svg>
-          New Project
-        </button>
-      </div>
-
-      <!-- Projects Table -->
-      <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading projects...</p>
-      </div>
-
-      <div v-else-if="projects.length === 0" class="empty-state">
-        <svg class="empty-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
+  <div class="projects-content">
+    <!-- Header -->
+    <div class="content-header">
+      <h2 class="content-title">Projects</h2>
+      <button @click="createProject" class="btn-primary">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
         </svg>
-        <h3>No projects yet</h3>
-        <p>Create your first project for {{ artist?.name }}</p>
-        <button @click="createProject" class="btn-primary">Create Project</button>
-      </div>
-
-      <div v-else class="table-container">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Project Name</th>
-              <th>Status</th>
-              <th>Start Date</th>
-              <th>End Date</th>
-              <th>Budget</th>
-              <th>Invoices</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="project in sortedProjects" :key="project.id">
-              <td>
-                <div class="project-name">{{ project.name }}</div>
-                <div class="project-description">{{ project.description || 'No description' }}</div>
-              </td>
-              <td>
-                <span :class="['status-badge', `status-${project.status}`]">
-                  {{ formatStatus(project.status) }}
-                </span>
-              </td>
-              <td>{{ formatDate(project.start_date) }}</td>
-              <td>{{ formatDate(project.end_date) }}</td>
-              <td class="amount">${{ formatAmount(project.budget) }}</td>
-              <td>
-                <span class="invoice-count">{{ getInvoiceCount(project.id) }}</span>
-              </td>
-              <td class="actions">
-                <button @click="createInvoiceForProject(project)" class="btn-icon">
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-                  </svg>
-                </button>
-                <button @click="editProject(project)" class="btn-icon">
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                  </svg>
-                </button>
-                <button @click="deleteProject(project)" class="btn-icon danger">
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                  </svg>
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        New Project
+      </button>
     </div>
-  </ArtistLayout>
+
+    <!-- Projects Table -->
+    <div v-if="loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading projects...</p>
+    </div>
+
+    <div v-else-if="projects.length === 0" class="empty-state">
+      <svg class="empty-icon" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/>
+      </svg>
+      <h3>No projects yet</h3>
+      <p>Create your first project for {{ artist?.name }}</p>
+      <button @click="createProject" class="btn-primary">Create Project</button>
+    </div>
+
+    <div v-else class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Project Name</th>
+            <th>Status</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Budget</th>
+            <th>Invoices</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="project in sortedProjects" :key="project.id">
+            <td>
+              <div class="project-name">{{ project.name }}</div>
+              <div class="project-description">{{ project.description || 'No description' }}</div>
+            </td>
+            <td>
+              <span :class="['status-badge', `status-${project.status}`]">
+                {{ formatStatus(project.status) }}
+              </span>
+            </td>
+            <td>{{ formatDate(project.start_date) }}</td>
+            <td>{{ formatDate(project.end_date) }}</td>
+            <td class="amount">${{ formatAmount(project.budget) }}</td>
+            <td>
+              <span class="invoice-count">{{ getInvoiceCount(project.id) }}</span>
+            </td>
+            <td class="actions">
+              <button @click="createInvoiceForProject(project)" class="btn-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                </svg>
+              </button>
+              <button @click="editProject(project)" class="btn-icon">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+              </button>
+              <button @click="deleteProject(project)" class="btn-icon danger">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                </svg>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -87,7 +85,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useArtistStore } from '@/store/artistStore'
 import { useProjectStore } from '@/store/projectStore'
 import { useInvoiceStore } from '@/store/invoiceStore'
-import ArtistLayout from '@/layouts/ArtistLayout.vue'
 
 const props = defineProps({
   artistId: {
@@ -176,6 +173,7 @@ onMounted(() => {
 
 <style scoped>
 .projects-content {
+  padding: 32px;
   max-width: 1400px;
   margin: 0 auto;
 }

@@ -3,14 +3,22 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, onUnmounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { auth } from '@/lib/supabase'
 
 const router = useRouter()
+const route = useRoute()
 let authListener = null
 
+// Debug route changes
+watch(() => route.fullPath, (newPath) => {
+  console.log('App.vue - Route changed to:', newPath)
+})
+
 onMounted(() => {
+  console.log('App.vue mounted, initial route:', route.fullPath)
+  
   // Listen for auth state changes
   authListener = auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_IN') {

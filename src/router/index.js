@@ -14,6 +14,7 @@ import ArtistArchivedView from '@/views/ArtistArchivedView.vue'
 import ArtistTrashView from '@/views/ArtistTrashView.vue'
 import AllProjectsView from '@/views/AllProjectsView.vue'
 import AllInvoicesView from '@/views/AllInvoicesView.vue'
+import UserManagementView from '@/views/UserManagementView.vue'
 
 const routes = [
   {
@@ -83,6 +84,12 @@ const routes = [
         name: 'AllInvoices',
         component: AllInvoicesView,
         meta: { requiresTeam: true }
+      },
+      {
+        path: 'users',
+        name: 'UserManagement',
+        component: UserManagementView,
+        meta: { requiresTeam: true, requiresOwner: true }
       }
     ]
   }
@@ -95,21 +102,26 @@ const router = createRouter({
 
 // Navigation guard
 router.beforeEach(async (to, from, next) => {
+  console.log('Router guard: navigating from', from.path, 'to', to.path)
+  
   const authStore = useAuthStore()
   
   // Initialize auth store if needed
   if (!authStore.initialized) {
+    console.log('Router guard: initializing auth store')
     await authStore.initialize()
   }
   
   // Check if route requires authentication
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    console.log('Router guard: not authenticated, redirecting to login')
     next('/login')
     return
   }
   
   // Check if logged in user is trying to access login
   if (to.path === '/login' && authStore.isAuthenticated) {
+    console.log('Router guard: already authenticated, redirecting from login')
     // Redirect based on role
     if (authStore.isArtist) {
       next(`/artist/${authStore.profile.artist_id}/overview`)
@@ -119,8 +131,16 @@ router.beforeEach(async (to, from, next) => {
     return
   }
   
+  // Check owner restriction
+  if (to.meta.requiresOwner && !authStore.isOwner) {
+    console.log('Router guard: owner access required')
+    next('/')
+    return
+  }
+  
   // Check team member restriction
   if (to.meta.requiresTeam && authStore.isArtist) {
+    console.log('Router guard: artist trying to access team route')
     // Artists can't access team-only routes
     next(`/artist/${authStore.profile.artist_id}/overview`)
     return
@@ -129,7 +149,9 @@ router.beforeEach(async (to, from, next) => {
   // Check artist access
   if (to.params.artistId) {
     const canView = authStore.canViewArtist(to.params.artistId)
+    console.log('Router guard: checking artist access', to.params.artistId, 'canView:', canView)
     if (!canView) {
+      console.log('Router guard: no access to artist', to.params.artistId)
       // Redirect to their allowed area
       if (authStore.isArtist) {
         next(`/artist/${authStore.profile.artist_id}/overview`)
@@ -140,6 +162,7 @@ router.beforeEach(async (to, from, next) => {
     }
   }
   
+  console.log('Router guard: allowing navigation')
   next()
 })
 

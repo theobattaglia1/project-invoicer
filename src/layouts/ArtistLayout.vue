@@ -1,5 +1,10 @@
 <template>
   <div class="artist-layout">
+    <!-- Debug info -->
+    <div v-if="!artist" class="error-state">
+      <p>Artist not found for ID: {{ artistId }}</p>
+    </div>
+    
     <!-- Artist Header -->
     <div class="artist-header" v-if="artist">
       <div class="header-content">
@@ -148,6 +153,7 @@ const handleDelete = (type, id) => {
 // Reload data when artist changes
 watch(() => artistId.value, async (newId) => {
   if (newId) {
+    console.log('Loading data for artist:', newId)
     // Load artist-specific data if needed
     await projectStore.loadProjectsByArtist(newId)
     await invoiceStore.loadInvoicesByArtist(newId)
@@ -281,5 +287,31 @@ watch(() => artistId.value, async (newId) => {
 .artist-content {
   flex: 1;
   overflow: hidden;
+  padding: 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.error-state {
+  padding: 40px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .artist-nav {
+    overflow-x: auto;
+    gap: 24px;
+  }
+  
+  .nav-tab {
+    white-space: nowrap;
+  }
+  
+  .artist-content {
+    padding: 16px;
+  }
 }
 </style>
