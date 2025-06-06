@@ -1,406 +1,303 @@
-// src-tauri/src/pdf_generator.rs
-use printpdf::*;
-use std::fs::File;
-use std::io::BufWriter;
-use std::path::PathBuf;
-use chrono::NaiveDate;
-use crate::database::{Artist, Invoice, Project};
+// src/services/pdfGenerator.js
+import jsPDF from 'jspdf'
+import 'jspdf-autotable'
+import { supabase } from '@/lib/supabase'
 
-const MARGIN: f32 = 50.0;
-const PAGE_WIDTH: f32 = 595.0;  // A4 width in points
-const PAGE_HEIGHT: f32 = 842.0; // A4 height in points
-
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-pub struct InvoiceData {
-    pub invoice: Invoice,
-    pub artist: Artist,
-    pub project: Option<Project>,
-    pub line_items: Vec<LineItem>,
-}
-
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-pub struct LineItem {
-    pub description: String,
-    pub amount: f64,
-}
-
-pub fn generate_invoice_pdf(data: InvoiceData, output_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-    // Create PDF document
-    let (doc, page1, layer1) = PdfDocument::new(
-        &format!("Invoice {}", data.invoice.invoice_number),
-        Mm(210.0), // A4 width
-        Mm(297.0), // A4 height
-        "Layer 1"
-    );
+export async function generateInvoicePDF(invoiceData) {
+  const { invoice, artist, project, line_items } = invoiceData
+  
+  // Create new PDF document (A4 size)
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'pt',
+    format: 'a4'
+  })
+  
+  // Constants matching Rust version
+  const MARGIN = 50
+  const PAGE_WIDTH = 595  // A4 width in points
+  const PAGE_HEIGHT = 842 // A4 height in points
+  
+  let yPosition = PAGE_HEIGHT - MARGIN
+  
+  // Artist Name and Company (top left)
+  let artistName = artist.name
+  if (artist.company_name && artist.company_name.trim()) {
+    artistName = `${artist.name} / ${artist.company_name}`
+  }
+  
+  doc.setFontSize(16)
+  doc.setFont(undefined, 'bold')
+  doc.text(artistName, MARGIN, yPosition)
+  yPosition -= 20
+  
+  // Artist Address
+  doc.setFontSize(10)
+  doc.setFont(undefined, 'normal')
+  if (artist.address && artist.address.trim()) {
+    const addressLines = artist.address.split('\n')
+    for (let i = 0; i < Math.min(addressLines.length, 3); i++) {
+      doc.text(addressLines[i], MARGIN, yPosition)
+      yPosition -= 15
+    }
+  }
+  
+  // Artist Contact Info
+  if (artist.email && artist.email.trim()) {
+    doc.text(artist.email, MARGIN, yPosition)
+    yPosition -= 15
+  }
+  
+  if (artist.phone && artist.phone.trim()) {
+    doc.text(artist.phone, MARGIN, yPosition)
+  }
+  
+  // INVOICE header (right side)
+  doc.setFontSize(20)
+  doc.setFont(undefined, 'bold')
+  doc.text('INVOICE', PAGE_WIDTH - 150, PAGE_HEIGHT - MARGIN)
+  
+  // Invoice Number and Date (right side)
+  const invoiceY = PAGE_HEIGHT - 80
+  doc.setFontSize(12)
+  doc.setFont(undefined, 'bold')
+  doc.text(`#${invoice.invoice_number}`, PAGE_WIDTH - 150, invoiceY)
+  
+  doc.setFont(undefined, 'normal')
+  doc.setFontSize(12)
+  doc.text(formatDate(invoice.issue_date), PAGE_WIDTH - 150, invoiceY - 20)
+  
+  // Bill To section
+  yPosition = PAGE_HEIGHT - 160
+  doc.setFontSize(10)
+  doc.setFont(undefined, 'bold')
+  doc.text('BILL TO:', MARGIN, yPosition)
+  yPosition -= 15
+  
+  doc.setFont(undefined, 'normal')
+  if (invoice.bill_to && invoice.bill_to.trim()) {
+    const billToLines = invoice.bill_to.split('\n')
+    for (let i = 0; i < Math.min(billToLines.length, 4); i++) {
+      doc.text(billToLines[i], MARGIN, yPosition)
+      yPosition -= 15
+    }
+  } else {
+    doc.text('[Client Name]', MARGIN, yPosition)
+  }
+  
+  // Move down for the table
+  yPosition = PAGE_HEIGHT - 240
+  
+  // Table Header
+  drawTableRow(doc, yPosition, true)
+  
+  doc.setFontSize(12)
+  doc.setFont(undefined, 'bold')
+  doc.text('ITEM', MARGIN, yPosition - 15)
+  doc.text('COST', PAGE_WIDTH - 150, yPosition - 15)
+  yPosition -= 30
+  
+  // Line Items
+  doc.setFont(undefined, 'normal')
+  for (const item of line_items) {
+    const rowHeight = calculateRowHeight(item)
+    drawTableRow(doc, yPosition, false, rowHeight)
     
-    let current_layer = doc.get_page(page1).get_layer(layer1);
+    // Build description with all details
+    let itemY = yPosition - 15
     
-    // Load fonts
-    let font_regular = doc.add_builtin_font(BuiltinFont::Helvetica)?;
-    let font_bold = doc.add_builtin_font(BuiltinFont::HelveticaBold)?;
+    // Main description
+    doc.setFontSize(11)
+    doc.text(item.description, MARGIN, itemY)
+    itemY -= 15
     
-    let mut y_position = PAGE_HEIGHT - MARGIN;
+    // Additional details in smaller font
+    doc.setFontSize(10)
+    const details = []
+    if (item.artist) details.push(`Artist: ${item.artist}`)
+    if (item.songProject) details.push(`Song/Project: ${item.songProject}`)
+    if (item.company) details.push(`Company: ${item.company}`)
     
-    // Artist Name and Company (top left)
-    let artist_name = if let Some(company) = &data.artist.company_name {
-        if !company.trim().is_empty() {
-            format!("{} / {}", data.artist.name, company)
-        } else {
-            data.artist.name.clone()
-        }
-    } else {
-        data.artist.name.clone()
-    };
-    
-    current_layer.use_text(
-        &artist_name,
-        16.0,
-        Mm((MARGIN / 2.834) as f32),
-        Mm((y_position / 2.834) as f32),
-        &font_bold
-    );
-    y_position -= 20.0;
-    
-    // Artist Address
-    if let Some(address) = &data.artist.address {
-        if !address.trim().is_empty() {
-            let address_lines: Vec<&str> = address.lines().collect();
-            for line in address_lines.iter().take(3) { // Limit to 3 lines
-                current_layer.use_text(
-                    *line,
-                    10.0,
-                    Mm((MARGIN / 2.834) as f32),
-                    Mm((y_position / 2.834) as f32),
-                    &font_regular
-                );
-                y_position -= 15.0;
-            }
-        }
+    if (details.length > 0) {
+      doc.text(details.join(' | '), MARGIN, itemY)
+      itemY -= 15
     }
     
-    // Artist Contact Info
-    if let Some(email) = &data.artist.email {
-        if !email.trim().is_empty() {
-            current_layer.use_text(
-                email,
-                10.0,
-                Mm((MARGIN / 2.834) as f32),
-                Mm((y_position / 2.834) as f32),
-                &font_regular
-            );
-            y_position -= 15.0;
-        }
+    // Status indicators
+    const status = []
+    if (item.delivered) status.push('✓ Delivered')
+    if (item.termsAgreed) status.push('✓ Terms Agreed')
+    if (item.invoiced) status.push('✓ Invoiced')
+    if (item.upstreamed) status.push(`✓ Upstreamed ($${item.upstreamAmount || 0})`)
+    
+    if (status.length > 0) {
+      doc.text(status.join(' | '), MARGIN, itemY)
     }
     
-    if let Some(phone) = &data.artist.phone {
-        if !phone.trim().is_empty() {
-            current_layer.use_text(
-                phone,
-                10.0,
-                Mm((MARGIN / 2.834) as f32),
-                Mm((y_position / 2.834) as f32),
-                &font_regular
-            );
-        }
+    // Amount
+    doc.setFontSize(11)
+    const amountStr = formatCurrency(item.amount)
+    doc.text(amountStr, PAGE_WIDTH - 150, yPosition - 15)
+    
+    yPosition -= rowHeight
+  }
+  
+  // Due and Total rows
+  yPosition -= 20
+  
+  // Due row
+  drawTableRow(doc, yPosition, false)
+  doc.setFontSize(12)
+  doc.setFont(undefined, 'bold')
+  doc.text('Due', MARGIN, yPosition - 15)
+  
+  // Calculate due date text
+  let dueText = 'Upon Receipt'
+  if (invoice.due_date !== invoice.issue_date) {
+    const daysDiff = calculateDaysDifference(invoice.issue_date, invoice.due_date)
+    if (daysDiff === 30) {
+      dueText = 'Net 30'
+    } else if (daysDiff > 0) {
+      dueText = `Net ${daysDiff}`
     }
+  }
+  
+  doc.setFontSize(11)
+  doc.setFont(undefined, 'normal')
+  doc.text(dueText, PAGE_WIDTH - 150, yPosition - 15)
+  yPosition -= 30
+  
+  // Total row
+  drawTableRow(doc, yPosition, false)
+  doc.setFontSize(12)
+  doc.setFont(undefined, 'bold')
+  doc.text('Total', MARGIN, yPosition - 15)
+  
+  const totalStr = formatCurrency(invoice.amount)
+  doc.text(totalStr, PAGE_WIDTH - 150, yPosition - 15)
+  
+  // Wire Details Footer
+  yPosition = 100
+  
+  // Draw line above wire details
+  drawLine(doc, MARGIN, yPosition + 20, PAGE_WIDTH - MARGIN, yPosition + 20)
+  
+  if (artist.wire_details && artist.wire_details.trim()) {
+    doc.setFontSize(10)
+    doc.setFont(undefined, 'bold')
+    doc.text('PAYMENT DETAILS', PAGE_WIDTH / 2 - 40, yPosition, { align: 'center' })
+    yPosition -= 15
     
-    // INVOICE header (right side)
-    current_layer.use_text(
-        "INVOICE",
-        20.0,
-        Mm(((PAGE_WIDTH - 150.0) / 2.834) as f32),
-        Mm(((PAGE_HEIGHT - MARGIN) / 2.834) as f32),
-        &font_bold
-    );
-    
-    // Invoice Number and Date (right side)
-    let invoice_y = PAGE_HEIGHT - 80.0;
-    current_layer.use_text(
-        &format!("#{}", data.invoice.invoice_number),
-        12.0,
-        Mm(((PAGE_WIDTH - 150.0) / 2.834) as f32),
-        Mm((invoice_y / 2.834) as f32),
-        &font_bold
-    );
-    
-    current_layer.use_text(
-        &format_date(&data.invoice.issue_date),
-        12.0,
-        Mm(((PAGE_WIDTH - 150.0) / 2.834) as f32),
-        Mm(((invoice_y - 20.0) / 2.834) as f32),
-        &font_regular
-    );
-    
-    // Bill To section
-    y_position = PAGE_HEIGHT - 160.0;
-    current_layer.use_text(
-        "BILL TO:",
-        10.0,
-        Mm((MARGIN / 2.834) as f32),
-        Mm((y_position / 2.834) as f32),
-        &font_bold
-    );
-    y_position -= 15.0;
-    
-    // Check if we have bill_to information in the invoice
-    if let Some(bill_to) = &data.invoice.bill_to {
-        if !bill_to.trim().is_empty() {
-            let bill_to_lines: Vec<&str> = bill_to.lines().collect();
-            for line in bill_to_lines.iter().take(4) { // Limit to 4 lines
-                current_layer.use_text(
-                    *line,
-                    10.0,
-                    Mm((MARGIN / 2.834) as f32),
-                    Mm((y_position / 2.834) as f32),
-                    &font_regular
-                );
-                y_position -= 15.0;
-            }
-        }
-    } else {
-        // Fallback to placeholder
-        current_layer.use_text(
-            "[Client Name]",
-            10.0,
-            Mm((MARGIN / 2.834) as f32),
-            Mm((y_position / 2.834) as f32),
-            &font_regular
-        );
+    doc.setFont(undefined, 'normal')
+    doc.setFontSize(8)
+    const wireLines = artist.wire_details.split('\n')
+    for (let i = 0; i < Math.min(wireLines.length, 4); i++) {
+      if (wireLines[i].trim()) {
+        doc.text(wireLines[i], MARGIN, yPosition)
+        yPosition -= 12
+      }
     }
-    
-    // Move down for the table
-    y_position = PAGE_HEIGHT - 240.0;
-    
-    // Table Header
-    draw_table_row(&current_layer, y_position, true);
-    
-    current_layer.use_text(
-        "ITEM",
-        12.0,
-        Mm((MARGIN / 2.834) as f32),
-        Mm(((y_position - 15.0) / 2.834) as f32),
-        &font_bold
-    );
-    
-    current_layer.use_text(
-        "COST",
-        12.0,
-        Mm(((PAGE_WIDTH - 150.0) / 2.834) as f32),
-        Mm(((y_position - 15.0) / 2.834) as f32),
-        &font_bold
-    );
-    y_position -= 30.0;
-    
-    // Line Items
-    for item in &data.line_items {
-        let row_height = calculate_row_height(&item.description);
-        draw_table_row(&current_layer, y_position, false);
-        
-        // Description (can be multi-line)
-        let desc_lines: Vec<&str> = item.description.split('\n').collect();
-        let mut item_y = y_position - 15.0;
-        
-        for (i, line) in desc_lines.iter().enumerate() {
-            if i == 0 {
-                // First line in regular font
-                current_layer.use_text(
-                    *line,
-                    11.0,
-                    Mm((MARGIN / 2.834) as f32),
-                    Mm((item_y / 2.834) as f32),
-                    &font_regular
-                );
-            } else {
-                // Additional lines in italic (simulated with regular font, smaller size)
-                current_layer.use_text(
-                    *line,
-                    10.0,
-                    Mm((MARGIN / 2.834) as f32),
-                    Mm((item_y / 2.834) as f32),
-                    &font_regular
-                );
-            }
-            item_y -= 15.0;
-        }
-        
-        // Amount - format with thousands separator
-        let amount_str = format_currency(item.amount);
-        current_layer.use_text(
-            &amount_str,
-            11.0,
-            Mm(((PAGE_WIDTH - 150.0) / 2.834) as f32),
-            Mm(((y_position - 15.0) / 2.834) as f32),
-            &font_regular
-        );
-        
-        y_position -= row_height;
-    }
-    
-    // Due and Total rows
-    y_position -= 20.0;
-    
-    // Due row
-    draw_table_row(&current_layer, y_position, false);
-    current_layer.use_text(
-        "Due",
-        12.0,
-        Mm((MARGIN / 2.834) as f32),
-        Mm(((y_position - 15.0) / 2.834) as f32),
-        &font_bold
-    );
-    
-    // Calculate due date text
-    let due_text = if data.invoice.due_date == data.invoice.issue_date {
-        "Upon Receipt".to_string()
-    } else {
-        let days_diff = calculate_days_difference(&data.invoice.issue_date, &data.invoice.due_date);
-        if days_diff == 0 {
-            "Upon Receipt".to_string()
-        } else if days_diff == 30 {
-            "Net 30".to_string()
-        } else {
-            format!("Net {}", days_diff)
-        }
-    };
-    
-    current_layer.use_text(
-        &due_text,
-        11.0,
-        Mm(((PAGE_WIDTH - 150.0) / 2.834) as f32),
-        Mm(((y_position - 15.0) / 2.834) as f32),
-        &font_regular
-    );
-    y_position -= 30.0;
-    
-    // Total row
-    draw_table_row(&current_layer, y_position, false);
-    current_layer.use_text(
-        "Total",
-        12.0,
-        Mm((MARGIN / 2.834) as f32),
-        Mm(((y_position - 15.0) / 2.834) as f32),
-        &font_bold
-    );
-    
-    let total_str = format_currency(data.invoice.amount);
-    current_layer.use_text(
-        &total_str,
-        12.0,
-        Mm(((PAGE_WIDTH - 150.0) / 2.834) as f32),
-        Mm(((y_position - 15.0) / 2.834) as f32),
-        &font_bold
-    );
-    
-    // Wire Details Footer - Use artist's wire details if available
-    y_position = 100.0;
-    
-    // Draw line above wire details
-    draw_line(&current_layer, MARGIN, y_position + 20.0, PAGE_WIDTH - MARGIN, y_position + 20.0);
-    
-    if let Some(wire_details) = &data.artist.wire_details {
-        if !wire_details.trim().is_empty() {
-            // Use custom wire details from artist
-            current_layer.use_text(
-                "PAYMENT DETAILS",
-                10.0,
-                Mm(((PAGE_WIDTH / 2.0 - 40.0) / 2.834) as f32),
-                Mm((y_position / 2.834) as f32),
-                &font_bold
-            );
-            y_position -= 15.0;
-            
-            // Split wire details into lines and display
-            let lines: Vec<&str> = wire_details.lines().collect();
-            for line in lines.iter().take(4) { // Limit to 4 lines
-                if !line.trim().is_empty() {
-                    current_layer.use_text(
-                        *line,
-                        8.0,
-                        Mm((MARGIN / 2.834) as f32),
-                        Mm((y_position / 2.834) as f32),
-                        &font_regular
-                    );
-                    y_position -= 12.0;
-                }
-            }
-        }
-    }
-    
-    // Save the PDF
-    doc.save(&mut BufWriter::new(File::create(output_path)?))?;
-    Ok(())
+  }
+  
+  // Generate blob
+  const pdfBlob = doc.output('blob')
+  
+  // Create filename
+  const fileName = `${invoice.invoice_number.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.pdf`
+  
+  // Upload to Supabase Storage
+  const { data, error } = await supabase.storage
+    .from('invoices')
+    .upload(fileName, pdfBlob, {
+      contentType: 'application/pdf',
+      upsert: true
+    })
+  
+  if (error) throw error
+  
+  // Get public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('invoices')
+    .getPublicUrl(fileName)
+  
+  // Update invoice with PDF URL
+  await supabase
+    .from('invoices')
+    .update({ pdf_url: publicUrl })
+    .eq('id', invoice.id)
+  
+  return publicUrl
 }
 
-fn draw_line(layer: &PdfLayerReference, x1: f32, y1: f32, x2: f32, y2: f32) {
-    let points = vec![
-        (Point::new(Mm((x1 / 2.834) as f32), Mm((y1 / 2.834) as f32)), false),
-        (Point::new(Mm((x2 / 2.834) as f32), Mm((y2 / 2.834) as f32)), false),
-    ];
-    
-    let line = Line {
-        points,
-        is_closed: false,
-    };
-    
-    layer.set_outline_color(Color::Rgb(Rgb::new(0.0, 0.0, 0.0, None)));
-    layer.set_outline_thickness(1.0);
-    layer.add_line(line);
+function drawLine(doc, x1, y1, x2, y2) {
+  doc.setDrawColor(0, 0, 0)
+  doc.setLineWidth(1)
+  doc.line(x1, y1, x2, y2)
 }
 
-fn draw_table_row(layer: &PdfLayerReference, y_position: f32, _is_header: bool) {
-    // Draw top line
-    draw_line(layer, MARGIN, y_position, PAGE_WIDTH - MARGIN, y_position);
-    
-    // Draw bottom line
-    draw_line(layer, MARGIN, y_position - 30.0, PAGE_WIDTH - MARGIN, y_position - 30.0);
-    
-    // Draw vertical lines
-    draw_line(layer, MARGIN, y_position, MARGIN, y_position - 30.0);
-    draw_line(layer, PAGE_WIDTH - 200.0, y_position, PAGE_WIDTH - 200.0, y_position - 30.0);
-    draw_line(layer, PAGE_WIDTH - MARGIN, y_position, PAGE_WIDTH - MARGIN, y_position - 30.0);
+function drawTableRow(doc, yPosition, isHeader, height = 30) {
+  const MARGIN = 50
+  const PAGE_WIDTH = 595
+  
+  // Draw top line
+  drawLine(doc, MARGIN, yPosition, PAGE_WIDTH - MARGIN, yPosition)
+  
+  // Draw bottom line
+  drawLine(doc, MARGIN, yPosition - height, PAGE_WIDTH - MARGIN, yPosition - height)
+  
+  // Draw vertical lines
+  drawLine(doc, MARGIN, yPosition, MARGIN, yPosition - height)
+  drawLine(doc, PAGE_WIDTH - 200, yPosition, PAGE_WIDTH - 200, yPosition - height)
+  drawLine(doc, PAGE_WIDTH - MARGIN, yPosition, PAGE_WIDTH - MARGIN, yPosition - height)
 }
 
-fn calculate_row_height(description: &str) -> f32 {
-    let lines = description.split('\n').count();
-    30.0 + (15.0 * (lines - 1) as f32)
+function calculateRowHeight(item) {
+  let lines = 1 // Base description
+  
+  // Add line for additional details if present
+  if (item.artist || item.songProject || item.company) {
+    lines++
+  }
+  
+  // Add line for status indicators if present
+  if (item.delivered || item.termsAgreed || item.invoiced || item.upstreamed) {
+    lines++
+  }
+  
+  return 30 + (15 * (lines - 1))
 }
 
-fn format_date(date_str: &str) -> String {
-    if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
-        date.format("%d %B %Y").to_string()
-    } else {
-        date_str.to_string()
-    }
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                  'July', 'August', 'September', 'October', 'November', 'December']
+  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`
 }
 
-fn calculate_days_difference(start_date: &str, end_date: &str) -> i64 {
-    if let (Ok(start), Ok(end)) = (
-        NaiveDate::parse_from_str(start_date, "%Y-%m-%d"),
-        NaiveDate::parse_from_str(end_date, "%Y-%m-%d")
-    ) {
-        (end - start).num_days()
-    } else {
-        0
-    }
+function calculateDaysDifference(startDate, endDate) {
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  const diffTime = Math.abs(end - start)
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 }
 
-fn format_currency(amount: f64) -> String {
-    // Format with thousands separator
-    let whole = amount.trunc() as i64;
-    let cents = ((amount - whole as f64) * 100.0).round() as i64;
-    
-    // Format the whole part with commas
-    let whole_str = whole.to_string()
-        .chars()
-        .rev()
-        .collect::<Vec<_>>()
-        .chunks(3)
-        .map(|chunk| chunk.iter().collect::<String>())
-        .collect::<Vec<_>>()
-        .join(",")
-        .chars()
-        .rev()
-        .collect::<String>();
-    
-    format!("${}.{:02}", whole_str, cents)
+function formatCurrency(amount) {
+  // Format with thousands separator
+  const whole = Math.trunc(amount)
+  const cents = Math.round((amount - whole) * 100)
+  
+  // Format the whole part with commas
+  const wholeStr = whole.toString()
+    .split('')
+    .reverse()
+    .reduce((acc, digit, i) => {
+      if (i > 0 && i % 3 === 0) acc.push(',')
+      acc.push(digit)
+      return acc
+    }, [])
+    .reverse()
+    .join('')
+  
+  return `$${wholeStr}.${cents.toString().padStart(2, '0')}`
 }

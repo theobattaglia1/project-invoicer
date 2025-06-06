@@ -237,31 +237,126 @@ Email / Phone"
               <!-- Invoice Items -->
               <div class="invoice-items">
                 <label>Invoice Items</label>
-                <div v-for="(item, index) in formData.items" :key="index" class="invoice-item">
-                  <input 
-                    v-model="item.description" 
-                    type="text"
-                    placeholder="Description"
-                    class="item-description"
-                  />
-                  <input 
-                    v-model.number="item.amount" 
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    class="item-amount"
-                    @input="updateAmount"
-                  />
-                  <button 
-                    @click="removeItem(index)" 
-                    type="button"
-                    class="btn-remove"
-                  >
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                    </svg>
-                  </button>
+                <div v-for="(item, index) in formData.items" :key="index" class="invoice-item-container">
+                  <div class="invoice-item">
+                    <input 
+                      v-model="item.description" 
+                      type="text"
+                      placeholder="Description"
+                      class="item-description"
+                    />
+                    <input 
+                      v-model.number="item.amount" 
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      class="item-amount"
+                      @input="updateAmount"
+                    />
+                    <button 
+                      @click="removeItem(index)" 
+                      type="button"
+                      class="btn-remove"
+                    >
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <!-- Additional fields for each line item -->
+                  <div class="item-details">
+                    <div class="item-fields">
+                      <div class="field-group">
+                        <label>Artist/Company</label>
+                        <input 
+                          v-model="item.artist" 
+                          type="text"
+                          placeholder="Artist or company name"
+                        />
+                      </div>
+                      <div class="field-group">
+                        <label>Song/Project</label>
+                        <input 
+                          v-model="item.songProject" 
+                          type="text"
+                          placeholder="Song or project name"
+                        />
+                      </div>
+                      <div class="field-group">
+                        <label>Company</label>
+                        <input 
+                          v-model="item.company" 
+                          type="text"
+                          placeholder="Contracting company"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div class="item-checkboxes">
+                      <label class="checkbox-label">
+                        <input type="checkbox" v-model="item.delivered" />
+                        <span>Delivered</span>
+                      </label>
+                      <label class="checkbox-label">
+                        <input type="checkbox" v-model="item.termsAgreed" />
+                        <span>Terms Agreed</span>
+                      </label>
+                      <label class="checkbox-label">
+                        <input type="checkbox" v-model="item.invoiced" />
+                        <span>Invoiced</span>
+                      </label>
+                      <label class="checkbox-label">
+                        <input type="checkbox" v-model="item.upstreamed" />
+                        <span>Upstreamed</span>
+                      </label>
+                      <div v-if="item.upstreamed" class="upstream-amount">
+                        <label>Upstream Amount</label>
+                        <input 
+                          v-model.number="item.upstreamAmount" 
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+                    
+                    <!-- File attachment -->
+                    <div class="item-attachment">
+                      <label>Attachment</label>
+                      <div v-if="item.attachmentUrl" class="existing-attachment">
+                        <a :href="item.attachmentUrl" target="_blank" class="attachment-link">
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
+                          </svg>
+                          {{ item.attachmentName || 'View attachment' }}
+                        </a>
+                        <button 
+                          @click="removeAttachment(index)" 
+                          type="button"
+                          class="btn-remove-attachment"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <div v-else class="upload-attachment">
+                        <input 
+                          type="file"
+                          :id="`attachment-${index}`"
+                          @change="handleFileUpload($event, index)"
+                          class="file-input"
+                        />
+                        <label :for="`attachment-${index}`" class="file-label">
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/>
+                          </svg>
+                          Upload file
+                        </label>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <button 
                   @click="addItem" 
@@ -303,8 +398,8 @@ Email / Phone"
 
           <div class="modal-footer">
             <button @click="close" class="btn-secondary">Cancel</button>
-            <button @click="handleSubmit" class="btn-primary">
-              {{ item ? 'Update' : 'Create' }}
+            <button @click="handleSubmit" class="btn-primary" :disabled="uploading">
+              {{ uploading ? 'Uploading...' : (item ? 'Update' : 'Create') }}
             </button>
           </div>
         </div>
@@ -317,6 +412,7 @@ Email / Phone"
 import { ref, computed, watch } from 'vue'
 import { useArtistStore } from '@/store/artistStore'
 import { useProjectStore } from '@/store/projectStore'
+import { supabase } from '@/lib/supabase'
 
 const props = defineProps({
   type: {
@@ -340,6 +436,7 @@ const projectStore = useProjectStore()
 
 const visible = ref(true)
 const formData = ref({})
+const uploading = ref(false)
 
 const artists = computed(() => artistStore.sortedArtists)
 const selectedArtist = computed(() => {
@@ -376,7 +473,26 @@ const initializeForm = () => {
   if (props.item) {
     formData.value = { ...props.item }
     if (props.type === 'invoice' && props.item.items) {
-      formData.value.items = JSON.parse(props.item.items)
+      // Parse items if they're stored as a string
+      const items = typeof props.item.items === 'string' 
+        ? JSON.parse(props.item.items) 
+        : props.item.items
+      
+      // Ensure all items have the new fields
+      formData.value.items = items.map(item => ({
+        description: item.description || '',
+        amount: item.amount || 0,
+        artist: item.artist || '',
+        songProject: item.songProject || '',
+        company: item.company || '',
+        delivered: item.delivered || false,
+        termsAgreed: item.termsAgreed || false,
+        invoiced: item.invoiced || false,
+        upstreamed: item.upstreamed || false,
+        upstreamAmount: item.upstreamAmount || 0,
+        attachmentUrl: item.attachmentUrl || '',
+        attachmentName: item.attachmentName || ''
+      }))
     }
   } else {
     // Start with default values
@@ -413,7 +529,20 @@ const initializeForm = () => {
           issue_date: new Date().toISOString().split('T')[0],
           due_date: getDefaultDueDate(),
           bill_to: '',
-          items: [{ description: '', amount: 0 }],
+          items: [{
+            description: '',
+            amount: 0,
+            artist: '',
+            songProject: '',
+            company: '',
+            delivered: false,
+            termsAgreed: false,
+            invoiced: false,
+            upstreamed: false,
+            upstreamAmount: 0,
+            attachmentUrl: '',
+            attachmentName: ''
+          }],
           notes: ''
         }
         break
@@ -446,7 +575,20 @@ const onArtistChange = () => {
 
 const addItem = () => {
   if (!formData.value.items) formData.value.items = []
-  formData.value.items.push({ description: '', amount: 0 })
+  formData.value.items.push({
+    description: '',
+    amount: 0,
+    artist: '',
+    songProject: '',
+    company: '',
+    delivered: false,
+    termsAgreed: false,
+    invoiced: false,
+    upstreamed: false,
+    upstreamAmount: 0,
+    attachmentUrl: '',
+    attachmentName: ''
+  })
 }
 
 const removeItem = (index) => {
@@ -455,6 +597,64 @@ const removeItem = (index) => {
 
 const updateAmount = () => {
   formData.value.amount = totalAmount.value
+}
+
+const handleFileUpload = async (event, index) => {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  uploading.value = true
+  
+  try {
+    // Generate unique filename
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+    
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('invoice-attachments')
+      .upload(fileName, file)
+    
+    if (error) throw error
+    
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('invoice-attachments')
+      .getPublicUrl(fileName)
+    
+    // Update the item with attachment info
+    formData.value.items[index].attachmentUrl = publicUrl
+    formData.value.items[index].attachmentName = file.name
+    
+  } catch (error) {
+    console.error('Error uploading file:', error)
+    alert('Failed to upload file')
+  } finally {
+    uploading.value = false
+  }
+}
+
+const removeAttachment = async (index) => {
+  const item = formData.value.items[index]
+  
+  if (item.attachmentUrl) {
+    // Extract filename from URL
+    const urlParts = item.attachmentUrl.split('/')
+    const fileName = urlParts[urlParts.length - 1]
+    
+    try {
+      // Delete from Supabase Storage
+      await supabase.storage
+        .from('invoice-attachments')
+        .remove([fileName])
+    } catch (error) {
+      console.error('Error deleting file:', error)
+    }
+  }
+  
+  // Clear attachment info
+  formData.value.items[index].attachmentUrl = ''
+  formData.value.items[index].attachmentName = ''
 }
 
 const handleSubmit = () => {
@@ -511,7 +711,7 @@ watch(() => formData.value.items, () => {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   width: 90%;
-  max-width: 600px;
+  max-width: 800px;
   max-height: 90vh;
   overflow: hidden;
   display: flex;
@@ -527,7 +727,7 @@ watch(() => formData.value.items, () => {
 }
 
 .modal-title {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 700;
   color: white;
   margin: 0;
@@ -663,7 +863,7 @@ watch(() => formData.value.items, () => {
   margin-bottom: 20px;
 }
 
-.invoice-items label {
+.invoice-items > label {
   display: block;
   margin-bottom: 12px;
   font-size: 14px;
@@ -671,10 +871,18 @@ watch(() => formData.value.items, () => {
   color: rgba(255, 255, 255, 0.9);
 }
 
+.invoice-item-container {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
 .invoice-item {
   display: flex;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
 }
 
 .item-description {
@@ -708,6 +916,169 @@ watch(() => formData.value.items, () => {
   height: 16px;
 }
 
+/* Item Details */
+.item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.item-fields {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-group label {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.field-group input {
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: white;
+  font-size: 13px;
+}
+
+/* Checkboxes */
+.item-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.upstream-amount {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upstream-amount label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.upstream-amount input {
+  width: 100px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: white;
+  font-size: 13px;
+}
+
+/* File Attachment */
+.item-attachment {
+  margin-top: 12px;
+}
+
+.item-attachment > label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 8px;
+}
+
+.existing-attachment {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.attachment-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(29, 185, 84, 0.1);
+  border: 1px solid rgba(29, 185, 84, 0.2);
+  border-radius: 6px;
+  color: #1db954;
+  text-decoration: none;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+.attachment-link:hover {
+  background: rgba(29, 185, 84, 0.2);
+}
+
+.attachment-link svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-remove-attachment {
+  padding: 6px 12px;
+  background: rgba(244, 67, 54, 0.2);
+  border: none;
+  border-radius: 6px;
+  color: #f44336;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-remove-attachment:hover {
+  background: rgba(244, 67, 54, 0.3);
+}
+
+.file-input {
+  display: none;
+}
+
+.file-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.file-label:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.file-label svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Add Item Button */
 .btn-add-item {
   display: flex;
   align-items: center;
@@ -732,7 +1103,7 @@ watch(() => formData.value.items, () => {
 }
 
 .total-amount {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 700;
   color: #1db954;
 }
@@ -772,8 +1143,13 @@ watch(() => formData.value.items, () => {
   color: white;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: #1ed760;
+}
+
+.btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 /* Disabled state */
@@ -822,5 +1198,17 @@ select:disabled {
 
 .modal-body::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .item-fields {
+    grid-template-columns: 1fr;
+  }
+  
+  .item-checkboxes {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 </style>
