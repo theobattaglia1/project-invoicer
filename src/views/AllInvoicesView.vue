@@ -2,18 +2,49 @@
   <div class="invoices-view">
     <!-- Header -->
     <div class="view-header">
-      <h1 class="view-title">Invoices</h1>
-      <button @click="createInvoice" class="btn-primary">
-        <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-        </svg>
-        Create Invoice
-      </button>
+      <div class="header-left">
+        <h1 class="view-title">Invoices</h1>
+        <div v-if="selectedInvoices.length > 0" class="selection-info">
+          <span class="selection-count">{{ selectedInvoices.length }} selected</span>
+          <span class="selection-total">${{ selectedTotal.toFixed(2) }}</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div v-if="selectedInvoices.length > 0" class="bulk-actions">
+          <button @click="bulkUpdateStatus('paid')" class="btn-action">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+            Mark Paid
+          </button>
+          <button @click="bulkArchive" class="btn-action">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/>
+            </svg>
+            Archive
+          </button>
+          <button @click="bulkTrash" class="btn-action danger">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </svg>
+            Delete
+          </button>
+          <button @click="clearSelection" class="btn-action secondary">
+            Clear
+          </button>
+        </div>
+        <button @click="createInvoice" class="btn-primary">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+          </svg>
+          Create Invoice
+        </button>
+      </div>
     </div>
 
-    <!-- Stats Cards -->
+    <!-- Stats Cards (updated to show selection stats when items are selected) -->
     <div class="stats-grid">
-      <div class="stat-card">
+      <div class="stat-card" :class="{ highlighted: selectedInvoices.length > 0 && displayedStats.pendingCount > 0 }">
         <div class="stat-icon pending">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
@@ -21,12 +52,12 @@
         </div>
         <div class="stat-content">
           <h3>Pending</h3>
-          <p class="stat-value">${{ formatAmount(invoiceStore.totalPending) }}</p>
-          <span class="stat-count">{{ pendingCount }} invoices</span>
+          <p class="stat-value">${{ formatAmount(displayedStats.pending) }}</p>
+          <span class="stat-count">{{ displayedStats.pendingCount }} invoices</span>
         </div>
       </div>
 
-      <div class="stat-card">
+      <div class="stat-card" :class="{ highlighted: selectedInvoices.length > 0 && displayedStats.paidCount > 0 }">
         <div class="stat-icon paid">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -34,12 +65,12 @@
         </div>
         <div class="stat-content">
           <h3>Paid</h3>
-          <p class="stat-value">${{ formatAmount(invoiceStore.totalPaid) }}</p>
-          <span class="stat-count">{{ paidCount }} invoices</span>
+          <p class="stat-value">${{ formatAmount(displayedStats.paid) }}</p>
+          <span class="stat-count">{{ displayedStats.paidCount }} invoices</span>
         </div>
       </div>
 
-      <div class="stat-card">
+      <div class="stat-card" :class="{ highlighted: selectedInvoices.length > 0 && displayedStats.overdueCount > 0 }">
         <div class="stat-icon overdue">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
@@ -47,21 +78,21 @@
         </div>
         <div class="stat-content">
           <h3>Overdue</h3>
-          <p class="stat-value">${{ formatAmount(overdueTotal) }}</p>
-          <span class="stat-count">{{ overdueCount }} invoices</span>
+          <p class="stat-value">${{ formatAmount(displayedStats.overdue) }}</p>
+          <span class="stat-count">{{ displayedStats.overdueCount }} invoices</span>
         </div>
       </div>
 
-      <div class="stat-card">
+      <div class="stat-card" :class="{ highlighted: selectedInvoices.length > 0 }">
         <div class="stat-icon total">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1.93.66 1.64 2.08 1.64 1.96 0 2.37-.79 2.37-1.54 0-1.06-.92-1.52-2.37-1.87-1.37-.33-2.92-.88-2.92-2.72 0-1.37 1.02-2.47 2.66-2.95V6h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s3.18 1.05 3.18 2.96c0 1.23-.9 2.44-2.82 3.11z"/>
           </svg>
         </div>
         <div class="stat-content">
-          <h3>Total Revenue</h3>
-          <p class="stat-value">${{ formatAmount(totalRevenue) }}</p>
-          <span class="stat-count">All time</span>
+          <h3>{{ selectedInvoices.length > 0 ? 'Selected Total' : 'Total Revenue' }}</h3>
+          <p class="stat-value">${{ formatAmount(displayedStats.total) }}</p>
+          <span class="stat-count">{{ selectedInvoices.length > 0 ? `${selectedInvoices.length} invoices` : 'All time' }}</span>
         </div>
       </div>
     </div>
@@ -119,6 +150,14 @@
       <table class="data-table">
         <thead>
           <tr>
+            <th class="checkbox-column">
+              <input 
+                type="checkbox" 
+                :checked="isAllSelected"
+                :indeterminate="isIndeterminate"
+                @change="toggleSelectAll"
+              />
+            </th>
             <th>Invoice #</th>
             <th>Artist</th>
             <th>Project</th>
@@ -130,7 +169,19 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="invoice in filteredInvoices" :key="invoice.id">
+          <tr 
+            v-for="(invoice, index) in filteredInvoices" 
+            :key="invoice.id"
+            :class="{ selected: isSelected(invoice.id) }"
+            @click="handleRowClick($event, invoice, index)"
+          >
+            <td class="checkbox-column" @click.stop>
+              <input 
+                type="checkbox" 
+                :checked="isSelected(invoice.id)"
+                @change="toggleSelection(invoice.id)"
+              />
+            </td>
             <td class="invoice-number">{{ invoice.invoice_number }}</td>
             <td>{{ getArtistName(invoice.artist_id) }}</td>
             <td>{{ getProjectName(invoice.project_id) || '-' }}</td>
@@ -142,7 +193,7 @@
             </td>
             <td>{{ formatDate(invoice.issue_date) }}</td>
             <td>{{ formatDate(invoice.due_date) }}</td>
-            <td class="actions">
+            <td class="actions" @click.stop>
               <button 
                 @click="generatePDF(invoice)" 
                 class="btn-icon pdf"
@@ -198,12 +249,14 @@ const searchQuery = ref('')
 const statusFilter = ref('')
 const artistFilter = ref('')
 const generatingPDF = reactive({})
+const selectedInvoices = ref([])
+const lastSelectedIndex = ref(-1)
 
 const loading = computed(() => invoiceStore.loading)
 const artists = computed(() => artistStore.sortedArtists)
 
 const filteredInvoices = computed(() => {
-  let invoices = invoiceStore.invoices
+  let invoices = invoiceStore.activeInvoices
   
   if (statusFilter.value) {
     invoices = invoices.filter(i => getInvoiceStatus(i) === statusFilter.value)
@@ -225,27 +278,57 @@ const filteredInvoices = computed(() => {
   return invoices
 })
 
-const pendingCount = computed(() => 
-  invoiceStore.invoices.filter(i => i.status === 'pending').length
-)
+const isAllSelected = computed(() => {
+  return filteredInvoices.value.length > 0 && 
+    selectedInvoices.value.length === filteredInvoices.value.length &&
+    filteredInvoices.value.every(i => selectedInvoices.value.includes(i.id))
+})
 
-const paidCount = computed(() => 
-  invoiceStore.invoices.filter(i => i.status === 'paid').length
-)
+const isIndeterminate = computed(() => {
+  return selectedInvoices.value.length > 0 && !isAllSelected.value
+})
 
-const overdueInvoices = computed(() => 
-  invoiceStore.invoices.filter(i => getInvoiceStatus(i) === 'overdue')
-)
+const selectedTotal = computed(() => {
+  return selectedInvoices.value.reduce((sum, id) => {
+    const invoice = invoiceStore.getInvoiceById(id)
+    return sum + (invoice?.amount || 0)
+  }, 0)
+})
 
-const overdueCount = computed(() => overdueInvoices.value.length)
-
-const overdueTotal = computed(() => 
-  overdueInvoices.value.reduce((sum, i) => sum + i.amount, 0)
-)
-
-const totalRevenue = computed(() => 
-  invoiceStore.invoices.reduce((sum, i) => sum + i.amount, 0)
-)
+const displayedStats = computed(() => {
+  let invoicesToAnalyze = []
+  
+  if (selectedInvoices.value.length > 0) {
+    // Show stats for selected invoices
+    invoicesToAnalyze = invoiceStore.activeInvoices.filter(i => 
+      selectedInvoices.value.includes(i.id)
+    )
+  } else {
+    // Show overall stats
+    invoicesToAnalyze = invoiceStore.activeInvoices
+  }
+  
+  const pending = invoicesToAnalyze
+    .filter(i => i.status === 'pending')
+    .reduce((sum, i) => sum + i.amount, 0)
+  
+  const paid = invoicesToAnalyze
+    .filter(i => i.status === 'paid')
+    .reduce((sum, i) => sum + i.amount, 0)
+  
+  const overdueInvoices = invoicesToAnalyze.filter(i => getInvoiceStatus(i) === 'overdue')
+  const overdue = overdueInvoices.reduce((sum, i) => sum + i.amount, 0)
+  
+  return {
+    total: selectedInvoices.value.length > 0 ? selectedTotal.value : (pending + paid),
+    pending,
+    pendingCount: invoicesToAnalyze.filter(i => i.status === 'pending').length,
+    paid,
+    paidCount: invoicesToAnalyze.filter(i => i.status === 'paid').length,
+    overdue,
+    overdueCount: overdueInvoices.length
+  }
+})
 
 const getInvoiceStatus = (invoice) => {
   if (invoice.status === 'paid' || invoice.status === 'cancelled') {
@@ -294,6 +377,88 @@ const formatAmount = (amount) => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   })
+}
+
+const isSelected = (invoiceId) => {
+  return selectedInvoices.value.includes(invoiceId)
+}
+
+const toggleSelection = (invoiceId) => {
+  const index = selectedInvoices.value.indexOf(invoiceId)
+  if (index > -1) {
+    selectedInvoices.value.splice(index, 1)
+  } else {
+    selectedInvoices.value.push(invoiceId)
+  }
+}
+
+const toggleSelectAll = () => {
+  if (isAllSelected.value) {
+    selectedInvoices.value = []
+  } else {
+    selectedInvoices.value = filteredInvoices.value.map(i => i.id)
+  }
+}
+
+const clearSelection = () => {
+  selectedInvoices.value = []
+  lastSelectedIndex.value = -1
+}
+
+const handleRowClick = (event, invoice, index) => {
+  const actualIndex = filteredInvoices.value.findIndex(i => i.id === invoice.id)
+  
+  if (event.metaKey || event.ctrlKey) {
+    // Cmd/Ctrl + Click: Toggle individual selection
+    toggleSelection(invoice.id)
+    lastSelectedIndex.value = actualIndex
+  } else if (event.shiftKey && lastSelectedIndex.value >= 0) {
+    // Shift + Click: Select range
+    const start = Math.min(lastSelectedIndex.value, actualIndex)
+    const end = Math.max(lastSelectedIndex.value, actualIndex)
+    const rangeIds = filteredInvoices.value
+      .slice(start, end + 1)
+      .map(i => i.id)
+    
+    // Add all in range to selection (without duplicates)
+    selectedInvoices.value = [...new Set([...selectedInvoices.value, ...rangeIds])]
+  } else {
+    // Regular click: Select only this item
+    selectedInvoices.value = [invoice.id]
+    lastSelectedIndex.value = actualIndex
+  }
+}
+
+const bulkUpdateStatus = async (status) => {
+  try {
+    await invoiceStore.updateMultipleInvoicesStatus(selectedInvoices.value, status)
+    clearSelection()
+    showToast(`Updated ${selectedInvoices.value.length} invoices`, 'success')
+  } catch (error) {
+    showToast('Failed to update invoices', 'error')
+  }
+}
+
+const bulkArchive = async () => {
+  try {
+    await invoiceStore.archiveInvoices(selectedInvoices.value)
+    clearSelection()
+    showToast('Invoices archived', 'success')
+  } catch (error) {
+    showToast('Failed to archive invoices', 'error')
+  }
+}
+
+const bulkTrash = async () => {
+  if (confirm(`Are you sure you want to delete ${selectedInvoices.value.length} invoices?`)) {
+    try {
+      await invoiceStore.trashInvoices(selectedInvoices.value)
+      clearSelection()
+      showToast('Invoices moved to trash', 'success')
+    } catch (error) {
+      showToast('Failed to delete invoices', 'error')
+    }
+  }
 }
 
 const generatePDF = async (invoice) => {
@@ -378,11 +543,89 @@ onMounted(() => {
   margin-bottom: 32px;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
 .view-title {
   font-size: 48px;
   font-weight: 700;
   color: white;
   margin: 0;
+}
+
+.selection-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: rgba(29, 185, 84, 0.1);
+  border: 1px solid rgba(29, 185, 84, 0.2);
+  border-radius: 8px;
+}
+
+.selection-count {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1db954;
+}
+
+.selection-total {
+  font-size: 16px;
+  font-weight: 700;
+  color: white;
+}
+
+.header-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.bulk-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-action:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.btn-action.secondary {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.btn-action.danger {
+  background: rgba(244, 67, 54, 0.2);
+  border-color: rgba(244, 67, 54, 0.3);
+  color: #f44336;
+}
+
+.btn-action.danger:hover {
+  background: rgba(244, 67, 54, 0.3);
+}
+
+.btn-action svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Stats Cards */
@@ -402,6 +645,12 @@ onMounted(() => {
   display: flex;
   gap: 16px;
   align-items: center;
+  transition: all 0.3s ease;
+}
+
+.stat-card.highlighted {
+  background: rgba(29, 185, 84, 0.1);
+  border-color: rgba(29, 185, 84, 0.2);
 }
 
 .stat-icon {
@@ -502,7 +751,7 @@ onMounted(() => {
   transition: all 0.2s ease;
 }
 
-/* Table styles are the same as in AllProjectsView */
+/* Table styles */
 .table-container {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -526,10 +775,32 @@ onMounted(() => {
   letter-spacing: 0.5px;
 }
 
+.checkbox-column {
+  width: 40px;
+  text-align: center;
+}
+
 .data-table td {
   padding: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.9);
+}
+
+.data-table tbody tr {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.data-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.data-table tbody tr.selected {
+  background: rgba(29, 185, 84, 0.1);
+}
+
+.data-table tbody tr.selected:hover {
+  background: rgba(29, 185, 84, 0.15);
 }
 
 .invoice-number {
@@ -629,6 +900,11 @@ onMounted(() => {
 .btn-icon:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.btn-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .spinner-small {

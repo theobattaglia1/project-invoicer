@@ -25,6 +25,14 @@
                 />
               </div>
               <div class="form-group">
+                <label>Company Name</label>
+                <input 
+                  v-model="formData.company_name" 
+                  type="text"
+                  placeholder="Company name (optional)"
+                />
+              </div>
+              <div class="form-group">
                 <label>Email</label>
                 <input 
                   v-model="formData.email" 
@@ -46,6 +54,18 @@
                   v-model="formData.address"
                   rows="3"
                   placeholder="123 Main St, City, State ZIP"
+                ></textarea>
+              </div>
+              <div class="form-group">
+                <label>Wire Details</label>
+                <textarea 
+                  v-model="formData.wire_details"
+                  rows="4"
+                  placeholder="Bank Name: 
+Account Name: 
+Account Number: 
+Routing Number: 
+SWIFT/BIC: "
                 ></textarea>
               </div>
               <div class="form-group">
@@ -149,15 +169,30 @@
                   </option>
                 </select>
                 <div v-if="selectedArtist" class="artist-preview">
-                  <div class="preview-label">Bill To:</div>
+                  <div class="preview-label">From:</div>
                   <div class="preview-content">
                     <strong>{{ selectedArtist.name }}</strong>
+                    <span v-if="selectedArtist.company_name" class="company">{{ selectedArtist.company_name }}</span>
                     <span v-if="selectedArtist.email">{{ selectedArtist.email }}</span>
                     <span v-if="selectedArtist.phone">{{ selectedArtist.phone }}</span>
                     <span v-if="selectedArtist.address" class="address">{{ selectedArtist.address }}</span>
                   </div>
                 </div>
               </div>
+              
+              <div class="form-group">
+                <label>Bill To *</label>
+                <textarea 
+                  v-model="formData.bill_to" 
+                  rows="4"
+                  required
+                  placeholder="Client Name / Company
+Contact Person
+Address
+Email / Phone"
+                ></textarea>
+              </div>
+              
               <div class="form-group">
                 <label>Project</label>
                 <select v-model="formData.project_id">
@@ -216,6 +251,7 @@
                     min="0"
                     placeholder="0.00"
                     class="item-amount"
+                    @input="updateAmount"
                   />
                   <button 
                     @click="removeItem(index)" 
@@ -291,7 +327,6 @@ const props = defineProps({
     type: Object,
     default: null
   },
-  // New prop for pre-filling data
   defaultData: {
     type: Object,
     default: null
@@ -334,7 +369,7 @@ const modalTitle = computed(() => {
 
 const totalAmount = computed(() => {
   if (!formData.value.items) return 0
-  return formData.value.items.reduce((sum, item) => sum + (item.amount || 0), 0)
+  return formData.value.items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0)
 })
 
 const initializeForm = () => {
@@ -349,9 +384,11 @@ const initializeForm = () => {
       case 'artist':
         formData.value = {
           name: '',
+          company_name: '',
           email: '',
           phone: '',
           address: '',
+          wire_details: '',
           notes: ''
         }
         break
@@ -375,6 +412,7 @@ const initializeForm = () => {
           status: 'pending',
           issue_date: new Date().toISOString().split('T')[0],
           due_date: getDefaultDueDate(),
+          bill_to: '',
           items: [{ description: '', amount: 0 }],
           notes: ''
         }
@@ -415,6 +453,10 @@ const removeItem = (index) => {
   formData.value.items.splice(index, 1)
 }
 
+const updateAmount = () => {
+  formData.value.amount = totalAmount.value
+}
+
 const handleSubmit = () => {
   if (props.type === 'invoice') {
     formData.value.amount = totalAmount.value
@@ -448,7 +490,7 @@ watch(() => formData.value.items, () => {
 </script>
 
 <style scoped>
-/* Existing styles remain the same */
+/* Modal Container */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -515,6 +557,7 @@ watch(() => formData.value.items, () => {
   height: 20px;
 }
 
+/* Form Styles */
 .modal-body {
   flex: 1;
   overflow-y: auto;
@@ -561,6 +604,8 @@ watch(() => formData.value.items, () => {
 .form-group textarea {
   resize: vertical;
   min-height: 80px;
+  font-family: inherit;
+  white-space: pre-wrap;
 }
 
 .form-row {
@@ -569,7 +614,7 @@ watch(() => formData.value.items, () => {
   gap: 16px;
 }
 
-/* Artist Preview in Invoice Form */
+/* Artist Preview */
 .artist-preview {
   margin-top: 12px;
   padding: 12px;
@@ -596,6 +641,12 @@ watch(() => formData.value.items, () => {
 .preview-content strong {
   color: white;
   font-size: 14px;
+}
+
+.preview-content .company {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
 }
 
 .preview-content span {
@@ -725,7 +776,7 @@ watch(() => formData.value.items, () => {
   background: #1ed760;
 }
 
-/* Disabled state for locked fields */
+/* Disabled state */
 select:disabled {
   opacity: 0.7;
   cursor: not-allowed;
@@ -753,5 +804,23 @@ select:disabled {
 
 .modal-leave-to .modal-container {
   transform: scale(0.9);
+}
+
+/* Scrollbar styling */
+.modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 </style>

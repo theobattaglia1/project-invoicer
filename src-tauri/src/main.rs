@@ -12,7 +12,7 @@ mod pdf_generator;
 use database::{Artist, Project, Invoice};
 use pdf_generator::{generate_invoice_pdf as generate_pdf, InvoiceData, LineItem};
 
-// Artist Commands
+// Artist Commands (remain the same)
 #[tauri::command]
 async fn get_all_artists() -> Result<Vec<Artist>, String> {
     database::get_all_artists()
@@ -22,12 +22,14 @@ async fn get_all_artists() -> Result<Vec<Artist>, String> {
 #[tauri::command]
 async fn create_artist(
     name: String,
+    company_name: Option<String>,
     email: Option<String>,
     phone: Option<String>,
     address: Option<String>,
+    wire_details: Option<String>,
     notes: Option<String>,
 ) -> Result<Artist, String> {
-    database::create_artist(name, email, phone, address, notes)
+    database::create_artist(name, company_name, email, phone, address, wire_details, notes)
         .map_err(|e| e.to_string())
 }
 
@@ -35,12 +37,14 @@ async fn create_artist(
 async fn update_artist(
     artist_id: String,
     name: String,
+    company_name: Option<String>,
     email: Option<String>,
     phone: Option<String>,
     address: Option<String>,
+    wire_details: Option<String>,
     notes: Option<String>,
 ) -> Result<Artist, String> {
-    database::update_artist(artist_id, name, email, phone, address, notes)
+    database::update_artist(artist_id, name, company_name, email, phone, address, wire_details, notes)
         .map_err(|e| e.to_string())
 }
 
@@ -50,7 +54,7 @@ async fn delete_artist(artist_id: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-// Project Commands
+// Project Commands (remain the same)
 #[tauri::command]
 async fn get_all_projects() -> Result<Vec<Project>, String> {
     database::get_all_projects()
@@ -97,7 +101,7 @@ async fn delete_project(project_id: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-// Invoice Commands
+// Updated Invoice Commands with bill_to
 #[tauri::command]
 async fn get_all_invoices() -> Result<Vec<Invoice>, String> {
     database::get_all_invoices()
@@ -119,17 +123,22 @@ async fn create_invoice(
     status: String,
     issue_date: String,
     due_date: String,
+    bill_to: Option<String>,
     items: String,
     notes: Option<String>,
 ) -> Result<Invoice, String> {
+    // Filter out empty string project_id
+    let clean_project_id = project_id.filter(|s| !s.is_empty());
+    
     database::create_invoice(
         artist_id,
-        project_id,
+        clean_project_id,
         invoice_number,
         amount,
         status,
         issue_date,
         due_date,
+        bill_to,
         items,
         notes,
     )
@@ -144,6 +153,7 @@ async fn update_invoice(
     status: String,
     issue_date: String,
     due_date: String,
+    bill_to: Option<String>,
     items: String,
     notes: Option<String>,
 ) -> Result<Invoice, String> {
@@ -154,6 +164,7 @@ async fn update_invoice(
         status,
         issue_date,
         due_date,
+        bill_to,
         items,
         notes,
     )

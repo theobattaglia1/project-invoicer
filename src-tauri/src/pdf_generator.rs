@@ -39,86 +39,69 @@ pub fn generate_invoice_pdf(data: InvoiceData, output_path: PathBuf) -> Result<(
     let font_regular = doc.add_builtin_font(BuiltinFont::Helvetica)?;
     let font_bold = doc.add_builtin_font(BuiltinFont::HelveticaBold)?;
     
-    // Try to load and add logo
-    let logo_path = std::env::current_exe()?
-        .parent()
-        .unwrap()
-        .join("assets")
-        .join("amf-logo.png");
+    let mut y_position = PAGE_HEIGHT - MARGIN;
     
-    // Alternative paths to try
-    let alternative_paths = vec![
-        PathBuf::from("./src-tauri/assets/amf-logo.png"),
-        PathBuf::from("./assets/amf-logo.png"),
-        PathBuf::from("../assets/amf-logo.png"),
-    ];
+    // Artist Name and Company (top left)
+    let artist_name = if let Some(company) = &data.artist.company_name {
+        if !company.trim().is_empty() {
+            format!("{} / {}", data.artist.name, company)
+        } else {
+            data.artist.name.clone()
+        }
+    } else {
+        data.artist.name.clone()
+    };
     
-    let mut logo_added = false;
+    current_layer.use_text(
+        &artist_name,
+        16.0,
+        Mm((MARGIN / 2.834) as f32),
+        Mm((y_position / 2.834) as f32),
+        &font_bold
+    );
+    y_position -= 20.0;
     
-    // Try to find and add the logo
-    for path in std::iter::once(&logo_path).chain(alternative_paths.iter()) {
-        if path.exists() {
-            match image::open(path) {
-                Ok(img) => {
-                    // Convert to RGB8 if needed
-                    let rgb_image = img.to_rgb8();
-                    let (width, height) = rgb_image.dimensions();
-                    
-                    // Create image object for PDF
-                    let pdf_image = Image::from_dynamic_image(&img.into());
-                    
-                    // Add image to PDF (top left corner)
-                    // Scale the logo to fit nicely (adjust these values as needed)
-                    let logo_width = 30.0; // mm
-                    let logo_height = 45.0; // mm
-                    
-                    pdf_image.add_to_layer(
-                        current_layer.clone(),
-                        ImageTransform {
-                            translate_x: Some(Mm(MARGIN / 2.834)),
-                            translate_y: Some(Mm((PAGE_HEIGHT - MARGIN - 50.0) / 2.834)),
-                            scale_x: Some(logo_width / (width as f32 / 2.834)),
-                            scale_y: Some(logo_height / (height as f32 / 2.834)),
-                            ..Default::default()
-                        }
-                    );
-                    logo_added = true;
-                    break;
-                }
-                Err(_) => continue,
+    // Artist Address
+    if let Some(address) = &data.artist.address {
+        if !address.trim().is_empty() {
+            let address_lines: Vec<&str> = address.lines().collect();
+            for line in address_lines.iter().take(3) { // Limit to 3 lines
+                current_layer.use_text(
+                    *line,
+                    10.0,
+                    Mm((MARGIN / 2.834) as f32),
+                    Mm((y_position / 2.834) as f32),
+                    &font_regular
+                );
+                y_position -= 15.0;
             }
         }
     }
     
-    let mut y_position = PAGE_HEIGHT - MARGIN;
+    // Artist Contact Info
+    if let Some(email) = &data.artist.email {
+        if !email.trim().is_empty() {
+            current_layer.use_text(
+                email,
+                10.0,
+                Mm((MARGIN / 2.834) as f32),
+                Mm((y_position / 2.834) as f32),
+                &font_regular
+            );
+            y_position -= 15.0;
+        }
+    }
     
-    // If logo wasn't added, fall back to text
-    if !logo_added {
-        current_layer.use_text(
-            "AMF",
-            36.0,
-            Mm((MARGIN / 2.834) as f32),
-            Mm((y_position / 2.834) as f32),
-            &font_bold
-        );
-        y_position -= 20.0;
-        
-        current_layer.use_text(
-            "ALL MY",
-            10.0,
-            Mm((MARGIN / 2.834) as f32),
-            Mm((y_position / 2.834) as f32),
-            &font_regular
-        );
-        y_position -= 12.0;
-        
-        current_layer.use_text(
-            "FRIENDS",
-            10.0,
-            Mm((MARGIN / 2.834) as f32),
-            Mm((y_position / 2.834) as f32),
-            &font_regular
-        );
+    if let Some(phone) = &data.artist.phone {
+        if !phone.trim().is_empty() {
+            current_layer.use_text(
+                phone,
+                10.0,
+                Mm((MARGIN / 2.834) as f32),
+                Mm((y_position / 2.834) as f32),
+                &font_regular
+            );
+        }
     }
     
     // INVOICE header (right side)
@@ -130,33 +113,12 @@ pub fn generate_invoice_pdf(data: InvoiceData, output_path: PathBuf) -> Result<(
         &font_bold
     );
     
-    // Reset y_position for address
-    y_position = PAGE_HEIGHT - 100.0;
-    
-    // Company Address (left side)
-    current_layer.use_text(
-        "702 ECHO PARK AVENUE",
-        10.0,
-        Mm((MARGIN / 2.834) as f32),
-        Mm((y_position / 2.834) as f32),
-        &font_regular
-    );
-    y_position -= 15.0;
-    
-    current_layer.use_text(
-        "LOS ANGELES, CA 90026",
-        10.0,
-        Mm((MARGIN / 2.834) as f32),
-        Mm((y_position / 2.834) as f32),
-        &font_regular
-    );
-    
     // Invoice Number and Date (right side)
-    let invoice_y = PAGE_HEIGHT - 100.0;
+    let invoice_y = PAGE_HEIGHT - 80.0;
     current_layer.use_text(
-        &format!("INV #{}", data.invoice.invoice_number),
+        &format!("#{}", data.invoice.invoice_number),
         12.0,
-        Mm(((PAGE_WIDTH - 200.0) / 2.834) as f32),
+        Mm(((PAGE_WIDTH - 150.0) / 2.834) as f32),
         Mm((invoice_y / 2.834) as f32),
         &font_bold
     );
@@ -164,13 +126,50 @@ pub fn generate_invoice_pdf(data: InvoiceData, output_path: PathBuf) -> Result<(
     current_layer.use_text(
         &format_date(&data.invoice.issue_date),
         12.0,
-        Mm(((PAGE_WIDTH - 200.0) / 2.834) as f32),
+        Mm(((PAGE_WIDTH - 150.0) / 2.834) as f32),
         Mm(((invoice_y - 20.0) / 2.834) as f32),
         &font_regular
     );
     
+    // Bill To section
+    y_position = PAGE_HEIGHT - 160.0;
+    current_layer.use_text(
+        "BILL TO:",
+        10.0,
+        Mm((MARGIN / 2.834) as f32),
+        Mm((y_position / 2.834) as f32),
+        &font_bold
+    );
+    y_position -= 15.0;
+    
+    // Check if we have bill_to information in the invoice
+    if let Some(bill_to) = &data.invoice.bill_to {
+        if !bill_to.trim().is_empty() {
+            let bill_to_lines: Vec<&str> = bill_to.lines().collect();
+            for line in bill_to_lines.iter().take(4) { // Limit to 4 lines
+                current_layer.use_text(
+                    *line,
+                    10.0,
+                    Mm((MARGIN / 2.834) as f32),
+                    Mm((y_position / 2.834) as f32),
+                    &font_regular
+                );
+                y_position -= 15.0;
+            }
+        }
+    } else {
+        // Fallback to placeholder
+        current_layer.use_text(
+            "[Client Name]",
+            10.0,
+            Mm((MARGIN / 2.834) as f32),
+            Mm((y_position / 2.834) as f32),
+            &font_regular
+        );
+    }
+    
     // Move down for the table
-    y_position = PAGE_HEIGHT - 200.0;
+    y_position = PAGE_HEIGHT - 240.0;
     
     // Table Header
     draw_table_row(&current_layer, y_position, true);
@@ -205,7 +204,7 @@ pub fn generate_invoice_pdf(data: InvoiceData, output_path: PathBuf) -> Result<(
             if i == 0 {
                 // First line in regular font
                 current_layer.use_text(
-                    line,
+                    *line,
                     11.0,
                     Mm((MARGIN / 2.834) as f32),
                     Mm((item_y / 2.834) as f32),
@@ -214,7 +213,7 @@ pub fn generate_invoice_pdf(data: InvoiceData, output_path: PathBuf) -> Result<(
             } else {
                 // Additional lines in italic (simulated with regular font, smaller size)
                 current_layer.use_text(
-                    line,
+                    *line,
                     10.0,
                     Mm((MARGIN / 2.834) as f32),
                     Mm((item_y / 2.834) as f32),
@@ -224,9 +223,10 @@ pub fn generate_invoice_pdf(data: InvoiceData, output_path: PathBuf) -> Result<(
             item_y -= 15.0;
         }
         
-        // Amount
+        // Amount - format with thousands separator
+        let amount_str = format_currency(item.amount);
         current_layer.use_text(
-            &format!("${:,.2}", item.amount),
+            &amount_str,
             11.0,
             Mm(((PAGE_WIDTH - 150.0) / 2.834) as f32),
             Mm(((y_position - 15.0) / 2.834) as f32),
@@ -282,48 +282,49 @@ pub fn generate_invoice_pdf(data: InvoiceData, output_path: PathBuf) -> Result<(
         &font_bold
     );
     
+    let total_str = format_currency(data.invoice.amount);
     current_layer.use_text(
-        &format!("${:,.2}", data.invoice.amount),
+        &total_str,
         12.0,
         Mm(((PAGE_WIDTH - 150.0) / 2.834) as f32),
         Mm(((y_position - 15.0) / 2.834) as f32),
         &font_bold
     );
     
-    // Wire Details Footer
+    // Wire Details Footer - Use artist's wire details if available
     y_position = 100.0;
     
     // Draw line above wire details
     draw_line(&current_layer, MARGIN, y_position + 20.0, PAGE_WIDTH - MARGIN, y_position + 20.0);
     
-    current_layer.use_text(
-        "WIRE DETAILS",
-        10.0,
-        Mm(((PAGE_WIDTH / 2.0 - 40.0) / 2.834) as f32),
-        Mm((y_position / 2.834) as f32),
-        &font_bold
-    );
-    y_position -= 15.0;
-    
-    // Wire details in smaller text, centered
-    let wire_details = "Account Name: All My Friends Inc. • Account Number: XXXX • Routing Number: XXXX •";
-    current_layer.use_text(
-        wire_details,
-        8.0,
-        Mm((80.0 / 2.834) as f32),
-        Mm((y_position / 2.834) as f32),
-        &font_regular
-    );
-    y_position -= 12.0;
-    
-    let bank_details = "Bank Name: BANK • Bank Address: XXX";
-    current_layer.use_text(
-        bank_details,
-        8.0,
-        Mm((150.0 / 2.834) as f32),
-        Mm((y_position / 2.834) as f32),
-        &font_regular
-    );
+    if let Some(wire_details) = &data.artist.wire_details {
+        if !wire_details.trim().is_empty() {
+            // Use custom wire details from artist
+            current_layer.use_text(
+                "PAYMENT DETAILS",
+                10.0,
+                Mm(((PAGE_WIDTH / 2.0 - 40.0) / 2.834) as f32),
+                Mm((y_position / 2.834) as f32),
+                &font_bold
+            );
+            y_position -= 15.0;
+            
+            // Split wire details into lines and display
+            let lines: Vec<&str> = wire_details.lines().collect();
+            for line in lines.iter().take(4) { // Limit to 4 lines
+                if !line.trim().is_empty() {
+                    current_layer.use_text(
+                        *line,
+                        8.0,
+                        Mm((MARGIN / 2.834) as f32),
+                        Mm((y_position / 2.834) as f32),
+                        &font_regular
+                    );
+                    y_position -= 12.0;
+                }
+            }
+        }
+    }
     
     // Save the PDF
     doc.save(&mut BufWriter::new(File::create(output_path)?))?;
@@ -346,7 +347,7 @@ fn draw_line(layer: &PdfLayerReference, x1: f32, y1: f32, x2: f32, y2: f32) {
     layer.add_line(line);
 }
 
-fn draw_table_row(layer: &PdfLayerReference, y_position: f32, is_header: bool) {
+fn draw_table_row(layer: &PdfLayerReference, y_position: f32, _is_header: bool) {
     // Draw top line
     draw_line(layer, MARGIN, y_position, PAGE_WIDTH - MARGIN, y_position);
     
@@ -381,4 +382,25 @@ fn calculate_days_difference(start_date: &str, end_date: &str) -> i64 {
     } else {
         0
     }
+}
+
+fn format_currency(amount: f64) -> String {
+    // Format with thousands separator
+    let whole = amount.trunc() as i64;
+    let cents = ((amount - whole as f64) * 100.0).round() as i64;
+    
+    // Format the whole part with commas
+    let whole_str = whole.to_string()
+        .chars()
+        .rev()
+        .collect::<Vec<_>>()
+        .chunks(3)
+        .map(|chunk| chunk.iter().collect::<String>())
+        .collect::<Vec<_>>()
+        .join(",")
+        .chars()
+        .rev()
+        .collect::<String>();
+    
+    format!("${}.{:02}", whole_str, cents)
 }

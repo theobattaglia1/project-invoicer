@@ -3,8 +3,7 @@
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
     "devPath": "http://localhost:8080",
-    "distDir": "../dist",
-    "withGlobalTauri": false
+    "distDir": "../dist"
   },
   "package": {
     "productName": "Project & Invoice Tracker",
@@ -15,7 +14,19 @@
       "all": false,
       "shell": {
         "all": false,
-        "open": true
+        "open": "^[\\s\\S]*$",
+        "execute": false,
+        "sidecar": false,
+        "scope": [
+          {
+            "name": "open",
+            "cmd": "open",
+            "args": true
+          }
+        ]
+      },
+      "path": {
+        "all": true
       },
       "fs": {
         "all": false,
@@ -23,23 +34,21 @@
         "writeFile": true,
         "readDir": true,
         "createDir": true,
-        "removeDir": true,
-        "removeFile": true,
+        "removeDir": false,
+        "removeFile": false,
+        "renameFile": false,
         "exists": true,
-        "scope": ["$APPDATA/*", "$APPDATA/**", "$DOWNLOAD/*", "$DOWNLOAD/**", "$DOCUMENT/*", "$DOCUMENT/**", "$RESOURCE/*", "$RESOURCE/**"]
+        "scope": ["$DOWNLOAD", "$DOCUMENT", "$RESOURCE", "$APP", "$DATA"]
       },
-      "path": {
-        "all": true
-      },
-      "dialog": {
+      "protocol": {
         "all": false,
-        "open": true,
-        "save": true
+        "asset": true
       }
     },
     "bundle": {
       "active": true,
-      "identifier": "com.theobattaglia.projectinvoicer",
+      "targets": "all",
+      "identifier": "com.allmyfriends.invoicetracker",
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",
@@ -59,7 +68,7 @@
         "title": "Project & Invoice Tracker",
         "width": 1200,
         "height": 800,
-        "minWidth": 1000,
+        "minWidth": 800,
         "minHeight": 600
       }
     ]

@@ -40,10 +40,12 @@ export const useArtistStore = defineStore('artists', {
       try {
         const newArtist = await invoke('create_artist', {
           name: artistData.name,
-          email: artistData.email,
-          phone: artistData.phone,
-          address: artistData.address,
-          notes: artistData.notes
+          companyName: artistData.company_name || null,
+          email: artistData.email || null,
+          phone: artistData.phone || null,
+          address: artistData.address || null,
+          wireDetails: artistData.wire_details || null,
+          notes: artistData.notes || null
         })
         this.artists.push(newArtist)
         return newArtist
@@ -58,10 +60,12 @@ export const useArtistStore = defineStore('artists', {
         const updated = await invoke('update_artist', {
           artistId: id,
           name: artistData.name,
-          email: artistData.email,
-          phone: artistData.phone,
-          address: artistData.address,
-          notes: artistData.notes
+          companyName: artistData.company_name || null,
+          email: artistData.email || null,
+          phone: artistData.phone || null,
+          address: artistData.address || null,
+          wireDetails: artistData.wire_details || null,
+          notes: artistData.notes || null
         })
         const index = this.artists.findIndex(a => a.id === id)
         if (index !== -1) {

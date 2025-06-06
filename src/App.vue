@@ -1,6 +1,10 @@
 <template>
   <div id="app">
-    <div class="app-container">
+    <!-- Show login page without sidebar -->
+    <router-view v-if="!showMainLayout" />
+    
+    <!-- Show main app with sidebar -->
+    <div v-else class="app-container">
       <!-- Sidebar -->
       <aside class="sidebar">
         <!-- Logo -->
@@ -73,6 +77,19 @@
             <span>Create New</span>
           </button>
 
+          <!-- User info and logout -->
+          <div v-if="authStore.profile" class="user-section">
+            <div class="user-info">
+              <div class="user-name">{{ authStore.profile.name }}</div>
+              <div class="user-role">{{ formatRole(authStore.profile.role) }}</div>
+            </div>
+            <button @click="handleLogout" class="btn-logout" title="Sign out">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+              </svg>
+            </button>
+          </div>
+
           <button @click="openSettings" class="settings-button">
             <svg class="settings-icon" viewBox="0 0 24 24" fill="currentColor">
               <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.57 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
@@ -110,10 +127,11 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useArtistStore } from '@/store/artistStore'
 import { useProjectStore } from '@/store/projectStore'
 import { useInvoiceStore } from '@/store/invoiceStore'
+import { useAuthStore } from '@/store/authStore'
 import UnifiedModal from '@/components/UnifiedModal.vue'
 import Toast from '@/components/Toast.vue'
 
@@ -125,15 +143,25 @@ export default {
   },
   setup() {
     const router = useRouter()
+    const route = useRoute()
     const artistStore = useArtistStore()
     const projectStore = useProjectStore()
     const invoiceStore = useInvoiceStore()
+    const authStore = useAuthStore()
     
     const showModal = ref(false)
     const modalType = ref('artist')
     const modalItem = ref(null)
     const modalDefaultData = ref(null)
     const toastRef = ref(null)
+
+    // Computed to determine if we should show the main layout
+    const showMainLayout = computed(() => {
+      // Don't show main layout if:
+      // 1. User is not authenticated
+      // 2. We're on the login page
+      return authStore.isAuthenticated && route.path !== '/login'
+    })
 
     const stats = computed(() => ({
       totalArtists: artistStore.artists.length,
@@ -143,6 +171,16 @@ export default {
         .reduce((sum, i) => sum + i.amount, 0)
         .toFixed(2)
     }))
+
+    const formatRole = (role) => {
+      const roleMap = {
+        owner: 'Owner',
+        editor: 'Editor',
+        invoicer: 'Invoicer',
+        artist: 'Artist'
+      }
+      return roleMap[role] || role
+    }
 
     const openCreateModal = () => {
       const path = router.currentRoute.value.path
@@ -234,6 +272,16 @@ export default {
       }
     }
 
+    const handleLogout = async () => {
+      const result = await authStore.signOut()
+      if (result.success) {
+        router.push('/login')
+        showToast('Signed out successfully', 'success')
+      } else {
+        showToast('Failed to sign out', 'error')
+      }
+    }
+
     const openSettings = () => {
       showToast('Settings coming soon!', 'info')
     }
@@ -243,27 +291,34 @@ export default {
     }
 
     onMounted(async () => {
-      // Load initial data
-      await Promise.all([
-        artistStore.loadArtists(),
-        projectStore.loadProjects(),
-        invoiceStore.loadInvoices()
-      ])
+      // Only load data if authenticated
+      if (authStore.isAuthenticated) {
+        await Promise.all([
+          artistStore.loadArtists(),
+          projectStore.loadProjects(),
+          invoiceStore.loadInvoices()
+        ])
+      }
     })
 
     return {
+      route,
+      authStore,
+      showMainLayout,
       stats,
       showModal,
       modalType,
       modalItem,
       modalDefaultData,
       toastRef,
+      formatRole,
       openCreateModal,
       closeModal,
       handleCreate,
       handleUpdate,
       handleDelete,
       handleSave,
+      handleLogout,
       openSettings
     }
   }
@@ -402,6 +457,61 @@ export default {
 .create-icon {
   width: 20px;
   height: 20px;
+}
+
+/* User Section */
+.user-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
+.user-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-role {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: capitalize;
+}
+
+.btn-logout {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-logout:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.btn-logout svg {
+  width: 18px;
+  height: 18px;
 }
 
 .settings-button {

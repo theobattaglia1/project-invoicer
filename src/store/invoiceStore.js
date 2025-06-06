@@ -18,6 +18,28 @@ export const useInvoiceStore = defineStore('invoices', {
       return state.invoices.filter(invoice => invoice.artist_id === artistId)
     },
     
+    getActiveInvoicesByArtist: (state) => (artistId) => {
+      return state.invoices.filter(invoice => 
+        invoice.artist_id === artistId && 
+        invoice.status !== 'archived' && 
+        invoice.status !== 'trashed'
+      )
+    },
+    
+    getArchivedInvoicesByArtist: (state) => (artistId) => {
+      return state.invoices.filter(invoice => 
+        invoice.artist_id === artistId && 
+        invoice.status === 'archived'
+      )
+    },
+    
+    getTrashedInvoicesByArtist: (state) => (artistId) => {
+      return state.invoices.filter(invoice => 
+        invoice.artist_id === artistId && 
+        invoice.status === 'trashed'
+      )
+    },
+    
     getInvoicesByProject: (state) => (projectId) => {
       return state.invoices.filter(invoice => invoice.project_id === projectId)
     },
@@ -28,6 +50,12 @@ export const useInvoiceStore = defineStore('invoices', {
     
     paidInvoices: (state) => {
       return state.invoices.filter(i => i.status === 'paid')
+    },
+    
+    activeInvoices: (state) => {
+      return state.invoices.filter(i => 
+        i.status !== 'archived' && i.status !== 'trashed'
+      )
     },
     
     totalPending: (state) => {
@@ -131,6 +159,74 @@ export const useInvoiceStore = defineStore('invoices', {
             status: 'paid',
             paid_date: new Date().toISOString()
           })
+        }
+      } catch (err) {
+        this.error = err.toString()
+        throw err
+      }
+    },
+
+    async archiveInvoices(ids) {
+      try {
+        for (const id of ids) {
+          const invoice = this.getInvoiceById(id)
+          if (invoice && invoice.status !== 'archived') {
+            await this.updateInvoice(id, {
+              ...invoice,
+              status: 'archived'
+            })
+          }
+        }
+      } catch (err) {
+        this.error = err.toString()
+        throw err
+      }
+    },
+
+    async trashInvoices(ids) {
+      try {
+        for (const id of ids) {
+          const invoice = this.getInvoiceById(id)
+          if (invoice && invoice.status !== 'trashed') {
+            await this.updateInvoice(id, {
+              ...invoice,
+              status: 'trashed'
+            })
+          }
+        }
+      } catch (err) {
+        this.error = err.toString()
+        throw err
+      }
+    },
+
+    async restoreInvoices(ids) {
+      try {
+        for (const id of ids) {
+          const invoice = this.getInvoiceById(id)
+          if (invoice && (invoice.status === 'archived' || invoice.status === 'trashed')) {
+            await this.updateInvoice(id, {
+              ...invoice,
+              status: 'pending'
+            })
+          }
+        }
+      } catch (err) {
+        this.error = err.toString()
+        throw err
+      }
+    },
+
+    async updateMultipleInvoicesStatus(ids, status) {
+      try {
+        for (const id of ids) {
+          const invoice = this.getInvoiceById(id)
+          if (invoice) {
+            await this.updateInvoice(id, {
+              ...invoice,
+              status: status
+            })
+          }
         }
       } catch (err) {
         this.error = err.toString()

@@ -4,10 +4,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import './index.css'
-
-// (Only import these if you actually need to register them globally)
-// import ContextMenu from '@/components/ContextMenu.vue'
-// import UnifiedContentModal from '@/components/UnifiedContentModal.vue'
+import { useAuthStore } from '@/store/authStore'
 
 const app = createApp(App)
 
@@ -22,17 +19,16 @@ app.use(router)
 app.config.errorHandler = (err, instance, info) => {
   console.warn('Vue error suppressed:', err.message)
   if (err.message && err.message.includes('componentStructure')) {
-    // Silently swallow “componentStructure” errors
+    // Silently swallow "componentStructure" errors
     return
   }
   // Re‐throw any other errors so you still see them
   throw err
 }
 
-// 4. (Optional) Globally register these components if you need them everywhere
-//    Otherwise, you can skip this and import them inside the specific views.
-// app.component('ContextMenu', ContextMenu)
-// app.component('UnifiedContentModal', UnifiedContentModal)
-
-// 5. Finally, mount the app exactly once
-app.mount('#app')
+// 4. Initialize auth store before mounting
+const authStore = useAuthStore(pinia)
+authStore.initialize().then(() => {
+  // 5. Finally, mount the app after auth is initialized
+  app.mount('#app')
+})

@@ -141,7 +141,7 @@ const deleteArtist = async (artist) => {
 }
 
 const viewArtistDetails = (artist) => {
-  router.push(`/artist/${artist.id}/projects`)
+  router.push(`/artist/${artist.id}/overview`)
 }
 
 const emit = defineEmits(['create', 'update', 'delete'])

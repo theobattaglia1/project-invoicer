@@ -9,9 +9,11 @@ use chrono::Utc;
 pub struct Artist {
     pub id: String,
     pub name: String,
+    pub company_name: Option<String>,
     pub email: Option<String>,
     pub phone: Option<String>,
     pub address: Option<String>,
+    pub wire_details: Option<String>,
     pub notes: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -42,6 +44,7 @@ pub struct Invoice {
     pub issue_date: String,
     pub due_date: String,
     pub paid_date: Option<String>,
+    pub bill_to: Option<String>,
     pub items: String,
     pub notes: Option<String>,
     pub created_at: String,
@@ -63,20 +66,35 @@ fn get_connection() -> Result<Connection> {
 pub fn init() -> Result<()> {
     let conn = get_connection()?;
     
-    // Create artists table
+    // Create artists table with new fields
     conn.execute(
         "CREATE TABLE IF NOT EXISTS artists (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
+            company_name TEXT,
             email TEXT,
             phone TEXT,
             address TEXT,
+            wire_details TEXT,
             notes TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )",
         [],
     )?;
+    
+    // Check if columns exist and add them if they don't (for existing databases)
+    let mut stmt = conn.prepare("PRAGMA table_info(artists)")?;
+    let columns: Vec<String> = stmt.query_map([], |row| {
+        row.get::<_, String>(1)
+    })?.collect::<Result<Vec<_>>>()?;
+    
+    if !columns.contains(&"company_name".to_string()) {
+        conn.execute("ALTER TABLE artists ADD COLUMN company_name TEXT", [])?;
+    }
+    if !columns.contains(&"wire_details".to_string()) {
+        conn.execute("ALTER TABLE artists ADD COLUMN wire_details TEXT", [])?;
+    }
     
     // Create projects table
     conn.execute(
@@ -96,7 +114,7 @@ pub fn init() -> Result<()> {
         [],
     )?;
     
-    // Create invoices table
+    // Create invoices table with bill_to field
     conn.execute(
         "CREATE TABLE IF NOT EXISTS invoices (
             id TEXT PRIMARY KEY,
@@ -108,6 +126,7 @@ pub fn init() -> Result<()> {
             issue_date TEXT NOT NULL,
             due_date TEXT NOT NULL,
             paid_date TEXT,
+            bill_to TEXT,
             items TEXT NOT NULL DEFAULT '[]',
             notes TEXT,
             created_at TEXT NOT NULL,
@@ -118,14 +137,24 @@ pub fn init() -> Result<()> {
         [],
     )?;
     
+    // Check if bill_to column exists in invoices table and add if it doesn't
+    let mut stmt = conn.prepare("PRAGMA table_info(invoices)")?;
+    let invoice_columns: Vec<String> = stmt.query_map([], |row| {
+        row.get::<_, String>(1)
+    })?.collect::<Result<Vec<_>>>()?;
+    
+    if !invoice_columns.contains(&"bill_to".to_string()) {
+        conn.execute("ALTER TABLE invoices ADD COLUMN bill_to TEXT", [])?;
+    }
+    
     Ok(())
 }
 
-// Artist functions
+// Artist functions remain the same...
 pub fn get_all_artists() -> Result<Vec<Artist>> {
     let conn = get_connection()?;
     let mut stmt = conn.prepare(
-        "SELECT id, name, email, phone, address, notes, created_at, updated_at 
+        "SELECT id, name, company_name, email, phone, address, wire_details, notes, created_at, updated_at 
          FROM artists ORDER BY name"
     )?;
     
@@ -133,12 +162,14 @@ pub fn get_all_artists() -> Result<Vec<Artist>> {
         Ok(Artist {
             id: row.get(0)?,
             name: row.get(1)?,
-            email: row.get(2)?,
-            phone: row.get(3)?,
-            address: row.get(4)?,
-            notes: row.get(5)?,
-            created_at: row.get(6)?,
-            updated_at: row.get(7)?,
+            company_name: row.get(2)?,
+            email: row.get(3)?,
+            phone: row.get(4)?,
+            address: row.get(5)?,
+            wire_details: row.get(6)?,
+            notes: row.get(7)?,
+            created_at: row.get(8)?,
+            updated_at: row.get(9)?,
         })
     })?
     .collect::<Result<Vec<_>>>()?;
@@ -148,9 +179,11 @@ pub fn get_all_artists() -> Result<Vec<Artist>> {
 
 pub fn create_artist(
     name: String,
+    company_name: Option<String>,
     email: Option<String>,
     phone: Option<String>,
     address: Option<String>,
+    wire_details: Option<String>,
     notes: Option<String>,
 ) -> Result<Artist> {
     let conn = get_connection()?;
@@ -158,17 +191,19 @@ pub fn create_artist(
     let now = Utc::now().to_rfc3339();
     
     conn.execute(
-        "INSERT INTO artists (id, name, email, phone, address, notes, created_at, updated_at) 
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        params![&id, &name, &email, &phone, &address, &notes, &now, &now],
+        "INSERT INTO artists (id, name, company_name, email, phone, address, wire_details, notes, created_at, updated_at) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![&id, &name, &company_name, &email, &phone, &address, &wire_details, &notes, &now, &now],
     )?;
     
     Ok(Artist {
         id,
         name,
+        company_name,
         email,
         phone,
         address,
+        wire_details,
         notes,
         created_at: now.clone(),
         updated_at: now,
@@ -178,18 +213,20 @@ pub fn create_artist(
 pub fn update_artist(
     artist_id: String,
     name: String,
+    company_name: Option<String>,
     email: Option<String>,
     phone: Option<String>,
     address: Option<String>,
+    wire_details: Option<String>,
     notes: Option<String>,
 ) -> Result<Artist> {
     let conn = get_connection()?;
     let now = Utc::now().to_rfc3339();
     
     conn.execute(
-        "UPDATE artists SET name = ?2, email = ?3, phone = ?4, address = ?5, 
-         notes = ?6, updated_at = ?7 WHERE id = ?1",
-        params![&artist_id, &name, &email, &phone, &address, &notes, &now],
+        "UPDATE artists SET name = ?2, company_name = ?3, email = ?4, phone = ?5, address = ?6, 
+         wire_details = ?7, notes = ?8, updated_at = ?9 WHERE id = ?1",
+        params![&artist_id, &name, &company_name, &email, &phone, &address, &wire_details, &notes, &now],
     )?;
     
     let created_at: String = conn.query_row(
@@ -201,9 +238,11 @@ pub fn update_artist(
     Ok(Artist {
         id: artist_id,
         name,
+        company_name,
         email,
         phone,
         address,
+        wire_details,
         notes,
         created_at,
         updated_at: now,
@@ -216,7 +255,7 @@ pub fn delete_artist(artist_id: String) -> Result<()> {
     Ok(())
 }
 
-// Project functions
+// Project functions remain the same...
 pub fn get_all_projects() -> Result<Vec<Project>> {
     let conn = get_connection()?;
     let mut stmt = conn.prepare(
@@ -355,12 +394,12 @@ pub fn delete_project(project_id: String) -> Result<()> {
     Ok(())
 }
 
-// Invoice functions
+// Updated Invoice functions with bill_to field
 pub fn get_all_invoices() -> Result<Vec<Invoice>> {
     let conn = get_connection()?;
     let mut stmt = conn.prepare(
         "SELECT id, artist_id, project_id, invoice_number, amount, status, 
-         issue_date, due_date, paid_date, items, notes, created_at, updated_at 
+         issue_date, due_date, paid_date, bill_to, items, notes, created_at, updated_at 
          FROM invoices ORDER BY created_at DESC"
     )?;
     
@@ -375,10 +414,11 @@ pub fn get_all_invoices() -> Result<Vec<Invoice>> {
             issue_date: row.get(6)?,
             due_date: row.get(7)?,
             paid_date: row.get(8)?,
-            items: row.get(9)?,
-            notes: row.get(10)?,
-            created_at: row.get(11)?,
-            updated_at: row.get(12)?,
+            bill_to: row.get(9)?,
+            items: row.get(10)?,
+            notes: row.get(11)?,
+            created_at: row.get(12)?,
+            updated_at: row.get(13)?,
         })
     })?
     .collect::<Result<Vec<_>>>()?;
@@ -390,7 +430,7 @@ pub fn get_invoices_by_artist(artist_id: String) -> Result<Vec<Invoice>> {
     let conn = get_connection()?;
     let mut stmt = conn.prepare(
         "SELECT id, artist_id, project_id, invoice_number, amount, status, 
-         issue_date, due_date, paid_date, items, notes, created_at, updated_at 
+         issue_date, due_date, paid_date, bill_to, items, notes, created_at, updated_at 
          FROM invoices WHERE artist_id = ?1 ORDER BY created_at DESC"
     )?;
     
@@ -405,10 +445,11 @@ pub fn get_invoices_by_artist(artist_id: String) -> Result<Vec<Invoice>> {
             issue_date: row.get(6)?,
             due_date: row.get(7)?,
             paid_date: row.get(8)?,
-            items: row.get(9)?,
-            notes: row.get(10)?,
-            created_at: row.get(11)?,
-            updated_at: row.get(12)?,
+            bill_to: row.get(9)?,
+            items: row.get(10)?,
+            notes: row.get(11)?,
+            created_at: row.get(12)?,
+            updated_at: row.get(13)?,
         })
     })?
     .collect::<Result<Vec<_>>>()?;
@@ -424,6 +465,7 @@ pub fn create_invoice(
     status: String,
     issue_date: String,
     due_date: String,
+    bill_to: Option<String>,
     items: String,
     notes: Option<String>,
 ) -> Result<Invoice> {
@@ -431,26 +473,30 @@ pub fn create_invoice(
     let id = Uuid::new_v4().to_string();
     let now = Utc::now().to_rfc3339();
     
+    // Handle empty project_id
+    let project_id_value = project_id.filter(|s| !s.is_empty());
+    
     conn.execute(
         "INSERT INTO invoices (id, artist_id, project_id, invoice_number, amount, 
-         status, issue_date, due_date, paid_date, items, notes, created_at, updated_at) 
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+         status, issue_date, due_date, paid_date, bill_to, items, notes, created_at, updated_at) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
         params![
-            &id, &artist_id, &project_id, &invoice_number, &amount,
-            &status, &issue_date, &due_date, &None::<String>, &items, &notes, &now, &now
+            &id, &artist_id, &project_id_value, &invoice_number, &amount,
+            &status, &issue_date, &due_date, &None::<String>, &bill_to, &items, &notes, &now, &now
         ],
     )?;
     
     Ok(Invoice {
         id,
         artist_id,
-        project_id,
+        project_id: project_id_value,
         invoice_number,
         amount,
         status,
         issue_date,
         due_date,
         paid_date: None,
+        bill_to,
         items,
         notes,
         created_at: now.clone(),
@@ -465,6 +511,7 @@ pub fn update_invoice(
     status: String,
     issue_date: String,
     due_date: String,
+    bill_to: Option<String>,
     items: String,
     notes: Option<String>,
 ) -> Result<Invoice> {
@@ -480,11 +527,11 @@ pub fn update_invoice(
     
     conn.execute(
         "UPDATE invoices SET invoice_number = ?2, amount = ?3, status = ?4, 
-         issue_date = ?5, due_date = ?6, paid_date = ?7, items = ?8, 
-         notes = ?9, updated_at = ?10 WHERE id = ?1",
+         issue_date = ?5, due_date = ?6, paid_date = ?7, bill_to = ?8, items = ?9, 
+         notes = ?10, updated_at = ?11 WHERE id = ?1",
         params![
             &invoice_id, &invoice_number, &amount, &status,
-            &issue_date, &due_date, &paid_date, &items, &notes, &now
+            &issue_date, &due_date, &paid_date, &bill_to, &items, &notes, &now
         ],
     )?;
     
@@ -504,6 +551,7 @@ pub fn update_invoice(
         issue_date,
         due_date,
         paid_date,
+        bill_to,
         items,
         notes,
         created_at,
