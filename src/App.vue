@@ -1,88 +1,41 @@
 <template>
-  <div class="login-view">
-    <div class="login-container">
-      <!-- Logo -->
-      <div class="login-logo">
-        <h1 style="color: white; font-size: 48px;">AMF</h1>
-      </div>
-      
-      <h1 class="login-title">Welcome Back</h1>
-      <p class="login-subtitle">Sign in to your account</p>
-      
-      <form @submit.prevent="handleLogin" class="login-form">
-        <div class="form-group">
-          <label>Email</label>
-          <input 
-            v-model="email" 
-            type="email" 
-            required
-            placeholder="you@example.com"
-            :disabled="loading"
-          />
-        </div>
-        
-        <div class="form-group">
-          <label>Password</label>
-          <input 
-            v-model="password" 
-            type="password" 
-            required
-            placeholder="••••••••"
-            :disabled="loading"
-          />
-        </div>
-        
-        <div v-if="error" class="error-message">
-          {{ error }}
-        </div>
-        
-        <button type="submit" class="btn-login" :disabled="loading">
-          <span v-if="!loading">Sign In</span>
-          <div v-else class="spinner"></div>
-        </button>
-      </form>
-      
-      <div class="login-footer">
-        <p>Having trouble? Contact your administrator.</p>
-      </div>
-    </div>
-  </div>
+  <router-view />
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { auth } from '@/lib/supabase'
 
 const router = useRouter()
+let authListener = null
 
-const email = ref('')
-const password = ref('')
-const error = ref('')
-const loading = ref(false)
-
-const handleLogin = async () => {
-  error.value = ''
-  loading.value = true
-  
-  try {
-    // This is a temporary login that just checks credentials
-    // We'll add Supabase auth after we confirm the setup works
-    
-    // For now, hardcode your owner login
-    if (email.value === 'theo@allmyfriendsinc.com' && password.value === '(Milo0224!))') {
-      // Simulate successful login
+onMounted(() => {
+  // Listen for auth state changes
+  authListener = auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN') {
+      // User signed in
       localStorage.setItem('isAuthenticated', 'true')
-      localStorage.setItem('userRole', 'owner')
-      router.push('/')
-    } else {
-      error.value = 'Invalid email or password'
+      if (session?.user) {
+        localStorage.setItem('userId', session.user.id)
+        localStorage.setItem('userEmail', session.user.email)
+      }
+    } else if (event === 'SIGNED_OUT') {
+      // User signed out
+      localStorage.removeItem('isAuthenticated')
+      localStorage.removeItem('userId')
+      localStorage.removeItem('userEmail')
+      router.push('/login')
     }
-  } catch (err) {
-    error.value = 'Login failed'
-  } finally {
-    loading.value = false
+  })
+})
+
+onUnmounted(() => {
+  // Clean up the listener
+  if (authListener) {
+    authListener.data.subscription.unsubscribe()
   }
-}
+})
 </script>
 
 <style scoped>
