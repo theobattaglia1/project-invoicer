@@ -1,6 +1,6 @@
 // src/store/invoiceStore.js
 import { defineStore } from 'pinia'
-import { invoke } from '@tauri-apps/api/tauri'
+import { supabase } from '@/lib/supabase'
 
 export const useInvoiceStore = defineStore('invoices', {
   state: () => ({
@@ -61,13 +61,13 @@ export const useInvoiceStore = defineStore('invoices', {
     totalPending: (state) => {
       return state.invoices
         .filter(i => i.status === 'pending')
-        .reduce((sum, i) => sum + i.amount, 0)
+        .reduce((sum, i) => sum + parseFloat(i.amount || 0), 0)
     },
     
     totalPaid: (state) => {
       return state.invoices
         .filter(i => i.status === 'paid')
-        .reduce((sum, i) => sum + i.amount, 0)
+        .reduce((sum, i) => sum + parseFloat(i.amount || 0), 0)
     }
   },
 
@@ -76,10 +76,15 @@ export const useInvoiceStore = defineStore('invoices', {
       this.loading = true
       this.error = null
       try {
-        const result = await invoke('get_all_invoices')
-        this.invoices = result
+        const { data, error } = await supabase
+          .from('invoices')
+          .select('*')
+          .order('created_at', { ascending: false })
+        
+        if (error) throw error
+        this.invoices = data || []
       } catch (err) {
-        this.error = err.toString()
+        this.error = err.message
         console.error('Failed to load invoices:', err)
       } finally {
         this.loading = false
@@ -88,64 +93,104 @@ export const useInvoiceStore = defineStore('invoices', {
 
     async loadInvoicesByArtist(artistId) {
       try {
-        const result = await invoke('get_invoices_by_artist', { artistId })
-        return result
+        const { data, error } = await supabase
+          .from('invoices')
+          .select('*')
+          .eq('artist_id', artistId)
+          .order('created_at', { ascending: false })
+        
+        if (error) throw error
+        
+        // Update local state with these invoices
+        const existingIds = this.invoices.map(i => i.id)
+        const newInvoices = (data || []).filter(i => !existingIds.includes(i.id))
+        this.invoices.push(...newInvoices)
+        
+        return data || []
       } catch (err) {
-        this.error = err.toString()
+        this.error = err.message
         throw err
       }
     },
 
     async createInvoice(invoiceData) {
       try {
-        const newInvoice = await invoke('create_invoice', {
-          artistId: invoiceData.artist_id,
-          projectId: invoiceData.project_id,
-          invoiceNumber: invoiceData.invoice_number,
-          amount: invoiceData.amount,
-          status: invoiceData.status || 'pending',
-          issueDate: invoiceData.issue_date,
-          dueDate: invoiceData.due_date,
-          items: JSON.stringify(invoiceData.items || []),
-          notes: invoiceData.notes
-        })
-        this.invoices.push(newInvoice)
-        return newInvoice
+        const { data, error } = await supabase
+          .from('invoices')
+          .insert([{
+            artist_id: invoiceData.artist_id,
+            project_id: invoiceData.project_id || null,
+            invoice_number: invoiceData.invoice_number,
+            amount: invoiceData.amount || 0,
+            status: invoiceData.status || 'pending',
+            issue_date: invoiceData.issue_date,
+            due_date: invoiceData.due_date,
+            bill_to: invoiceData.bill_to || null,
+            items: invoiceData.items || [],
+            notes: invoiceData.notes || null
+          }])
+          .select()
+          .single()
+        
+        if (error) throw error
+        this.invoices.push(data)
+        return data
       } catch (err) {
-        this.error = err.toString()
+        this.error = err.message
         throw err
       }
     },
 
     async updateInvoice(id, invoiceData) {
       try {
-        const updated = await invoke('update_invoice', {
-          invoiceId: id,
-          invoiceNumber: invoiceData.invoice_number,
-          amount: invoiceData.amount,
+        const updateData = {
+          invoice_number: invoiceData.invoice_number,
+          amount: invoiceData.amount || 0,
           status: invoiceData.status,
-          issueDate: invoiceData.issue_date,
-          dueDate: invoiceData.due_date,
-          items: JSON.stringify(invoiceData.items || []),
-          notes: invoiceData.notes
-        })
+          issue_date: invoiceData.issue_date,
+          due_date: invoiceData.due_date,
+          bill_to: invoiceData.bill_to || null,
+          items: invoiceData.items || [],
+          notes: invoiceData.notes || null,
+          updated_at: new Date().toISOString()
+        }
+        
+        // If status changed to paid, set paid_date
+        if (invoiceData.status === 'paid') {
+          updateData.paid_date = new Date().toISOString().split('T')[0]
+        }
+        
+        const { data, error } = await supabase
+          .from('invoices')
+          .update(updateData)
+          .eq('id', id)
+          .select()
+          .single()
+        
+        if (error) throw error
+        
         const index = this.invoices.findIndex(i => i.id === id)
         if (index !== -1) {
-          this.invoices[index] = updated
+          this.invoices[index] = data
         }
-        return updated
+        return data
       } catch (err) {
-        this.error = err.toString()
+        this.error = err.message
         throw err
       }
     },
 
     async deleteInvoice(id) {
       try {
-        await invoke('delete_invoice', { invoiceId: id })
+        const { error } = await supabase
+          .from('invoices')
+          .delete()
+          .eq('id', id)
+        
+        if (error) throw error
         this.invoices = this.invoices.filter(i => i.id !== id)
       } catch (err) {
-        this.error = err.toString()
+        this.error = err.message
         throw err
       }
     },
@@ -157,11 +202,11 @@ export const useInvoiceStore = defineStore('invoices', {
           await this.updateInvoice(id, {
             ...invoice,
             status: 'paid',
-            paid_date: new Date().toISOString()
+            paid_date: new Date().toISOString().split('T')[0]
           })
         }
       } catch (err) {
-        this.error = err.toString()
+        this.error = err.message
         throw err
       }
     },
@@ -178,7 +223,7 @@ export const useInvoiceStore = defineStore('invoices', {
           }
         }
       } catch (err) {
-        this.error = err.toString()
+        this.error = err.message
         throw err
       }
     },
@@ -195,7 +240,7 @@ export const useInvoiceStore = defineStore('invoices', {
           }
         }
       } catch (err) {
-        this.error = err.toString()
+        this.error = err.message
         throw err
       }
     },
@@ -212,7 +257,7 @@ export const useInvoiceStore = defineStore('invoices', {
           }
         }
       } catch (err) {
-        this.error = err.toString()
+        this.error = err.message
         throw err
       }
     },
@@ -229,7 +274,7 @@ export const useInvoiceStore = defineStore('invoices', {
           }
         }
       } catch (err) {
-        this.error = err.toString()
+        this.error = err.message
         throw err
       }
     }

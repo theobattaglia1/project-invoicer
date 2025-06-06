@@ -1,6 +1,6 @@
 // src/store/artistStore.js
 import { defineStore } from 'pinia'
-import { invoke } from '@tauri-apps/api/tauri'
+import { supabase } from '@/lib/supabase'
 
 export const useArtistStore = defineStore('artists', {
   state: () => ({
@@ -26,10 +26,15 @@ export const useArtistStore = defineStore('artists', {
       this.loading = true
       this.error = null
       try {
-        const result = await invoke('get_all_artists')
-        this.artists = result
+        const { data, error } = await supabase
+          .from('artists')
+          .select('*')
+          .order('name')
+        
+        if (error) throw error
+        this.artists = data || []
       } catch (err) {
-        this.error = err.toString()
+        this.error = err.message
         console.error('Failed to load artists:', err)
       } finally {
         this.loading = false
@@ -38,52 +43,71 @@ export const useArtistStore = defineStore('artists', {
 
     async createArtist(artistData) {
       try {
-        const newArtist = await invoke('create_artist', {
-          name: artistData.name,
-          companyName: artistData.company_name || null,
-          email: artistData.email || null,
-          phone: artistData.phone || null,
-          address: artistData.address || null,
-          wireDetails: artistData.wire_details || null,
-          notes: artistData.notes || null
-        })
-        this.artists.push(newArtist)
-        return newArtist
+        const { data, error } = await supabase
+          .from('artists')
+          .insert([{
+            name: artistData.name,
+            company_name: artistData.company_name || null,
+            email: artistData.email || null,
+            phone: artistData.phone || null,
+            address: artistData.address || null,
+            wire_details: artistData.wire_details || null,
+            notes: artistData.notes || null
+          }])
+          .select()
+          .single()
+        
+        if (error) throw error
+        this.artists.push(data)
+        return data
       } catch (err) {
-        this.error = err.toString()
+        this.error = err.message
         throw err
       }
     },
 
     async updateArtist(id, artistData) {
       try {
-        const updated = await invoke('update_artist', {
-          artistId: id,
-          name: artistData.name,
-          companyName: artistData.company_name || null,
-          email: artistData.email || null,
-          phone: artistData.phone || null,
-          address: artistData.address || null,
-          wireDetails: artistData.wire_details || null,
-          notes: artistData.notes || null
-        })
+        const { data, error } = await supabase
+          .from('artists')
+          .update({
+            name: artistData.name,
+            company_name: artistData.company_name || null,
+            email: artistData.email || null,
+            phone: artistData.phone || null,
+            address: artistData.address || null,
+            wire_details: artistData.wire_details || null,
+            notes: artistData.notes || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id)
+          .select()
+          .single()
+        
+        if (error) throw error
+        
         const index = this.artists.findIndex(a => a.id === id)
         if (index !== -1) {
-          this.artists[index] = updated
+          this.artists[index] = data
         }
-        return updated
+        return data
       } catch (err) {
-        this.error = err.toString()
+        this.error = err.message
         throw err
       }
     },
 
     async deleteArtist(id) {
       try {
-        await invoke('delete_artist', { artistId: id })
+        const { error } = await supabase
+          .from('artists')
+          .delete()
+          .eq('id', id)
+        
+        if (error) throw error
         this.artists = this.artists.filter(a => a.id !== id)
       } catch (err) {
-        this.error = err.toString()
+        this.error = err.message
         throw err
       }
     }

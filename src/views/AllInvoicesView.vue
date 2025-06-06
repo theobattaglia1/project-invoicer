@@ -235,8 +235,6 @@
 
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
-import { invoke } from '@tauri-apps/api/tauri'
-import { open as openDialog } from '@tauri-apps/api/shell'
 import { useInvoiceStore } from '@/store/invoiceStore'
 import { useArtistStore } from '@/store/artistStore'
 import { useProjectStore } from '@/store/projectStore'
@@ -465,22 +463,32 @@ const generatePDF = async (invoice) => {
   try {
     generatingPDF[invoice.id] = true
     
-    // Get downloads directory
-    const downloadsDir = await invoke('get_downloads_directory')
-    const filename = `${invoice.invoice_number.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
-    const outputPath = `${downloadsDir}/${filename}`
+    // Get related data
+    const artist = artistStore.getArtistById(invoice.artist_id)
+    const project = invoice.project_id ? projectStore.getProjectById(invoice.project_id) : null
+    
+    // Parse line items
+    let lineItems = []
+    try {
+      lineItems = typeof invoice.items === 'string' ? JSON.parse(invoice.items) : invoice.items
+    } catch (e) {
+      lineItems = []
+    }
     
     // Generate PDF
-    const savedPath = await invoke('generate_invoice_pdf', {
-      invoiceId: invoice.id,
-      outputPath: outputPath
+    const { generateInvoicePDF } = await import('@/services/pdfGenerator')
+    const pdfUrl = await generateInvoicePDF({
+      invoice,
+      artist,
+      project,
+      line_items: lineItems
     })
     
-    // Open the PDF file
-    await openDialog(savedPath)
+    // Open PDF in new tab
+    window.open(pdfUrl, '_blank')
     
     // Show success toast
-    showToast(`Invoice PDF generated: ${filename}`, 'success')
+    showToast('Invoice PDF generated successfully', 'success')
   } catch (error) {
     console.error('Failed to generate PDF:', error)
     showToast('Failed to generate PDF', 'error')
