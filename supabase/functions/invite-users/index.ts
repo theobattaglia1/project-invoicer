@@ -4,6 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
 }
 
 serve(async (req) => {
@@ -13,21 +14,46 @@ serve(async (req) => {
   }
 
   try {
-    // Create Supabase client with service role key for admin access
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
+    // Log the request for debugging
+    console.log('Request method:', req.method)
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()))
+    
+    // Get request body
+    const body = await req.json()
+    console.log('Request body:', body)
 
-    // Get the authorization header to verify the calling user
+    // Create Supabase client with service role key
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing environment variables')
+      return new Response(
+        JSON.stringify({ 
+          error: 'Server configuration error',
+          details: {
+            hasUrl: !!supabaseUrl,
+            hasServiceKey: !!supabaseServiceKey
+          }
+        }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+
+    // Get the authorization header
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      console.error('No authorization header')
       return new Response(
         JSON.stringify({ error: 'No authorization header' }),
         { 
@@ -39,11 +65,14 @@ serve(async (req) => {
 
     // Verify the calling user
     const token = authHeader.replace('Bearer ', '')
+    console.log('Verifying token...')
+    
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
     
-    if (authError || !user) {
+    if (authError) {
+      console.error('Auth error:', authError)
       return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
+        JSON.stringify({ error: 'Authentication failed', details: authError.message }),
         { 
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -51,16 +80,41 @@ serve(async (req) => {
       )
     }
 
+    if (!user) {
+      console.error('No user found')
+      return new Response(
+        JSON.stringify({ error: 'User not found' }),
+        { 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    console.log('User verified:', user.email)
+
     // Check if user is an owner
-    const { data: profile } = await supabaseAdmin
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
       .select('role')
       .eq('id', user.id)
       .single()
 
-    if (!profile || profile.role !== 'owner') {
+    if (profileError) {
+      console.error('Profile error:', profileError)
       return new Response(
-        JSON.stringify({ error: 'Only owners can invite users' }),
+        JSON.stringify({ error: 'Failed to get user profile', details: profileError.message }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    if (!profile || profile.role !== 'owner') {
+      console.error('User is not owner:', profile)
+      return new Response(
+        JSON.stringify({ error: 'Only owners can invite users', userRole: profile?.role }),
         { 
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -68,11 +122,12 @@ serve(async (req) => {
       )
     }
 
-    // Get request body
-    const { email, userType, artistId, selectedArtists } = await req.json()
+    // Extract invite details
+    const { email, userType, artistId, selectedArtists } = body
 
     // Validate required fields
     if (!email || !userType) {
+      console.error('Missing required fields')
       return new Response(
         JSON.stringify({ error: 'Email and userType are required' }),
         { 
@@ -82,14 +137,16 @@ serve(async (req) => {
       )
     }
 
-    // Generate a random password for the invite
+    console.log('Creating user:', email, userType)
+
+    // Generate a random password
     const tempPassword = crypto.randomUUID()
 
     // Create the user account
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: tempPassword,
-      email_confirm: true, // Auto-confirm email
+      email_confirm: true,
       user_metadata: {
         invited_by: user.id,
         temp_password: true
@@ -97,6 +154,7 @@ serve(async (req) => {
     })
 
     if (createError) {
+      console.error('Create user error:', createError)
       return new Response(
         JSON.stringify({ error: createError.message }),
         { 
@@ -106,27 +164,32 @@ serve(async (req) => {
       )
     }
 
+    console.log('User created:', newUser.user.id)
+
     // Create user profile
     const profileData = {
       id: newUser.user.id,
       email: email,
-      name: email.split('@')[0], // Default name from email
+      name: email.split('@')[0],
       role: userType,
       artist_id: userType === 'artist' ? artistId : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
 
-    const { error: profileError } = await supabaseAdmin
+    console.log('Creating profile:', profileData)
+
+    const { error: profileError2 } = await supabaseAdmin
       .from('user_profiles')
       .insert([profileData])
 
-    if (profileError) {
+    if (profileError2) {
+      console.error('Profile creation error:', profileError2)
       // If profile creation fails, delete the auth user
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
       
       return new Response(
-        JSON.stringify({ error: 'Failed to create user profile' }),
+        JSON.stringify({ error: 'Failed to create user profile', details: profileError2.message }),
         { 
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -134,34 +197,8 @@ serve(async (req) => {
       )
     }
 
-    // If user is an editor with specific artist permissions, add them
-    if (userType === 'editor' && selectedArtists && selectedArtists.length > 0) {
-      const permissions = selectedArtists.map((artistId: string) => ({
-        user_id: newUser.user.id,
-        artist_id: artistId,
-        permission: 'edit',
-        created_at: new Date().toISOString()
-      }))
-
-      await supabaseAdmin
-        .from('user_artist_permissions')
-        .insert(permissions)
-    }
-
-    // Store invite details
-    await supabaseAdmin
-      .from('pending_invites')
-      .insert({
-        email: email,
-        role: userType,
-        artist_id: artistId,
-        selected_artists: selectedArtists || [],
-        invited_by: user.id,
-        accepted: false,
-        created_at: new Date().toISOString()
-      })
-
-    // Send password reset email so user can set their own password
+    // Send password reset email
+    console.log('Sending password reset email...')
     const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
       redirectTo: `${req.headers.get('origin')}/login`,
     })
@@ -170,10 +207,12 @@ serve(async (req) => {
       console.error('Failed to send reset email:', resetError)
     }
 
+    console.log('Invite completed successfully')
+
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'User invited successfully. They will receive an email to set their password.',
+        message: 'User invited successfully',
         userId: newUser.user.id 
       }),
       { 
@@ -183,9 +222,13 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error in invite-users function:', error)
+    console.error('Unexpected error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: 'Internal server error', 
+        details: error.message,
+        stack: error.stack 
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
