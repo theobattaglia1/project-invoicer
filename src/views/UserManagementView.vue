@@ -259,47 +259,46 @@
   }
   
   const sendInvite = async () => {
-    sending.value = true
+  sending.value = true
+  
+  try {
+    // Get the current user's token
+    const { data: { session } } = await supabase.auth.getSession()
     
-    try {
-      // 1. Create the Supabase auth invitation
-      const { data: authData, error: authError } = await supabase.auth.admin.inviteUserByEmail(
-        inviteForm.value.email,
-        {
-          data: {
-            user_type: inviteForm.value.userType,
-            artist_id: inviteForm.value.artistId,
-            selected_artists: inviteForm.value.selectedArtists
-          }
-        }
-      )
-      
-      if (authError) throw authError
-      
-      // 2. Store pending invite details
-      const { error: inviteError } = await supabase
-        .from('pending_invites')
-        .insert({
-          email: inviteForm.value.email,
-          role: inviteForm.value.userType,
-          artist_id: inviteForm.value.artistId,
-          selected_artists: inviteForm.value.selectedArtists,
-          invited_by: (await supabase.auth.getUser()).data.user.id
-        })
-      
-      if (inviteError) throw inviteError
-      
-      showToast('Invitation sent successfully!', 'success')
-      closeInviteModal()
-      await loadData()
-      
-    } catch (error) {
-      console.error('Failed to send invite:', error)
-      showToast('Failed to send invitation', 'error')
-    } finally {
-      sending.value = false
+    if (!session) {
+      throw new Error('No active session')
     }
+
+    // Call the Edge Function instead of using admin API
+    const { data, error } = await supabase.functions.invoke('invite-users', {
+      body: {
+        email: inviteForm.value.email,
+        userType: inviteForm.value.userType,
+        artistId: inviteForm.value.artistId,
+        selectedArtists: inviteForm.value.selectedArtists
+      },
+      headers: {
+        Authorization: `Bearer ${session.access_token}`
+      }
+    })
+    
+    if (error) throw error
+    
+    if (data.error) {
+      throw new Error(data.error)
+    }
+    
+    showToast('Invitation sent successfully!', 'success')
+    closeInviteModal()
+    await loadData()
+    
+  } catch (error) {
+    console.error('Failed to send invite:', error)
+    showToast(`Failed to send invitation: ${error.message}`, 'error')
+  } finally {
+    sending.value = false
   }
+}
   
   const loadData = async () => {
     try {
