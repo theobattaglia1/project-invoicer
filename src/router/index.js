@@ -15,12 +15,26 @@ import ArtistTrashView from '@/views/ArtistTrashView.vue'
 import AllProjectsView from '@/views/AllProjectsView.vue'
 import AllInvoicesView from '@/views/AllInvoicesView.vue'
 import UserManagementView from '@/views/UserManagementView.vue'
+import FirstTimeSetupView from '@/views/FirstTimeSetupView.vue'
+import AuthCallbackView from '@/views/AuthCallbackView.vue'
 
 const routes = [
   {
     path: '/login',
     name: 'Login',
     component: LoginView,
+    meta: { requiresAuth: false }
+  },
+  {
+    path: '/setup',
+    name: 'FirstTimeSetup',
+    component: FirstTimeSetupView,
+    meta: { requiresAuth: true, skipProfileCheck: true }
+  },
+  {
+    path: '/auth/callback',
+    name: 'AuthCallback',
+    component: AuthCallbackView,
     meta: { requiresAuth: false }
   },
   {
@@ -122,6 +136,13 @@ router.beforeEach(async (to, from, next) => {
   // Check if logged in user is trying to access login
   if (to.path === '/login' && authStore.isAuthenticated) {
     console.log('Router guard: already authenticated, redirecting from login')
+    
+    // Check if profile needs setup
+    if (authStore.profile && (!authStore.profile.name || authStore.profile.name === authStore.profile.email.split('@')[0])) {
+      next('/setup')
+      return
+    }
+    
     // Redirect based on role
     if (authStore.isArtist) {
       next(`/artist/${authStore.profile.artist_id}/overview`)
@@ -129,6 +150,19 @@ router.beforeEach(async (to, from, next) => {
       next('/')
     }
     return
+  }
+  
+  // Check if user needs to complete setup (unless going to setup page or auth callback)
+  if (authStore.isAuthenticated && !to.meta.skipProfileCheck && authStore.profile) {
+    const needsSetup = !authStore.profile.name || 
+                       authStore.profile.name === authStore.profile.email.split('@')[0] ||
+                       !authStore.profile.setup_complete
+    
+    if (needsSetup && to.path !== '/setup') {
+      console.log('Router guard: profile incomplete, redirecting to setup')
+      next('/setup')
+      return
+    }
   }
   
   // Check owner restriction
