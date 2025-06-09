@@ -1,3 +1,4 @@
+// src/views/UserManagementView.vue
 <template>
   <div class="user-management-view">
     <!-- Header -->
@@ -123,7 +124,7 @@
             <p>Role: {{ formatRole(invite.role) }}</p>
             <p v-if="invite.artist_id">Artist: {{ getArtistName(invite.artist_id) }}</p>
             <p class="invite-date">Sent: {{ formatDate(invite.created_at) }}</p>
-            <p v-if="invite.magic_link_sent" class="invite-status">✓ Magic link sent</p>
+            <p class="invite-expiry">Expires: {{ formatDate(invite.expires_at) }}</p>
           </div>
           <div class="invite-actions">
             <button @click="resendInvite(invite)" class="btn-resend">
@@ -148,17 +149,18 @@
         
         <form @submit.prevent="sendInvite" class="invite-form">
           <div class="form-group">
-            <label>Email Address</label>
+            <label>Email Address *</label>
             <input 
               v-model="inviteForm.email" 
               type="email" 
               required
               placeholder="user@example.com"
             />
+            <p class="form-hint">User will receive an email invitation to create their account</p>
           </div>
           
           <div class="form-group">
-            <label>User Type</label>
+            <label>User Type *</label>
             <select v-model="inviteForm.userType" required>
               <option value="">Select type</option>
               <option value="editor">Team Member (Editor)</option>
@@ -168,7 +170,7 @@
           </div>
           
           <div v-if="inviteForm.userType === 'artist'" class="form-group">
-            <label>Link to Artist</label>
+            <label>Link to Artist *</label>
             <select v-model="inviteForm.artistId" required>
               <option value="">Select artist</option>
               <option 
@@ -209,29 +211,6 @@
             </div>
           </div>
           
-          <div class="form-group">
-            <label>Invitation Method</label>
-            <div class="radio-group">
-              <label class="radio-item">
-                <input 
-                  type="radio" 
-                  v-model="inviteForm.method" 
-                  value="magic_link"
-                  checked
-                />
-                Send Magic Link (Recommended)
-              </label>
-              <label class="radio-item">
-                <input 
-                  type="radio" 
-                  v-model="inviteForm.method" 
-                  value="temp_password"
-                />
-                Create with Temporary Password
-              </label>
-            </div>
-          </div>
-          
           <div class="form-actions">
             <button type="button" @click="closeInviteModal" class="btn-secondary">
               Cancel
@@ -266,8 +245,7 @@ const inviteForm = ref({
   userType: '',
   artistId: '',
   fullAccess: false,
-  selectedArtists: [],
-  method: 'magic_link'
+  selectedArtists: []
 })
 
 // Get site URL dynamically
@@ -329,8 +307,7 @@ const closeInviteModal = () => {
     userType: '',
     artistId: '',
     fullAccess: false,
-    selectedArtists: [],
-    method: 'magic_link'
+    selectedArtists: []
   }
 }
 
@@ -338,99 +315,50 @@ const sendInvite = async () => {
   sending.value = true
   
   try {
-    if (inviteForm.value.method === 'magic_link') {
-      // Get current user for invited_by
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
-      
-      // Send magic link invitation
-      const { error: magicLinkError } = await supabase.auth.signInWithOtp({
-        email: inviteForm.value.email,
-        options: {
-          data: {
-            invitation_type: 'user_invite',
-            role: inviteForm.value.userType,
-            artist_id: inviteForm.value.artistId || null,
-            selected_artists: inviteForm.value.selectedArtists,
-            invited_by: currentUser?.id
-          },
-          emailRedirectTo: `${siteUrl}/auth/callback`
-        }
-      })
-      
-      if (magicLinkError) throw magicLinkError
-      
-      // Store pending invite details
-      const { error: inviteError } = await supabase
-        .from('pending_invites')
-        .insert({
-          email: inviteForm.value.email,
-          role: inviteForm.value.userType,
-          artist_id: inviteForm.value.artistId || null,
-          selected_artists: inviteForm.value.selectedArtists,
-          invited_by: currentUser?.id,
-          magic_link_sent: true,
-          accepted: false
-        })
-      
-      if (inviteError) {
-        console.warn('Failed to store pending invite:', inviteError)
-        // Don't throw here - the magic link was still sent successfully
-      }
-      
-      showToast(`Magic link sent to ${inviteForm.value.email}!`, 'success')
-      
-    } else {
-      // Create with temporary password
-      const tempPassword = `Temp${Math.random().toString(36).slice(2)}!@#`
-      
-      // Create the user account
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: inviteForm.value.email,
-        password: tempPassword,
-        options: {
-          data: {
-            name: inviteForm.value.email.split('@')[0],
-            role: inviteForm.value.userType,
-            artist_id: inviteForm.value.artistId || null,
-            needs_password_change: true
-          }
-        }
-      })
-      
-      if (authError) throw authError
-      
-      // Create user profile
-      if (authData.user) {
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: authData.user.id,
-            email: inviteForm.value.email,
-            name: inviteForm.value.email.split('@')[0],
-            role: inviteForm.value.userType,
-            artist_id: inviteForm.value.artistId || null
-          })
-        
-        if (profileError) throw profileError
-        
-        // Add permissions for editors
-        if (inviteForm.value.userType === 'editor' && inviteForm.value.selectedArtists.length > 0) {
-          const permissionInserts = inviteForm.value.selectedArtists.map(artistId => ({
-            user_id: authData.user.id,
-            artist_id: artistId,
-            permission: 'edit'
-          }))
-          
-          await supabase
-            .from('user_artist_permissions')
-            .insert(permissionInserts)
-        }
-      }
-      
-      // Show credentials
-      alert(`Account created!\n\nEmail: ${inviteForm.value.email}\nTemporary Password: ${tempPassword}\n\nPlease share these credentials securely. The user will be prompted to change their password on first login.`)
+    // Get current user for invited_by
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
+    
+    // Generate a unique invitation token
+    const inviteToken = crypto.randomUUID()
+    
+    // Create invitation record
+    const inviteData = {
+      email: inviteForm.value.email,
+      role: inviteForm.value.userType,
+      artist_id: inviteForm.value.artistId || null,
+      selected_artists: inviteForm.value.selectedArtists,
+      invited_by: currentUser?.id,
+      invite_token: inviteToken,
+      accepted: false,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
     }
     
+    const { data: invite, error: inviteError } = await supabase
+      .from('pending_invites')
+      .insert(inviteData)
+      .select()
+      .single()
+    
+    if (inviteError) throw inviteError
+    
+    // Send invitation email using Supabase Auth
+    const { error: emailError } = await supabase.auth.signInWithOtp({
+      email: inviteForm.value.email,
+      options: {
+        shouldCreateUser: false,
+        data: {
+          invite_token: inviteToken,
+          role: inviteForm.value.userType,
+          artist_id: inviteForm.value.artistId || null,
+          selected_artists: inviteForm.value.selectedArtists
+        },
+        emailRedirectTo: `${siteUrl}/auth/signup?token=${inviteToken}`
+      }
+    })
+    
+    if (emailError) throw emailError
+    
+    showToast('Invitation sent successfully!', 'success')
     closeInviteModal()
     await loadData()
     
@@ -444,32 +372,33 @@ const sendInvite = async () => {
 
 const resendInvite = async (invite) => {
   try {
-    const { data: { user: currentUser } } = await supabase.auth.getUser()
-    
-    const { error } = await supabase.auth.signInWithOtp({
-      email: invite.email,
-      options: {
-        data: {
-          invitation_type: 'user_invite',
-          role: invite.role,
-          artist_id: invite.artist_id,
-          selected_artists: invite.selected_artists,
-          invited_by: currentUser?.id
-        },
-        emailRedirectTo: `${siteUrl}/auth/callback`
-      }
-    })
-    
-    if (error) throw error
-    
-    // Update invite record
-    await supabase
+    // Update expiry date
+    const { error: updateError } = await supabase
       .from('pending_invites')
       .update({ 
-        magic_link_sent: true,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', invite.id)
+    
+    if (updateError) throw updateError
+    
+    // Resend email
+    const { error: emailError } = await supabase.auth.signInWithOtp({
+      email: invite.email,
+      options: {
+        shouldCreateUser: false,
+        data: {
+          invite_token: invite.invite_token,
+          role: invite.role,
+          artist_id: invite.artist_id,
+          selected_artists: invite.selected_artists
+        },
+        emailRedirectTo: `${siteUrl}/auth/signup?token=${invite.invite_token}`
+      }
+    })
+    
+    if (emailError) throw emailError
     
     showToast('Invitation resent successfully!', 'success')
     await loadData()
@@ -592,7 +521,7 @@ onMounted(() => {
 }
 
 .view-title {
-  font-size: 18px;
+  font-size: 48px;
   font-weight: 700;
   color: white;
   margin: 0;
@@ -825,9 +754,9 @@ onMounted(() => {
   color: rgba(255, 255, 255, 0.5);
 }
 
-.invite-status {
-  color: #4caf50;
-  font-size: 13px;
+.invite-expiry {
+  font-size: 12px;
+  color: #ff9800;
 }
 
 .invite-actions {
@@ -910,7 +839,7 @@ onMounted(() => {
 }
 
 .modal-header h2 {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 700;
   color: white;
   margin: 0;
@@ -926,7 +855,7 @@ onMounted(() => {
   border: none;
   border-radius: 50%;
   color: rgba(255, 255, 255, 0.5);
-  font-size: 18px;
+  font-size: 24px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -978,6 +907,12 @@ onMounted(() => {
   background: #1e1e1e;
 }
 
+.form-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 4px;
+}
+
 .checkbox-list {
   display: flex;
   flex-direction: column;
@@ -1006,26 +941,6 @@ onMounted(() => {
   gap: 8px;
   max-height: 200px;
   overflow-y: auto;
-}
-
-.radio-group {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.radio-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.radio-item input[type="radio"] {
-  width: auto;
-  margin: 0;
 }
 
 .form-actions {

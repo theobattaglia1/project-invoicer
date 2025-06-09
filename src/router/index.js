@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/authStore'
 
 // Views
 import LoginView from '@/components/auth/LoginView.vue'
+import SignUpView from '@/views/SignUpView.vue'
 import MainLayout from '@/layouts/MainLayout.vue'
 import ArtistListView from '@/views/ArtistListView.vue'
 import ArtistLayout from '@/layouts/ArtistLayout.vue'
@@ -27,6 +28,12 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
+    path: '/auth/signup',
+    name: 'SignUp',
+    component: SignUpView,
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/setup',
     name: 'FirstTimeSetup',
     component: FirstTimeSetupView,
@@ -42,7 +49,7 @@ const routes = [
     path: '/auth/callback',
     name: 'AuthCallback',
     component: AuthCallbackView,
-    meta: { requiresAuth: false }
+    meta: { requiresAuth: false, skipProfileCheck: true }
   },
   {
     path: '/',
@@ -131,6 +138,20 @@ router.beforeEach(async (to, from, next) => {
   if (!authStore.initialized) {
     console.log('Router guard: initializing auth store')
     await authStore.initialize()
+  }
+  
+  // Allow auth callback to pass through without profile checks
+  if (to.path === '/auth/callback') {
+    console.log('Router guard: auth callback, allowing through')
+    next()
+    return
+  }
+  
+  // Allow signup page without authentication
+  if (to.path === '/auth/signup') {
+    console.log('Router guard: signup page, allowing through')
+    next()
+    return
   }
   
   // Check if route requires authentication
