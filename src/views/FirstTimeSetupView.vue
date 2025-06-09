@@ -83,14 +83,14 @@
       return
     }
     
-    // Check if profile already exists
+    // Check if profile already exists and is complete
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('*')
       .eq('id', user.id)
       .single()
     
-    if (profile?.name && profile.name !== profile.email.split('@')[0]) {
+    if (profile?.setup_complete && profile?.name && profile.name !== profile.email.split('@')[0]) {
       // Profile already set up, redirect to appropriate page
       if (profile.role === 'artist' && profile.artist_id) {
         router.push(`/artist/${profile.artist_id}/overview`)

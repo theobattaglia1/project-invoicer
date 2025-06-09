@@ -339,6 +339,9 @@ const sendInvite = async () => {
   
   try {
     if (inviteForm.value.method === 'magic_link') {
+      // Get current user for invited_by
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      
       // Send magic link invitation
       const { error: magicLinkError } = await supabase.auth.signInWithOtp({
         email: inviteForm.value.email,
@@ -348,7 +351,7 @@ const sendInvite = async () => {
             role: inviteForm.value.userType,
             artist_id: inviteForm.value.artistId || null,
             selected_artists: inviteForm.value.selectedArtists,
-            invited_by: (await supabase.auth.getUser()).data.user.id
+            invited_by: currentUser?.id
           },
           emailRedirectTo: `${siteUrl}/auth/callback`
         }
@@ -364,12 +367,15 @@ const sendInvite = async () => {
           role: inviteForm.value.userType,
           artist_id: inviteForm.value.artistId || null,
           selected_artists: inviteForm.value.selectedArtists,
-          invited_by: (await supabase.auth.getUser()).data.user.id,
+          invited_by: currentUser?.id,
           magic_link_sent: true,
           accepted: false
         })
       
-      if (inviteError) throw inviteError
+      if (inviteError) {
+        console.warn('Failed to store pending invite:', inviteError)
+        // Don't throw here - the magic link was still sent successfully
+      }
       
       showToast(`Magic link sent to ${inviteForm.value.email}!`, 'success')
       
@@ -438,6 +444,8 @@ const sendInvite = async () => {
 
 const resendInvite = async (invite) => {
   try {
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
+    
     const { error } = await supabase.auth.signInWithOtp({
       email: invite.email,
       options: {
@@ -446,7 +454,7 @@ const resendInvite = async (invite) => {
           role: invite.role,
           artist_id: invite.artist_id,
           selected_artists: invite.selected_artists,
-          invited_by: (await supabase.auth.getUser()).data.user.id
+          invited_by: currentUser?.id
         },
         emailRedirectTo: `${siteUrl}/auth/callback`
       }
