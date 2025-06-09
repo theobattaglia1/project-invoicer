@@ -36,6 +36,15 @@
         <div v-if="error" class="error-message">
           {{ error }}
         </div>
+
+        <div class="forgot-password">
+          <a @click="forgotPassword" href="#">Forgot your password?</a>
+        </div>
+        
+        <button type="submit" class="btn-login" :disabled="loading">
+          <span v-if="!loading">Sign In</span>
+          <div v-else class="spinner"></div>
+        </button>
         
         <button type="submit" class="btn-login" :disabled="loading">
           <span v-if="!loading">Sign In</span>

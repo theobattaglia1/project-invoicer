@@ -23,9 +23,10 @@
       const hashParams = new URLSearchParams(window.location.hash.substring(1))
       const accessToken = hashParams.get('access_token')
       const refreshToken = hashParams.get('refresh_token')
+      const type = hashParams.get('type')
       
       if (accessToken) {
-        console.log('Found access token in hash')
+        console.log('Found access token in hash, type:', type)
         
         // Set the session using the tokens from the hash
         const { data, error } = await supabase.auth.setSession({
@@ -40,6 +41,14 @@
         }
         
         console.log('Session set successfully')
+        
+        // Check if this is a password recovery
+        if (type === 'recovery') {
+          console.log('Password recovery flow detected')
+          // For password recovery, redirect to setup page to set new password
+          router.push('/setup?mode=reset-password')
+          return
+        }
       } else if (route.query.code) {
         // Handle OAuth code exchange (for other auth methods)
         console.log('Found code in query:', route.query.code)

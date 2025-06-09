@@ -1,11 +1,11 @@
 <template>
     <div class="setup-container">
       <div class="setup-card">
-        <h1 class="setup-title">Welcome! Let's set up your account</h1>
-        <p class="setup-subtitle">Please complete your profile to get started</p>
+        <h1 class="setup-title">{{ isPasswordReset ? 'Reset Your Password' : "Welcome! Let's set up your account" }}</h1>
+        <p class="setup-subtitle">{{ isPasswordReset ? 'Enter your new password below' : 'Please complete your profile to get started' }}</p>
         
         <form @submit.prevent="completeSetup" class="setup-form">
-          <div class="form-group">
+          <div v-if="!isPasswordReset" class="form-group">
             <label for="name">Your Name</label>
             <input
               v-model="form.name"
@@ -18,7 +18,7 @@
           </div>
           
           <div class="form-group">
-            <label for="password">Create Password</label>
+            <label for="password">{{ isPasswordReset ? 'New Password' : 'Create Password' }}</label>
             <input
               v-model="form.password"
               type="password"
@@ -48,7 +48,7 @@
           </div>
           
           <button type="submit" class="btn-submit" :disabled="loading">
-            {{ loading ? 'Setting up...' : 'Complete Setup' }}
+            {{ loading ? 'Updating...' : (isPasswordReset ? 'Reset Password' : 'Complete Setup') }}
           </button>
         </form>
       </div>
@@ -56,12 +56,13 @@
   </template>
   
   <script setup>
-  import { ref, onMounted } from 'vue'
-  import { useRouter } from 'vue-router'
+  import { ref, onMounted, computed } from 'vue'
+  import { useRouter, useRoute } from 'vue-router'
   import { supabase } from '@/lib/supabase'
   import { useAuthStore } from '@/store/authStore'
   
   const router = useRouter()
+  const route = useRoute()
   const authStore = useAuthStore()
   
   const form = ref({
@@ -73,6 +74,8 @@
   const loading = ref(false)
   const error = ref('')
   
+  const isPasswordReset = computed(() => route.query.mode === 'reset-password')
+  
   onMounted(async () => {
     // Check if user is authenticated
     const { data: { user } } = await supabase.auth.getUser()
@@ -83,19 +86,22 @@
       return
     }
     
-    // Check if profile already exists and is complete
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-    
-    if (profile?.setup_complete && profile?.name && profile.name !== profile.email.split('@')[0]) {
-      // Profile already set up, redirect to appropriate page
-      if (profile.role === 'artist' && profile.artist_id) {
-        router.push(`/artist/${profile.artist_id}/overview`)
-      } else {
-        router.push('/')
+    // For password reset, we don't need to check profile completion
+    if (!isPasswordReset.value) {
+      // Check if profile already exists and is complete
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+      
+      if (profile?.setup_complete && profile?.name && profile.name !== profile.email.split('@')[0]) {
+        // Profile already set up, redirect to appropriate page
+        if (profile.role === 'artist' && profile.artist_id) {
+          router.push(`/artist/${profile.artist_id}/overview`)
+        } else {
+          router.push('/')
+        }
       }
     }
   })
@@ -126,26 +132,41 @@
       
       if (passwordError) throw passwordError
       
-      // Update profile
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .update({ 
-          name: form.value.name,
-          setup_complete: true 
-        })
-        .eq('id', user.id)
-      
-      if (profileError) throw profileError
-      
-      // Refresh auth store
-      await authStore.initialize()
-      
-      // Redirect based on role
-      const profile = authStore.profile
-      if (profile.role === 'artist' && profile.artist_id) {
-        router.push(`/artist/${profile.artist_id}/overview`)
+      if (isPasswordReset.value) {
+        // For password reset, just redirect to appropriate page
+        await authStore.initialize()
+        
+        if (authStore.profile) {
+          if (authStore.profile.role === 'artist' && authStore.profile.artist_id) {
+            router.push(`/artist/${authStore.profile.artist_id}/overview`)
+          } else {
+            router.push('/')
+          }
+        } else {
+          router.push('/login')
+        }
       } else {
-        router.push('/')
+        // For initial setup, update profile with name
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .update({ 
+            name: form.value.name,
+            setup_complete: true 
+          })
+          .eq('id', user.id)
+        
+        if (profileError) throw profileError
+        
+        // Refresh auth store
+        await authStore.initialize()
+        
+        // Redirect based on role
+        const profile = authStore.profile
+        if (profile.role === 'artist' && profile.artist_id) {
+          router.push(`/artist/${profile.artist_id}/overview`)
+        } else {
+          router.push('/')
+        }
       }
       
     } catch (err) {

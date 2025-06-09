@@ -114,6 +114,20 @@ const router = createRouter({
   routes
 })
 
+// Check for auth tokens at root and redirect to auth callback
+router.beforeEach((to, from, next) => {
+  // Check if we're at root path with auth tokens in hash
+  if (to.path === '/' && to.hash && to.hash.includes('access_token')) {
+    console.log('Found auth token at root, redirecting to auth callback')
+    // Redirect to auth callback with the hash preserved
+    next('/auth/callback' + to.hash)
+    return
+  }
+  
+  // Continue with normal navigation
+  next()
+})
+
 // Navigation guard
 router.beforeEach(async (to, from, next) => {
   console.log('Router guard: navigating from', from.path, 'to', to.path)
