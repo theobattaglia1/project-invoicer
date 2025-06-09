@@ -17,6 +17,7 @@ import AllInvoicesView from '@/views/AllInvoicesView.vue'
 import UserManagementView from '@/views/UserManagementView.vue'
 import FirstTimeSetupView from '@/views/FirstTimeSetupView.vue'
 import AuthCallbackView from '@/views/AuthCallbackView.vue'
+import PasswordResetView from '@/views/PasswordResetView.vue'
 
 const routes = [
   {
@@ -29,6 +30,12 @@ const routes = [
     path: '/setup',
     name: 'FirstTimeSetup',
     component: FirstTimeSetupView,
+    meta: { requiresAuth: true, skipProfileCheck: true }
+  },
+  {
+    path: '/reset-password',
+    name: 'PasswordReset',
+    component: PasswordResetView,
     meta: { requiresAuth: true, skipProfileCheck: true }
   },
   {
@@ -112,20 +119,6 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
-})
-
-// Check for auth tokens at root and redirect to auth callback
-router.beforeEach((to, from, next) => {
-  // Check if we're at root path with auth tokens in hash
-  if (to.path === '/' && to.hash && to.hash.includes('access_token')) {
-    console.log('Found auth token at root, redirecting to auth callback')
-    // Redirect to auth callback with the hash preserved
-    next('/auth/callback' + to.hash)
-    return
-  }
-  
-  // Continue with normal navigation
-  next()
 })
 
 // Navigation guard

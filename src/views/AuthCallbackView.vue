@@ -44,9 +44,8 @@
         
         // Check if this is a password recovery
         if (type === 'recovery') {
-          console.log('Password recovery flow detected')
-          // For password recovery, redirect to setup page to set new password
-          router.push('/setup?mode=reset-password')
+          console.log('Password recovery flow - redirecting to reset password')
+          router.push('/reset-password')
           return
         }
       } else if (route.query.code) {
