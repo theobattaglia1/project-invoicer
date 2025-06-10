@@ -341,24 +341,35 @@ const sendInvite = async () => {
     
     if (inviteError) throw inviteError
     
-    // Send invitation email using Supabase Auth
-    const { error: emailError } = await supabase.auth.signInWithOtp({
-      email: inviteForm.value.email,
-      options: {
-        shouldCreateUser: false,
-        data: {
-          invite_token: inviteToken,
-          role: inviteForm.value.userType,
-          artist_id: inviteForm.value.artistId || null,
-          selected_artists: inviteForm.value.selectedArtists
-        },
-        emailRedirectTo: `${siteUrl}/auth/signup?token=${inviteToken}`
+    // For now, in development, show the signup link
+    const signupLink = `${siteUrl}/auth/signup?token=${inviteToken}`
+    
+    // In development, copy to clipboard and show alert
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      navigator.clipboard.writeText(signupLink)
+      alert(`Invitation created!\n\nSignup link copied to clipboard:\n${signupLink}\n\nIn production, this would be sent via email to ${inviteForm.value.email}`)
+    } else {
+      // For production, call edge function to send email
+      try {
+        const { data: emailData, error: emailError } = await supabase.functions.invoke('invite-users', {
+          body: { inviteId: invite.id }
+        })
+        
+        if (emailError) throw emailError
+        
+        if (emailData.signupUrl && !emailData.success) {
+          // Email service not configured, show manual link
+          showToast(`Email service not configured. Share this link: ${emailData.signupUrl}`, 'info')
+        } else {
+          showToast('Invitation email sent successfully!', 'success')
+        }
+      } catch (err) {
+        console.error('Email send error:', err)
+        // Fallback to showing the link
+        showToast(`Send this link to ${inviteForm.value.email}: ${signupLink}`, 'info')
       }
-    })
+    }
     
-    if (emailError) throw emailError
-    
-    showToast('Invitation sent successfully!', 'success')
     closeInviteModal()
     await loadData()
     

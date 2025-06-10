@@ -1,5 +1,6 @@
+// supabase/functions/invite-users/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,230 +9,218 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
+  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // Log the request for debugging
-    console.log('Request method:', req.method)
-    console.log('Request headers:', Object.fromEntries(req.headers.entries()))
-    
-    // Get request body
-    const body = await req.json()
-    console.log('Request body:', body)
+    // Create Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Create Supabase client with service role key
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Missing environment variables')
-      return new Response(
-        JSON.stringify({ 
-          error: 'Server configuration error',
-          details: {
-            hasUrl: !!supabaseUrl,
-            hasServiceKey: !!supabaseServiceKey
-          }
-        }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    })
-
-    // Get the authorization header
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      console.error('No authorization header')
-      return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
-        { 
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    // Verify the calling user
+    // Get the authorization header to verify the user
+    const authHeader = req.headers.get('Authorization')!
     const token = authHeader.replace('Bearer ', '')
-    console.log('Verifying token...')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
-    
-    if (authError) {
-      console.error('Auth error:', authError)
+    if (authError || !user) {
       return new Response(
-        JSON.stringify({ error: 'Authentication failed', details: authError.message }),
-        { 
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    if (!user) {
-      console.error('No user found')
-      return new Response(
-        JSON.stringify({ error: 'User not found' }),
-        { 
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
+    // Get request body
+    const { inviteId } = await req.json()
 
-    console.log('User verified:', user.email)
-
-    // Check if user is an owner
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('user_profiles')
-      .select('role')
-      .eq('id', user.id)
+    // Get invite details
+    const { data: invite, error: inviteError } = await supabase
+      .from('pending_invites')
+      .select('*')
+      .eq('id', inviteId)
       .single()
 
-    if (profileError) {
-      console.error('Profile error:', profileError)
+    if (inviteError || !invite) {
       return new Response(
-        JSON.stringify({ error: 'Failed to get user profile', details: profileError.message }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        JSON.stringify({ error: 'Invite not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    if (!profile || profile.role !== 'owner') {
-      console.error('User is not owner:', profile)
-      return new Response(
-        JSON.stringify({ error: 'Only owners can invite users', userRole: profile?.role }),
-        { 
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+    // Get the site URL from environment or request
+    const siteUrl = Deno.env.get('PUBLIC_SITE_URL') || 'https://accounting.allmyfriendsinc.com'
+    const signupUrl = `${siteUrl}/auth/signup?token=${invite.invite_token}`
+
+    // Email HTML template
+    const emailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>You're Invited to All My Friends Accounting</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
     }
-
-    // Extract invite details
-    const { email, userType, artistId, selectedArtists } = body
-
-    // Validate required fields
-    if (!email || !userType) {
-      console.error('Missing required fields')
-      return new Response(
-        JSON.stringify({ error: 'Email and userType are required' }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
-
-    console.log('Creating user:', email, userType)
-
-    // Generate a random password
-    const tempPassword = crypto.randomUUID()
-
-    // Create the user account
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: {
-        invited_by: user.id,
-        temp_password: true
-      }
-    })
-
-    if (createError) {
-      console.error('Create user error:', createError)
-      return new Response(
-        JSON.stringify({ error: createError.message }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+    .header {
+      background: linear-gradient(135deg, #1db954 0%, #169c46 100%);
+      color: white;
+      padding: 40px 30px;
+      text-align: center;
     }
-
-    console.log('User created:', newUser.user.id)
-
-    // Create user profile
-    const profileData = {
-      id: newUser.user.id,
-      email: email,
-      name: email.split('@')[0],
-      role: userType,
-      artist_id: userType === 'artist' ? artistId : null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 700;
     }
-
-    console.log('Creating profile:', profileData)
-
-    const { error: profileError2 } = await supabaseAdmin
-      .from('user_profiles')
-      .insert([profileData])
-
-    if (profileError2) {
-      console.error('Profile creation error:', profileError2)
-      // If profile creation fails, delete the auth user
-      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+    .content {
+      padding: 40px 30px;
+    }
+    .content h2 {
+      color: #1db954;
+      margin-top: 0;
+    }
+    .button {
+      display: inline-block;
+      background: #1db954;
+      color: white;
+      padding: 14px 32px;
+      text-decoration: none;
+      border-radius: 24px;
+      font-weight: 600;
+      margin: 20px 0;
+    }
+    .info-box {
+      background: #f8f9fa;
+      border-left: 4px solid #1db954;
+      padding: 16px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .info-box p {
+      margin: 8px 0;
+    }
+    .footer {
+      background: #f8f9fa;
+      padding: 30px;
+      text-align: center;
+      font-size: 14px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>All My Friends Accounting</h1>
+    </div>
+    
+    <div class="content">
+      <h2>You're Invited!</h2>
       
+      <p>Hello,</p>
+      
+      <p>You've been invited to join All My Friends Accounting. Click the button below to create your account and set up your password.</p>
+      
+      <div class="info-box">
+        <p><strong>Email:</strong> ${invite.email}</p>
+        <p><strong>Role:</strong> ${invite.role.charAt(0).toUpperCase() + invite.role.slice(1)}</p>
+      </div>
+      
+      <p style="text-align: center;">
+        <a href="${signupUrl}" class="button">Create Your Account</a>
+      </p>
+      
+      <p><strong>This invitation will expire in 7 days.</strong></p>
+      
+      <p>Once you click the link above, you'll be able to:</p>
+      <ul>
+        <li>Set up your secure password</li>
+        <li>Access your personalized dashboard</li>
+        <li>Start managing invoices and projects</li>
+      </ul>
+    </div>
+    
+    <div class="footer">
+      <p>This invitation was sent to ${invite.email}</p>
+      <p>If you didn't expect this invitation, you can safely ignore this email.</p>
+      <p>&copy; 2024 All My Friends Inc. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `
+
+    // Use Resend API (you need to set up Resend and add the API key to your env)
+    const resendApiKey = Deno.env.get('RESEND_API_KEY')
+    
+    if (!resendApiKey) {
+      // Fallback: return the signup URL for manual sending
       return new Response(
-        JSON.stringify({ error: 'Failed to create user profile', details: profileError2.message }),
+        JSON.stringify({ 
+          success: true, 
+          signupUrl,
+          message: 'Email service not configured. Please share this link manually.' 
+        }),
         { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       )
     }
 
-    // Send password reset email
-    console.log('Sending password reset email...')
-    const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
-      redirectTo: `${req.headers.get('origin')}/login`,
+    // Send email via Resend
+    const emailResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'All My Friends Accounting <noreply@allmyfriendsinc.com>',
+        to: [invite.email],
+        subject: "You're Invited to All My Friends Accounting",
+        html: emailHtml
+      })
     })
 
-    if (resetError) {
-      console.error('Failed to send reset email:', resetError)
+    if (!emailResponse.ok) {
+      const error = await emailResponse.text()
+      console.error('Resend error:', error)
+      throw new Error('Failed to send email')
     }
-
-    console.log('Invite completed successfully')
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'User invited successfully',
-        userId: newUser.user.id 
-      }),
+      JSON.stringify({ success: true, message: 'Invitation email sent!' }),
       { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     )
 
   } catch (error) {
-    console.error('Unexpected error:', error)
+    console.error('Error:', error)
     return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error', 
-        details: error.message,
-        stack: error.stack 
-      }),
+      JSON.stringify({ error: error.message }),
       { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     )
   }
