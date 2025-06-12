@@ -1,226 +1,118 @@
+/* ───────────── File: src/router/index.js ───────────── */
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/store/authStore'
 
-// Views
-import LoginView from '@/components/auth/LoginView.vue'
-import SignUpView from '@/views/SignUpView.vue'
-import MainLayout from '@/layouts/MainLayout.vue'
-import ArtistListView from '@/views/ArtistListView.vue'
-import ArtistLayout from '@/layouts/ArtistLayout.vue'
-import ArtistOverviewView from '@/views/ArtistOverviewView.vue'
-import ArtistProjectsView from '@/views/ArtistProjectsView.vue'
-import ArtistInvoicesView from '@/views/ArtistInvoicesView.vue'
-import ArtistArchivedView from '@/views/ArtistArchivedView.vue'
-import ArtistTrashView from '@/views/ArtistTrashView.vue'
-import AllProjectsView from '@/views/AllProjectsView.vue'
-import AllInvoicesView from '@/views/AllInvoicesView.vue'
-import UserManagementView from '@/views/UserManagementView.vue'
-import FirstTimeSetupView from '@/views/FirstTimeSetupView.vue'
-import AuthCallbackView from '@/views/AuthCallbackView.vue'
-import PasswordResetView from '@/views/PasswordResetView.vue'
+/* ── Views ─────────────────────────────────────────── */
+import LoginView            from '@/components/auth/LoginView.vue'
+import SignUpView           from '@/views/SignUpView.vue'
+import MainLayout           from '@/layouts/MainLayout.vue'
+import ArtistListView       from '@/views/ArtistListView.vue'
+import ArtistLayout         from '@/layouts/ArtistLayout.vue'
+import ArtistOverviewView   from '@/views/ArtistOverviewView.vue'
+import ArtistProjectsView   from '@/views/ArtistProjectsView.vue'
+import ArtistInvoicesView   from '@/views/ArtistInvoicesView.vue'
+import ArtistArchivedView   from '@/views/ArtistArchivedView.vue'
+import ArtistTrashView      from '@/views/ArtistTrashView.vue'
+import AllProjectsView      from '@/views/AllProjectsView.vue'
+import AllInvoicesView      from '@/views/AllInvoicesView.vue'
+import UserManagementView   from '@/views/UserManagementView.vue'
+import FirstTimeSetupView   from '@/views/FirstTimeSetupView.vue'
+import AuthCallbackView     from '@/views/AuthCallbackView.vue'
+import PasswordResetView    from '@/views/PasswordResetView.vue'
 
+/* ── Route table ───────────────────────────────────── */
 const routes = [
-  {
-    path: '/login',
-    name: 'Login',
-    component: LoginView,
-    meta: { requiresAuth: false }
-  },
-  {
-    path: '/auth/signup',
-    name: 'SignUp',
-    component: SignUpView,
-    meta: { requiresAuth: false }
-  },
-  {
-    path: '/setup',
-    name: 'FirstTimeSetup',
-    component: FirstTimeSetupView,
-    meta: { requiresAuth: true, skipProfileCheck: true }
-  },
-  {
-    path: '/reset-password',
-    name: 'PasswordReset',
-    component: PasswordResetView,
-    meta: { requiresAuth: true, skipProfileCheck: true }
-  },
-  {
-    path: '/auth/callback',
-    name: 'AuthCallback',
-    component: AuthCallbackView,
-    meta: { requiresAuth: false, skipProfileCheck: true }
-  },
+  { path: '/login',          name: 'Login',          component: LoginView,        meta: { public: true  }},
+  { path: '/auth/signup',    name: 'SignUp',         component: SignUpView,       meta: { public: true  }},
+  { path: '/reset-password', name: 'PasswordReset',  component: PasswordResetView,meta:{ public: true  }},
+  { path: '/auth/callback',  name: 'AuthCallback',   component: AuthCallbackView, meta: { public: true, skipProfileCheck: true }},
+
+  { path: '/setup', name: 'FirstTimeSetup', component: FirstTimeSetupView,
+    meta: { requiresAuth: true, skipProfileCheck: true }},
+
   {
     path: '/',
     component: MainLayout,
     meta: { requiresAuth: true },
     children: [
-      {
-        path: '',
-        name: 'Artists',
-        component: ArtistListView,
-        meta: { requiresTeam: true }
-      },
-      {
-        path: 'artist/:artistId',
-        component: ArtistLayout,
-        props: true,
-        children: [
-          {
-            path: 'overview',
-            name: 'ArtistOverview',
-            component: ArtistOverviewView,
-            props: true
-          },
-          {
-            path: 'projects',
-            name: 'ArtistProjects',
-            component: ArtistProjectsView,
-            props: true
-          },
-          {
-            path: 'invoices',
-            name: 'ArtistInvoices',
-            component: ArtistInvoicesView,
-            props: true
-          },
-          {
-            path: 'archived',
-            name: 'ArtistArchived',
-            component: ArtistArchivedView,
-            props: true,
-            meta: { requiresTeam: true }
-          },
-          {
-            path: 'trash',
-            name: 'ArtistTrash',
-            component: ArtistTrashView,
-            props: true,
-            meta: { requiresTeam: true }
-          }
-        ]
-      },
-      {
-        path: 'projects',
-        name: 'AllProjects',
-        component: AllProjectsView,
-        meta: { requiresTeam: true }
-      },
-      {
-        path: 'invoices',
-        name: 'AllInvoices',
-        component: AllInvoicesView,
-        meta: { requiresTeam: true }
-      },
-      {
-        path: 'users',
-        name: 'UserManagement',
-        component: UserManagementView,
-        meta: { requiresTeam: true, requiresOwner: true }
-      }
+      { path: '',          name: 'Artists',        component: ArtistListView,   meta: { requiresTeam: true }},
+      { path: 'projects',  name: 'AllProjects',    component: AllProjectsView,  meta: { requiresTeam: true }},
+      { path: 'invoices',  name: 'AllInvoices',    component: AllInvoicesView,  meta: { requiresTeam: true }},
+      { path: 'users',     name: 'UserManagement', component: UserManagementView,
+        meta: { requiresTeam: true, requiresOwner: true }},
+
+      { path: 'artist/:artistId', component: ArtistLayout, props: true, children: [
+          { path: 'overview',  name: 'ArtistOverview',  component: ArtistOverviewView, props: true },
+          { path: 'projects',  name: 'ArtistProjects',  component: ArtistProjectsView, props: true },
+          { path: 'invoices',  name: 'ArtistInvoices',  component: ArtistInvoicesView, props: true },
+          { path: 'archived',  name: 'ArtistArchived',  component: ArtistArchivedView, props: true, meta:{ requiresTeam: true }},
+          { path: 'trash',     name: 'ArtistTrash',     component: ArtistTrashView,    props: true, meta:{ requiresTeam: true }}
+      ]}
     ]
   }
 ]
 
+/* ── Router instance ───────────────────────────────── */
 const router = createRouter({
   history: createWebHistory(),
   routes
 })
 
-// Navigation guard
+/* ── Global navigation guard ───────────────────────── */
 router.beforeEach(async (to, from, next) => {
   console.log('Router guard: navigating from', from.path, 'to', to.path)
-  
+
+  /* 1.  Public routes go straight through */
+  if (to.meta.public) {
+    console.log('Router guard: public route, skipping auth init')
+    return next()
+  }
+
+  /* 2.  Initialise auth store only for protected routes */
   const authStore = useAuthStore()
-  
-  // Initialize auth store if needed
   if (!authStore.initialized) {
     console.log('Router guard: initializing auth store')
     await authStore.initialize()
     console.log('Router guard: auth store ready, user =', authStore.user)
   }
-  
-  // Allow auth callback to pass through without profile checks
-  if (to.path === '/auth/callback') {
-    console.log('Router guard: auth callback, allowing through')
-    next()
-    return
-  }
-  
-  // Allow signup page without authentication
-  if (to.path === '/auth/signup') {
-    console.log('Router guard: signup page, allowing through')
-    next()
-    return
-  }
-  
-  // Check if route requires authentication
+
+  /* 3.  Auth required? */
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    console.log('Router guard: not authenticated, redirecting to login')
-    next('/login')
-    return
+    console.log('Router guard: not authenticated → /login')
+    return next('/login')
   }
-  
-  // Check if logged in user is trying to access login
-  if (to.path === '/login' && authStore.isAuthenticated) {
-    console.log('Router guard: already authenticated, redirecting from login')
-    // Check if profile needs setup
-    if (authStore.profile && (!authStore.profile.name || authStore.profile.name === authStore.profile.email.split('@')[0])) {
-      next('/setup')
-      return
-    }
-    // Redirect based on role
-    if (authStore.isArtist) {
-      next(`/artist/${authStore.profile.artist_id}/overview`)
-    } else {
-      next('/')
-    }
-    return
-  }
-  
-  // Check if user needs to complete setup (unless going to setup page or auth callback)
+
+  /* 4.  First-time setup check (skip if flagged) */
   if (authStore.isAuthenticated && !to.meta.skipProfileCheck && authStore.profile) {
-    const needsSetup = !authStore.profile.name || 
+    const needsSetup = !authStore.profile.name ||
                        authStore.profile.name === authStore.profile.email.split('@')[0] ||
                        !authStore.profile.setup_complete
-    if (needsSetup && to.path !== '/setup') {
-      console.log('Router guard: profile incomplete, redirecting to setup')
-      next('/setup')
-      return
+    if (needsSetup) {
+      console.log('Router guard: profile incomplete → /setup')
+      return next('/setup')
     }
   }
-  
-  // Check owner restriction
+
+  /* 5.  Owner-only routes */
   if (to.meta.requiresOwner && !authStore.isOwner) {
     console.log('Router guard: owner access required')
-    next('/')
-    return
+    return next('/')
   }
-  
-  // Check team member restriction
+
+  /* 6.  Team-only routes restriction for artists */
   if (to.meta.requiresTeam && authStore.isArtist) {
-    console.log('Router guard: artist trying to access team route')
-    // Artists can't access team-only routes
-    next(`/artist/${authStore.profile.artist_id}/overview`)
-    return
+    console.log('Router guard: artist blocked from team route')
+    return next(`/artist/${authStore.profile.artist_id}/overview`)
   }
-  
-  // Check artist access
-  if (to.params.artistId) {
-    const canView = authStore.canViewArtist(to.params.artistId)
-    console.log('Router guard: checking artist access', to.params.artistId, 'canView:', canView)
-    if (!canView) {
-      console.log('Router guard: no access to artist', to.params.artistId)
-      // Redirect to their allowed area
-      if (authStore.isArtist) {
-        next(`/artist/${authStore.profile.artist_id}/overview`)
-      } else {
-        next('/')
-      }
-      return
-    }
+
+  /* 7.  Artist-specific access */
+  if (to.params.artistId && !authStore.canViewArtist(to.params.artistId)) {
+    console.log('Router guard: no access to artist', to.params.artistId)
+    return authStore.isArtist
+      ? next(`/artist/${authStore.profile.artist_id}/overview`)
+      : next('/')
   }
-  
+
   console.log('Router guard: allowing navigation')
   next()
 })
