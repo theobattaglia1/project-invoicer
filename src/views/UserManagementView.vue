@@ -1,227 +1,226 @@
-// src/views/UserManagementView.vue
 <template>
   <div class="user-management-view">
-    <!-- Header -->
-    <div class="view-header">
-      <h1 class="view-title">User Management</h1>
-      <button @click="showInviteModal = true" class="btn-primary">
-        <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-        </svg>
-        Invite User
-      </button>
-    </div>
-
-    <!-- Tabs -->
-    <div class="tabs">
-      <button 
-        @click="activeTab = 'team'" 
-        :class="['tab', { active: activeTab === 'team' }]"
-      >
-        Team Members
-      </button>
-      <button 
-        @click="activeTab = 'artists'" 
-        :class="['tab', { active: activeTab === 'artists' }]"
-      >
-        Artist Accounts
-      </button>
-      <button 
-        @click="activeTab = 'pending'" 
-        :class="['tab', { active: activeTab === 'pending' }]"
-      >
-        Pending Invites
-        <span v-if="pendingInvites.length > 0" class="badge">{{ pendingInvites.length }}</span>
-      </button>
-    </div>
-
-    <!-- Team Members Tab -->
-    <div v-if="activeTab === 'team'" class="content-section">
-      <div v-if="teamMembers.length === 0" class="empty-state">
-        <p>No team members yet</p>
+      <!-- Header -->
+      <div class="view-header">
+          <h1 class="view-title">User Management</h1>
+          <button @click="showInviteModal = true" class="btn-primary">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              Invite User
+          </button>
       </div>
-      <div v-else class="user-grid">
-        <div v-for="member in teamMembers" :key="member.id" class="user-card">
-          <div class="user-info">
-            <h3>{{ member.name }}</h3>
-            <p>{{ member.email }}</p>
-            <span class="role-badge">{{ formatRole(member.role) }}</span>
+
+      <!-- Tabs -->
+      <div class="tabs">
+          <button 
+              @click="activeTab = 'team'" 
+              :class="['tab', { active: activeTab === 'team' }]"
+          >
+              Team Members
+          </button>
+          <button 
+              @click="activeTab = 'artists'" 
+              :class="['tab', { active: activeTab === 'artists' }]"
+          >
+              Artist Accounts
+          </button>
+          <button 
+              @click="activeTab = 'pending'" 
+              :class="['tab', { active: activeTab === 'pending' }]"
+          >
+              Pending Invites
+              <span v-if="pendingInvites.length > 0" class="badge">{{ pendingInvites.length }}</span>
+          </button>
+      </div>
+
+      <!-- Team Members Tab -->
+      <div v-if="activeTab === 'team'" class="content-section">
+          <div v-if="teamMembers.length === 0" class="empty-state">
+              <p>No team members yet</p>
           </div>
-          <div class="user-permissions">
-            <h4>Artist Access</h4>
-            <div v-if="member.role === 'editor'" class="permission-list">
-              <div v-for="perm in getPermissionsForUser(member.id)" :key="perm.id" class="permission-item">
-                <span>{{ getArtistName(perm.artist_id) }}</span>
-                <button @click="removePermission(perm)" class="btn-remove">×</button>
+          <div v-else class="user-grid">
+              <div v-for="member in teamMembers" :key="member.id" class="user-card">
+                  <div class="user-info">
+                      <h3>{{ member.name }}</h3>
+                      <p>{{ member.email }}</p>
+                      <span class="role-badge">{{ formatRole(member.role) }}</span>
+                  </div>
+                  <div class="user-permissions">
+                      <h4>Artist Access</h4>
+                      <div v-if="member.role === 'editor'" class="permission-list">
+                          <div v-for="perm in getPermissionsForUser(member.id)" :key="perm.id" class="permission-item">
+                              <span>{{ getArtistName(perm.artist_id) }}</span>
+                              <button @click="removePermission(perm)" class="btn-remove">×</button>
+                          </div>
+                          <button @click="addPermissionForUser(member)" class="btn-add-permission">
+                              + Add Artist
+                          </button>
+                      </div>
+                      <div v-else-if="member.role === 'owner'" class="all-access">
+                          <span>Full access (Owner)</span>
+                      </div>
+                      <div v-else-if="member.role === 'invoicer'" class="all-access">
+                          <span>Can create invoices for all artists</span>
+                      </div>
+                  </div>
+                  <div class="user-actions">
+                      <button v-if="member.role !== 'owner'" @click="editUser(member)" class="btn-icon">
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                          </svg>
+                      </button>
+                      <button v-if="member.role !== 'owner'" @click="deleteUser(member)" class="btn-icon danger">
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                          </svg>
+                      </button>
+                  </div>
               </div>
-              <button @click="addPermissionForUser(member)" class="btn-add-permission">
-                + Add Artist
-              </button>
-            </div>
-            <div v-else-if="member.role === 'owner'" class="all-access">
-              <span>Full access (Owner)</span>
-            </div>
-            <div v-else-if="member.role === 'invoicer'" class="all-access">
-              <span>Can create invoices for all artists</span>
-            </div>
           </div>
-          <div class="user-actions">
-            <button v-if="member.role !== 'owner'" @click="editUser(member)" class="btn-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-              </svg>
-            </button>
-            <button v-if="member.role !== 'owner'" @click="deleteUser(member)" class="btn-icon danger">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-              </svg>
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
 
-    <!-- Artist Accounts Tab -->
-    <div v-if="activeTab === 'artists'" class="content-section">
-      <div v-if="artistAccounts.length === 0" class="empty-state">
-        <p>No artist accounts yet</p>
-      </div>
-      <div v-else class="user-grid">
-        <div v-for="artist in artistAccounts" :key="artist.id" class="user-card">
-          <div class="user-info">
-            <h3>{{ artist.name }}</h3>
-            <p>{{ artist.email }}</p>
-            <span class="role-badge artist">Artist</span>
+      <!-- Artist Accounts Tab -->
+      <div v-if="activeTab === 'artists'" class="content-section">
+          <div v-if="artistAccounts.length === 0" class="empty-state">
+              <p>No artist accounts yet</p>
           </div>
-          <div class="linked-artist">
-            <p>Linked to: <strong>{{ getArtistName(artist.artist_id) }}</strong></p>
-          </div>
-          <div class="user-actions">
-            <button @click="editUser(artist)" class="btn-icon">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-              </svg>
-            </button>
-            <button @click="deleteUser(artist)" class="btn-icon danger">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Pending Invites Tab -->
-    <div v-if="activeTab === 'pending'" class="content-section">
-      <div v-if="pendingInvites.length === 0" class="empty-state">
-        <p>No pending invitations</p>
-      </div>
-      <div v-else class="invite-list">
-        <div v-for="invite in pendingInvites" :key="invite.id" class="invite-item">
-          <div class="invite-info">
-            <h4>{{ invite.email }}</h4>
-            <p>Role: {{ formatRole(invite.role) }}</p>
-            <p v-if="invite.artist_id">Artist: {{ getArtistName(invite.artist_id) }}</p>
-            <p class="invite-date">Sent: {{ formatDate(invite.created_at) }}</p>
-            <p class="invite-expiry">Expires: {{ formatDate(invite.expires_at) }}</p>
-          </div>
-          <div class="invite-actions">
-            <button @click="resendInvite(invite)" class="btn-resend">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
-              </svg>
-              Resend
-            </button>
-            <button @click="cancelInvite(invite)" class="btn-cancel">Cancel</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Invite Modal -->
-    <div v-if="showInviteModal" class="modal-overlay" @click="closeInviteModal">
-      <div class="modal-container" @click.stop>
-        <div class="modal-header">
-          <h2>Invite User</h2>
-          <button @click="closeInviteModal" class="modal-close">×</button>
-        </div>
-        
-        <form @submit.prevent="sendInvite" class="invite-form">
-          <div class="form-group">
-            <label>Email Address *</label>
-            <input 
-              v-model="inviteForm.email" 
-              type="email" 
-              required
-              placeholder="user@example.com"
-            />
-            <p class="form-hint">User will receive an email invitation to create their account</p>
-          </div>
-          
-          <div class="form-group">
-            <label>User Type *</label>
-            <select v-model="inviteForm.userType" required>
-              <option value="">Select type</option>
-              <option value="editor">Team Member (Editor)</option>
-              <option value="invoicer">Team Member (Invoicer)</option>
-              <option value="artist">Artist</option>
-            </select>
-          </div>
-          
-          <div v-if="inviteForm.userType === 'artist'" class="form-group">
-            <label>Link to Artist *</label>
-            <select v-model="inviteForm.artistId" required>
-              <option value="">Select artist</option>
-              <option 
-                v-for="artist in availableArtists" 
-                :key="artist.id" 
-                :value="artist.id"
-              >
-                {{ artist.name }}
-              </option>
-            </select>
-          </div>
-          
-          <div v-if="inviteForm.userType === 'editor'" class="form-group">
-            <label>Initial Artist Access</label>
-            <div class="checkbox-list">
-              <label class="checkbox-item">
-                <input 
-                  type="checkbox" 
-                  v-model="inviteForm.fullAccess"
-                  @change="toggleFullAccess"
-                />
-                Grant access to all artists
-              </label>
-              <div v-if="!inviteForm.fullAccess" class="artist-checkboxes">
-                <label 
-                  v-for="artist in artists" 
-                  :key="artist.id"
-                  class="checkbox-item"
-                >
-                  <input 
-                    type="checkbox" 
-                    :value="artist.id"
-                    v-model="inviteForm.selectedArtists"
-                  />
-                  {{ artist.name }}
-                </label>
+          <div v-else class="user-grid">
+              <div v-for="artist in artistAccounts" :key="artist.id" class="user-card">
+                  <div class="user-info">
+                      <h3>{{ artist.name }}</h3>
+                      <p>{{ artist.email }}</p>
+                      <span class="role-badge artist">Artist</span>
+                  </div>
+                  <div class="linked-artist">
+                      <p>Linked to: <strong>{{ getArtistName(artist.artist_id) }}</strong></p>
+                  </div>
+                  <div class="user-actions">
+                      <button @click="editUser(artist)" class="btn-icon">
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                          </svg>
+                      </button>
+                      <button @click="deleteUser(artist)" class="btn-icon danger">
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                          </svg>
+                      </button>
+                  </div>
               </div>
-            </div>
           </div>
-          
-          <div class="form-actions">
-            <button type="button" @click="closeInviteModal" class="btn-secondary">
-              Cancel
-            </button>
-            <button type="submit" class="btn-primary" :disabled="sending">
-              {{ sending ? 'Sending...' : 'Send Invitation' }}
-            </button>
-          </div>
-        </form>
       </div>
-    </div>
+
+      <!-- Pending Invites Tab -->
+      <div v-if="activeTab === 'pending'" class="content-section">
+          <div v-if="pendingInvites.length === 0" class="empty-state">
+              <p>No pending invitations</p>
+          </div>
+          <div v-else class="invite-list">
+              <div v-for="invite in pendingInvites" :key="invite.id" class="invite-item">
+                  <div class="invite-info">
+                      <h4>{{ invite.email }}</h4>
+                      <p>Role: {{ formatRole(invite.role) }}</p>
+                      <p v-if="invite.artist_id">Artist: {{ getArtistName(invite.artist_id) }}</p>
+                      <p class="invite-date">Sent: {{ formatDate(invite.created_at) }}</p>
+                      <p class="invite-expiry">Expires: {{ formatDate(invite.expires_at) }}</p>
+                  </div>
+                  <div class="invite-actions">
+                      <button @click="resendInvite(invite)" class="btn-resend">
+                          <svg viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                          </svg>
+                          Resend
+                      </button>
+                      <button @click="cancelInvite(invite)" class="btn-cancel">Cancel</button>
+                  </div>
+              </div>
+          </div>
+      </div>
+
+      <!-- Invite Modal -->
+      <div v-if="showInviteModal" class="modal-overlay" @click="closeInviteModal">
+          <div class="modal-container" @click.stop>
+              <div class="modal-header">
+                  <h2>Invite User</h2>
+                  <button @click="closeInviteModal" class="modal-close">×</button>
+              </div>
+              
+              <form @submit.prevent="sendInvite" class="invite-form">
+                  <div class="form-group">
+                      <label>Email Address *</label>
+                      <input 
+                          v-model="inviteForm.email" 
+                          type="email" 
+                          required
+                          placeholder="user@example.com"
+                      />
+                      <p class="form-hint">User will receive an email invitation to create their account</p>
+                  </div>
+                  
+                  <div class="form-group">
+                      <label>User Type *</label>
+                      <select v-model="inviteForm.userType" required>
+                          <option value="">Select type</option>
+                          <option value="editor">Team Member (Editor)</option>
+                          <option value="invoicer">Team Member (Invoicer)</option>
+                          <option value="artist">Artist</option>
+                      </select>
+                  </div>
+                  
+                  <div v-if="inviteForm.userType === 'artist'" class="form-group">
+                      <label>Link to Artist *</label>
+                      <select v-model="inviteForm.artistId" required>
+                          <option value="">Select artist</option>
+                          <option 
+                              v-for="artist in availableArtists" 
+                              :key="artist.id" 
+                              :value="artist.id"
+                          >
+                              {{ artist.name }}
+                          </option>
+                      </select>
+                  </div>
+                  
+                  <div v-if="inviteForm.userType === 'editor'" class="form-group">
+                      <label>Initial Artist Access</label>
+                      <div class="checkbox-list">
+                          <label class="checkbox-item">
+                              <input 
+                                  type="checkbox" 
+                                  v-model="inviteForm.fullAccess"
+                                  @change="toggleFullAccess"
+                              />
+                              Grant access to all artists
+                          </label>
+                          <div v-if="!inviteForm.fullAccess" class="artist-checkboxes">
+                              <label 
+                                  v-for="artist in artists" 
+                                  :key="artist.id"
+                                  class="checkbox-item"
+                              >
+                                  <input 
+                                      type="checkbox" 
+                                      :value="artist.id"
+                                      v-model="inviteForm.selectedArtists"
+                                  />
+                                  {{ artist.name }}
+                              </label>
+                          </div>
+                      </div>
+                  </div>
+                  
+                  <div class="form-actions">
+                      <button type="button" @click="closeInviteModal" class="btn-secondary">
+                          Cancel
+                      </button>
+                      <button type="submit" class="btn-primary" :disabled="sending">
+                          {{ sending ? 'Sending...' : 'Send Invitation' }}
+                      </button>
+                  </div>
+              </form>
+          </div>
+      </div>
   </div>
 </template>
 
@@ -283,31 +282,31 @@ const formatDate = (date) => {
 
 const formatRole = (role) => {
   const roleMap = {
-    owner: 'Owner',
-    editor: 'Editor',
-    invoicer: 'Invoicer',
-    artist: 'Artist',
-    viewer: 'Viewer'
+      owner: 'Owner',
+      editor: 'Editor',
+      invoicer: 'Invoicer',
+      artist: 'Artist',
+      viewer: 'Viewer'
   }
   return roleMap[role] || role
 }
 
 const toggleFullAccess = () => {
   if (inviteForm.value.fullAccess) {
-    inviteForm.value.selectedArtists = artists.value.map(a => a.id)
+      inviteForm.value.selectedArtists = artists.value.map(a => a.id)
   } else {
-    inviteForm.value.selectedArtists = []
+      inviteForm.value.selectedArtists = []
   }
 }
 
 const closeInviteModal = () => {
   showInviteModal.value = false
   inviteForm.value = {
-    email: '',
-    userType: '',
-    artistId: '',
-    fullAccess: false,
-    selectedArtists: []
+      email: '',
+      userType: '',
+      artistId: '',
+      fullAccess: false,
+      selectedArtists: []
   }
 }
 
@@ -315,122 +314,125 @@ const sendInvite = async () => {
   sending.value = true
   
   try {
-    // Get current user for invited_by
-    const { data: { user: currentUser } } = await supabase.auth.getUser()
-    
-    // Generate a unique invitation token
-    const inviteToken = crypto.randomUUID()
-    
-    // Create invitation record
-    const inviteData = {
-      email: inviteForm.value.email,
-      role: inviteForm.value.userType,
-      artist_id: inviteForm.value.artistId || null,
-      selected_artists: inviteForm.value.selectedArtists,
-      invited_by: currentUser?.id,
-      invite_token: inviteToken,
-      accepted: false,
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
-    }
-    
-    const { data: invite, error: inviteError } = await supabase
-      .from('pending_invites')
-      .insert(inviteData)
-      .select()
-      .single()
-    
-    if (inviteError) throw inviteError
-    
-    // For now, in development, show the signup link
-    const signupLink = `${siteUrl}/auth/signup?token=${inviteToken}`
-    
-    // In development, copy to clipboard and show alert
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      navigator.clipboard.writeText(signupLink)
-      alert(`Invitation created!\n\nSignup link copied to clipboard:\n${signupLink}\n\nIn production, this would be sent via email to ${inviteForm.value.email}`)
-    } else {
-      // For production, call edge function to send email
-      try {
-        const { data: emailData, error: emailError } = await supabase.functions.invoke('invite-users', {
-          body: { inviteId: invite.id }
-        })
-        
-        if (emailError) throw emailError
-        
-        if (emailData.signupUrl && !emailData.success) {
-          // Email service not configured, show manual link
-          showToast(`Email service not configured. Share this link: ${emailData.signupUrl}`, 'info')
-        } else {
-          showToast('Invitation email sent successfully!', 'success')
-        }
-      } catch (err) {
-        console.error('Email send error:', err)
-        // Fallback to showing the link
-        showToast(`Send this link to ${inviteForm.value.email}: ${signupLink}`, 'info')
+      // Get current user for invited_by
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      
+      // Generate a unique invitation token
+      const inviteToken = crypto.randomUUID()
+      
+      // Create invitation record
+      const inviteData = {
+          email: inviteForm.value.email,
+          role: inviteForm.value.userType,
+          artist_id: inviteForm.value.artistId || null,
+          selected_artists: inviteForm.value.selectedArtists,
+          invited_by: currentUser?.id,
+          invite_token: inviteToken,
+          accepted: false,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
       }
-    }
-    
-    closeInviteModal()
-    await loadData()
-    
+      
+      const { data: invite, error: inviteError } = await supabase
+          .from('pending_invites')
+          .insert(inviteData)
+          .select()
+          .single()
+      
+      if (inviteError) throw inviteError
+      
+      // For now, in development, show the signup link
+      const signupLink = `${siteUrl}/auth/signup?token=${inviteToken}`
+      
+      // In development, copy to clipboard and show alert
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          navigator.clipboard.writeText(signupLink)
+          alert(`Invitation created!\n\nSignup link copied to clipboard:\n${signupLink}\n\nIn production, this would be sent via email to ${inviteForm.value.email}`)
+      } else {
+          // For production, call edge function to send email
+          try {
+              const { data: emailData, error: emailError } = await supabase.functions.invoke('invite-users', {
+                  body: { inviteId: invite.id }
+              })
+              
+              if (emailError) throw emailError
+              
+              if (emailData.signupUrl && !emailData.success) {
+                  // Email service not configured, show manual link
+                  showToast(`Email service not configured. Share this link: ${emailData.signupUrl}`, 'info')
+              } else {
+                  showToast('Invitation email sent successfully!', 'success')
+              }
+          } catch (err) {
+              console.error('Email send error:', err)
+              // Fallback to showing the link
+              showToast(`Send this link to ${inviteForm.value.email}: ${signupLink}`, 'info')
+          }
+      }
+      
+      closeInviteModal()
+      await loadData()
+      
   } catch (error) {
-    console.error('Failed to send invite:', error)
-    showToast('Failed to send invitation: ' + error.message, 'error')
+      console.error('Failed to send invite:', error)
+      showToast('Failed to send invitation: ' + error.message, 'error')
   } finally {
-    sending.value = false
+      sending.value = false
   }
 }
 
 const resendInvite = async (invite) => {
   try {
-    // Update expiry date
-    const { error: updateError } = await supabase
-      .from('pending_invites')
-      .update({ 
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        updated_at: new Date().toISOString()
+      // Generate a new invitation token and extend expiry
+      const newToken = crypto.randomUUID()
+      const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      const { error: updateError } = await supabase
+          .from('pending_invites')
+          .update({ 
+              invite_token: newToken,
+              expires_at: newExpiry,
+              updated_at: new Date().toISOString()
+          })
+          .eq('id', invite.id)
+      if (updateError) throw updateError
+      
+      // Send a new magic link via Supabase
+      const { error: emailError } = await supabase.auth.signInWithOtp({
+          email: invite.email,
+          options: {
+              shouldCreateUser: true,
+              data: {
+                  invite_token: newToken,
+                  role: invite.role,
+                  artist_id: invite.artist_id,
+                  selected_artists: invite.selected_artists,
+                  invited_by: invite.invited_by
+              },
+              emailRedirectTo: `${siteUrl}/auth/callback`
+          }
       })
-      .eq('id', invite.id)
-    
-    if (updateError) throw updateError
-    
-    // Resend email
-    const { error: emailError } = await supabase.auth.signInWithOtp({
-      email: invite.email,
-      options: {
-        shouldCreateUser: false,
-        data: {
-          invite_token: invite.invite_token,
-          role: invite.role,
-          artist_id: invite.artist_id,
-          selected_artists: invite.selected_artists
-        },
-        emailRedirectTo: `${siteUrl}/auth/signup?token=${invite.invite_token}`
-      }
-    })
-    
-    if (emailError) throw emailError
-    
-    showToast('Invitation resent successfully!', 'success')
-    await loadData()
+      if (emailError) throw emailError
+      
+      showToast('Invitation resent successfully!', 'success')
+      await loadData()
   } catch (error) {
-    showToast('Failed to resend invitation', 'error')
+      console.error('Failed to resend invitation:', error)
+      showToast('Failed to resend invitation', 'error')
   }
 }
 
 const cancelInvite = async (invite) => {
   if (confirm('Are you sure you want to cancel this invitation?')) {
-    try {
-      await supabase
-        .from('pending_invites')
-        .delete()
-        .eq('id', invite.id)
-      
-      showToast('Invitation cancelled', 'success')
-      await loadData()
-    } catch (error) {
-      showToast('Failed to cancel invitation', 'error')
-    }
+      try {
+          await supabase
+              .from('pending_invites')
+              .delete()
+              .eq('id', invite.id)
+          
+          showToast('Invitation cancelled', 'success')
+          await loadData()
+      } catch (error) {
+          showToast('Failed to cancel invitation', 'error')
+      }
   }
 }
 
@@ -441,27 +443,27 @@ const editUser = (user) => {
 
 const deleteUser = async (user) => {
   if (confirm(`Are you sure you want to delete ${user.name}'s account?`)) {
-    try {
-      // Note: You'll need to set up a server-side function to delete users
-      // as the client SDK doesn't support user deletion
-      showToast('User deletion requires server-side implementation', 'info')
-    } catch (error) {
-      showToast('Failed to delete user', 'error')
-    }
+      try {
+          // Note: You'll need to set up a server-side function to delete users
+          // as the client SDK doesn't support user deletion
+          showToast('User deletion requires server-side implementation', 'info')
+      } catch (error) {
+          showToast('Failed to delete user', 'error')
+      }
   }
 }
 
 const removePermission = async (permission) => {
   try {
-    await supabase
-      .from('user_artist_permissions')
-      .delete()
-      .eq('id', permission.id)
-    
-    showToast('Permission removed', 'success')
-    await loadData()
+      await supabase
+          .from('user_artist_permissions')
+          .delete()
+          .eq('id', permission.id)
+      
+      showToast('Permission removed', 'success')
+      await loadData()
   } catch (error) {
-    showToast('Failed to remove permission', 'error')
+      showToast('Failed to remove permission', 'error')
   }
 }
 
@@ -472,31 +474,28 @@ const addPermissionForUser = (user) => {
 
 const loadData = async () => {
   try {
-    // Load users
-    const { data: userData } = await supabase
-      .from('user_profiles')
-      .select('*')
-    
-    users.value = userData || []
-    
-    // Load permissions
-    const { data: permData } = await supabase
-      .from('user_artist_permissions')
-      .select('*')
-    
-    permissions.value = permData || []
-    
-    // Load pending invites
-    const { data: inviteData } = await supabase
-      .from('pending_invites')
-      .select('*')
-      .eq('accepted', false)
-      .order('created_at', { ascending: false })
-    
-    pendingInvites.value = inviteData || []
-    
+      // Load users
+      const { data: userData } = await supabase
+          .from('user_profiles')
+          .select('*')
+      users.value = userData || []
+      
+      // Load permissions
+      const { data: permData } = await supabase
+          .from('user_artist_permissions')
+          .select('*')
+      permissions.value = permData || []
+      
+      // Load pending invites
+      const { data: inviteData } = await supabase
+          .from('pending_invites')
+          .select('*')
+          .eq('accepted', false)
+          .order('created_at', { ascending: false })
+      pendingInvites.value = inviteData || []
+      
   } catch (error) {
-    console.error('Failed to load data:', error)
+      console.error('Failed to load data:', error)
   }
 }
 
@@ -505,10 +504,10 @@ const showToast = (message, type) => {
   const app = document.querySelector('#app').__vue_app__
   const toastRef = app._context.components.App.refs?.toastRef
   if (toastRef) {
-    toastRef.show({ message, type })
+      toastRef.show({ message, type })
   } else {
-    // Fallback to console
-    console.log(`${type}: ${message}`)
+      // Fallback to console
+      console.log(`${type}: ${message}`)
   }
 }
 

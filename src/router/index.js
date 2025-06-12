@@ -1,4 +1,3 @@
-// src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/store/authStore'
 
@@ -81,7 +80,7 @@ const routes = [
           },
           {
             path: 'invoices',
-            name: 'ArtistInvoices', 
+            name: 'ArtistInvoices',
             component: ArtistInvoicesView,
             props: true
           },
@@ -164,13 +163,11 @@ router.beforeEach(async (to, from, next) => {
   // Check if logged in user is trying to access login
   if (to.path === '/login' && authStore.isAuthenticated) {
     console.log('Router guard: already authenticated, redirecting from login')
-    
     // Check if profile needs setup
     if (authStore.profile && (!authStore.profile.name || authStore.profile.name === authStore.profile.email.split('@')[0])) {
       next('/setup')
       return
     }
-    
     // Redirect based on role
     if (authStore.isArtist) {
       next(`/artist/${authStore.profile.artist_id}/overview`)
@@ -185,7 +182,6 @@ router.beforeEach(async (to, from, next) => {
     const needsSetup = !authStore.profile.name || 
                        authStore.profile.name === authStore.profile.email.split('@')[0] ||
                        !authStore.profile.setup_complete
-    
     if (needsSetup && to.path !== '/setup') {
       console.log('Router guard: profile incomplete, redirecting to setup')
       next('/setup')
