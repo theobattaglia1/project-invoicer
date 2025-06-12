@@ -31,8 +31,8 @@ app.config.errorHandler = (err, instance, info) => {
   throw err
 }
 
-/* 4. initialize auth, then mount exactly once */
+app.mount('#app')          // ← mount immediately
+
+// fire-and-forget; router-guard still awaits it when needed
 const authStore = useAuthStore()
-authStore.initialize().finally(() => {
-  app.mount('#app')
-})
+authStore.initialize()
