@@ -2,12 +2,23 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
+import Toast from 'vue-toastification'
+import 'vue-toastification/dist/index.css'   // <-- required styles
 import router from './router'
 import './index.css'
 import { useAuthStore } from '@/store/authStore'
 
+
 const app = createApp(App)
 
+app.use(Toast, {
+  position: 'bottom-right',
+  timeout: 3500,
+  hideProgressBar: false,
+  maxToasts: 4
+})
+
+app.mount('#app')
 // 1. Install Pinia
 const pinia = createPinia()
 app.use(pinia)

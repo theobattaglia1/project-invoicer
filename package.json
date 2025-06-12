@@ -10,11 +10,12 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.10",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.1",
     "pinia": "^2.1.7",
     "vue": "^3.5.13",
     "vue-router": "^4.5.1",
-    "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.8.1"
+    "vue-toastification": "^2.0.0-rc.5"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.1",
