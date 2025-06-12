@@ -1,45 +1,38 @@
-// File: src/main.js
+/* ───────────── File: src/main.js ───────────── */
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import App from './App.vue'
 import Toast from 'vue-toastification'
-import 'vue-toastification/dist/index.css'   // <-- required styles
+import 'vue-toastification/dist/index.css'
+
+import App from './App.vue'
 import router from './router'
 import './index.css'
+
 import { useAuthStore } from '@/store/authStore'
 
-
+/* 1. create app */
 const app = createApp(App)
 
-app.use(Toast, {
-  position: 'bottom-right',
-  timeout: 3500,
-  hideProgressBar: false,
-  maxToasts: 4
-})
+/* 2. install plugins BEFORE mount */
+app
+  .use(createPinia())
+  .use(router)
+  .use(Toast, {
+    position: 'bottom-right',
+    timeout: 3500,
+    hideProgressBar: false,
+    maxToasts: 4
+  })
 
-app.mount('#app')
-// 1. Install Pinia
-const pinia = createPinia()
-app.use(pinia)
-
-// 2. Install Vue Router
-app.use(router)
-
-// 3. Configure a global error handler before mounting
+/* 3. global error handler (optional) */
 app.config.errorHandler = (err, instance, info) => {
   console.warn('Vue error suppressed:', err.message)
-  if (err.message && err.message.includes('componentStructure')) {
-    // Silently swallow "componentStructure" errors
-    return
-  }
-  // Re‐throw any other errors so you still see them
+  if (err.message?.includes('componentStructure')) return
   throw err
 }
 
-// 4. Initialize auth store before mounting
-const authStore = useAuthStore(pinia)
-authStore.initialize().then(() => {
-  // 5. Finally, mount the app after auth is initialized
+/* 4. initialize auth, then mount exactly once */
+const authStore = useAuthStore()
+authStore.initialize().finally(() => {
   app.mount('#app')
 })
