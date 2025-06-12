@@ -137,6 +137,7 @@ router.beforeEach(async (to, from, next) => {
   if (!authStore.initialized) {
     console.log('Router guard: initializing auth store')
     await authStore.initialize()
+    console.log('Router guard: auth store ready, user =', authStore.user)
   }
   
   // Allow auth callback to pass through without profile checks
