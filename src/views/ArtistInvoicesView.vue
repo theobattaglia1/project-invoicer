@@ -170,6 +170,7 @@
 </template>
 
 <script setup>
+import { showToast } from '@/utils/toast'
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useArtistStore } from '@/store/artistStore'
 import { useProjectStore } from '@/store/projectStore'
@@ -451,12 +452,8 @@ const markAsPaid = async (invoice) => {
 }
 
 const showToast = (message, type) => {
-  const app = document.querySelector('#app').__vue_app__
-  const toastRef = app._context.components.App.refs.toastRef
-  if (toastRef) {
-    toastRef.show({ message, type })
-  }
-}
+    showToast('Saved', 'success')}
+
 
 const loadData = async () => {
   loading.value = true

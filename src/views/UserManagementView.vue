@@ -225,6 +225,7 @@
 </template>
 
 <script setup>
+import { showToast } from '@/utils/toast'
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useArtistStore } from '@/store/artistStore'
@@ -500,16 +501,7 @@ const loadData = async () => {
 }
 
 const showToast = (message, type) => {
-  // Get the toast component from the parent
-  const app = document.querySelector('#app').__vue_app__
-  const toastRef = app._context.components.App.refs?.toastRef
-  if (toastRef) {
-      toastRef.show({ message, type })
-  } else {
-      // Fallback to console
-      console.log(`${type}: ${message}`)
-  }
-}
+  showToast('Saved', 'success')}
 
 onMounted(() => {
   loadData()

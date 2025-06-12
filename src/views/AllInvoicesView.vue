@@ -270,6 +270,7 @@
 </template>
 
 <script setup>
+import { showToast } from '@/utils/toast'
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useInvoiceStore } from '@/store/invoiceStore'
 import { useArtistStore } from '@/store/artistStore'
@@ -1023,11 +1024,6 @@ const performImport = async () => {
 
 const showToast = (message, type) => {
   // Get the toast component from the parent App.vue
-  const app = document.querySelector('#app').__vue_app__
-  const toastRef = app._context.components.App.refs.toastRef
-  if (toastRef) {
-    toastRef.show({ message, type })
-  }
 }
 
 const emit = defineEmits(['create', 'update', 'delete'])
