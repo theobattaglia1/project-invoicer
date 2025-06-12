@@ -1022,10 +1022,6 @@ const performImport = async () => {
   }
 }
 
-const showToast = (message, type) => {
-  // Get the toast component from the parent App.vue
-}
-
 const emit = defineEmits(['create', 'update', 'delete'])
 
 onMounted(() => {

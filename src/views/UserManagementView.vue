@@ -500,8 +500,6 @@ const loadData = async () => {
   }
 }
 
-const showToast = (message, type) => {
-  showToast('Saved', 'success')}
 
 onMounted(() => {
   loadData()

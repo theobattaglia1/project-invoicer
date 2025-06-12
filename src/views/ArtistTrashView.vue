@@ -273,8 +273,6 @@ const deleteInvoice = async (invoice) => {
   }
 }
 
-const showToast = (message, type) => {
-  showToast('Saved', 'success')}
 
 onMounted(async () => {
   loading.value = true

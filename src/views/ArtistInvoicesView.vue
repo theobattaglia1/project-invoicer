@@ -451,10 +451,6 @@ const markAsPaid = async (invoice) => {
   }
 }
 
-const showToast = (message, type) => {
-    showToast('Saved', 'success')}
-
-
 const loadData = async () => {
   loading.value = true
   try {
