@@ -213,6 +213,9 @@
         .eq('accepted', false)
         .gte('expires_at', new Date().toISOString())
         .single()
+
+console.log('[signup] inviteError =', inviteError)
+console.log('[signup] inviteData  =', inviteData)
       
       if (inviteError || !inviteData) {
         error.value = 'Invitation not found or has expired'
