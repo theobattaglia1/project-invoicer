@@ -182,39 +182,64 @@
   }
   
   async function validateInvite() {
-    try {
-      const token = route.query.token
-      if (!token) {
-        error.value = 'Invalid invitation link'
-        return
-      }
-  
-      console.log('[signup] Validating invite token:', token)
-  
-      // Just validate the invite token - no profile checks needed!
-      const { data: inviteData, error: inviteErr } = await supabase
-        .from('pending_invites')
-        .select('*')
-        .eq('invite_token', token)
-        .eq('accepted', false)
-        .gte('expires_at', new Date().toISOString())
-        .single()
-  
-      if (inviteErr) throw inviteErr
-  
-      invite.value = inviteData
-      
-      // Load artists if needed
-      if (inviteData.artist_id) {
-        await artistStore.loadArtists()
-      }
-    } catch (e) {
-      console.error('[signup] Validation error:', e)
-      error.value = 'Invitation not found or has expired'
-    } finally {
-      loading.value = false
+  try {
+    const token = route.query.token
+    if (!token) {
+      error.value = 'No invitation token provided. Please use the link from your invitation email.'
+      return
     }
+
+    console.log('[signup] Validating invite token:', token)
+
+    // First, let's check if ANY invite exists with this token (regardless of status)
+    const { data: anyInvite, error: checkError } = await supabase
+      .from('pending_invites')
+      .select('*')
+      .eq('invite_token', token)
+      .single()
+
+    if (checkError) {
+      console.error('[signup] No invite found with this token:', checkError)
+      error.value = 'Invalid invitation link. The link may be incorrect or the invitation may have been deleted.'
+      return
+    }
+
+    console.log('[signup] Found invite:', anyInvite)
+
+    // Now check if it's valid (not accepted and not expired)
+    if (anyInvite.accepted) {
+      error.value = 'This invitation has already been used. Please contact your administrator for a new invitation.'
+      return
+    }
+
+    if (new Date(anyInvite.expires_at) < new Date()) {
+      error.value = 'This invitation has expired. Please contact your administrator for a new invitation.'
+      return
+    }
+
+    // Check if user already exists with this email
+    const { data: existingAuth } = await supabase.auth.admin.listUsers()
+    const userExists = existingAuth?.users?.some(u => u.email === anyInvite.email)
+    
+    if (userExists) {
+      error.value = 'An account already exists for this email address. Please sign in instead.'
+      return
+    }
+
+    // All checks passed!
+    invite.value = anyInvite
+    
+    // Load artists if needed
+    if (anyInvite.artist_id) {
+      await artistStore.loadArtists()
+    }
+  } catch (e) {
+    console.error('[signup] Validation error:', e)
+    error.value = 'An error occurred validating your invitation. Please try again or contact support.'
+  } finally {
+    loading.value = false
   }
+}
   
   async function createAccount() {
     formError.value = ''

@@ -7,7 +7,7 @@
               <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
               </svg>
-              Invite User
+              Create User
           </button>
       </div>
 
@@ -24,13 +24,6 @@
               :class="['tab', { active: activeTab === 'artists' }]"
           >
               Artist Accounts
-          </button>
-          <button 
-              @click="activeTab = 'pending'" 
-              :class="['tab', { active: activeTab === 'pending' }]"
-          >
-              Pending Invites
-              <span v-if="pendingInvites.length > 0" class="badge">{{ pendingInvites.length }}</span>
           </button>
       </div>
 
@@ -65,9 +58,9 @@
                       </div>
                   </div>
                   <div class="user-actions">
-                      <button v-if="member.role !== 'owner'" @click="editUser(member)" class="btn-icon">
+                      <button v-if="member.role !== 'owner'" @click="resetPassword(member)" class="btn-icon">
                           <svg viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                              <path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
                           </svg>
                       </button>
                       <button v-if="member.role !== 'owner'" @click="deleteUser(member)" class="btn-icon danger">
@@ -96,9 +89,9 @@
                       <p>Linked to: <strong>{{ getArtistName(artist.artist_id) }}</strong></p>
                   </div>
                   <div class="user-actions">
-                      <button @click="editUser(artist)" class="btn-icon">
+                      <button @click="resetPassword(artist)" class="btn-icon">
                           <svg viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                              <path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
                           </svg>
                       </button>
                       <button @click="deleteUser(artist)" class="btn-icon danger">
@@ -111,42 +104,15 @@
           </div>
       </div>
 
-      <!-- Pending Invites Tab -->
-      <div v-if="activeTab === 'pending'" class="content-section">
-          <div v-if="pendingInvites.length === 0" class="empty-state">
-              <p>No pending invitations</p>
-          </div>
-          <div v-else class="invite-list">
-              <div v-for="invite in pendingInvites" :key="invite.id" class="invite-item">
-                  <div class="invite-info">
-                      <h4>{{ invite.email }}</h4>
-                      <p>Role: {{ formatRole(invite.role) }}</p>
-                      <p v-if="invite.artist_id">Artist: {{ getArtistName(invite.artist_id) }}</p>
-                      <p class="invite-date">Sent: {{ formatDate(invite.created_at) }}</p>
-                      <p class="invite-expiry">Expires: {{ formatDate(invite.expires_at) }}</p>
-                  </div>
-                  <div class="invite-actions">
-                      <button @click="resendInvite(invite)" class="btn-resend">
-                          <svg viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
-                          </svg>
-                          Resend
-                      </button>
-                      <button @click="cancelInvite(invite)" class="btn-cancel">Cancel</button>
-                  </div>
-              </div>
-          </div>
-      </div>
-
-      <!-- Invite Modal -->
+      <!-- Create User Modal -->
       <div v-if="showInviteModal" class="modal-overlay" @click="closeInviteModal">
           <div class="modal-container" @click.stop>
               <div class="modal-header">
-                  <h2>Invite User</h2>
+                  <h2>Create User</h2>
                   <button @click="closeInviteModal" class="modal-close">×</button>
               </div>
               
-              <form @submit.prevent="sendInvite" class="invite-form">
+              <form @submit.prevent="createUser" class="invite-form">
                   <div class="form-group">
                       <label>Email Address *</label>
                       <input 
@@ -155,7 +121,6 @@
                           required
                           placeholder="user@example.com"
                       />
-                      <p class="form-hint">User will receive an email invitation to create their account</p>
                   </div>
                   
                   <div class="form-group">
@@ -165,6 +130,7 @@
                           <option value="editor">Team Member (Editor)</option>
                           <option value="invoicer">Team Member (Invoicer)</option>
                           <option value="artist">Artist</option>
+                          <option value="viewer">Viewer</option>
                       </select>
                   </div>
                   
@@ -183,7 +149,7 @@
                   </div>
                   
                   <div v-if="inviteForm.userType === 'editor'" class="form-group">
-                      <label>Initial Artist Access</label>
+                      <label>Artist Access</label>
                       <div class="checkbox-list">
                           <label class="checkbox-item">
                               <input 
@@ -215,10 +181,33 @@
                           Cancel
                       </button>
                       <button type="submit" class="btn-primary" :disabled="sending">
-                          {{ sending ? 'Sending...' : 'Send Invitation' }}
+                          {{ sending ? 'Creating...' : 'Create User' }}
                       </button>
                   </div>
               </form>
+          </div>
+      </div>
+
+      <!-- Credentials Modal -->
+      <div v-if="showCredentialsModal" class="modal-overlay" @click="showCredentialsModal = false">
+          <div class="credentials-modal" @click.stop>
+              <h3>User Created Successfully!</h3>
+              <div class="credentials-info">
+                  <p><strong>Email:</strong> {{ createdCredentials.email }}</p>
+                  <p><strong>Temporary Password:</strong> {{ createdCredentials.password }}</p>
+              </div>
+              <div class="credentials-actions">
+                  <button @click="copyCredentials" class="btn-primary">
+                      Copy to Clipboard
+                  </button>
+                  <button @click="showCredentialsModal = false" class="btn-secondary">
+                      Close
+                  </button>
+              </div>
+              <p class="credentials-note">
+                  Please save this password and share it securely with the user. 
+                  They can change it after logging in.
+              </p>
           </div>
       </div>
   </div>
@@ -235,10 +224,11 @@ const artistStore = useArtistStore()
 // State
 const activeTab = ref('team')
 const showInviteModal = ref(false)
+const showCredentialsModal = ref(false)
 const sending = ref(false)
 const users = ref([])
 const permissions = ref([])
-const pendingInvites = ref([])
+const createdCredentials = ref({ email: '', password: '' })
 
 const inviteForm = ref({
   email: '',
@@ -248,18 +238,11 @@ const inviteForm = ref({
   selectedArtists: []
 })
 
-// Get site URL dynamically
-const siteUrl = window.location.origin
-
-// true when you’re on http://localhost:5173 or similar
-const isDev =
-  window.location.hostname === 'localhost' ||
-  window.location.hostname === '127.0.0.1'
 // Computed
 const artists = computed(() => artistStore.sortedArtists)
 
 const teamMembers = computed(() => 
-  users.value.filter(u => ['owner', 'editor', 'invoicer'].includes(u.role))
+  users.value.filter(u => ['owner', 'editor', 'invoicer', 'viewer'].includes(u.role))
 )
 
 const artistAccounts = computed(() => 
@@ -279,10 +262,6 @@ const getArtistName = (artistId) => {
 
 const getPermissionsForUser = (userId) => {
   return permissions.value.filter(p => p.user_id === userId)
-}
-
-const formatDate = (date) => {
-  return new Date(date).toLocaleDateString()
 }
 
 const formatRole = (role) => {
@@ -315,149 +294,126 @@ const closeInviteModal = () => {
   }
 }
 
-const sendInvite = async () => {
+const generatePassword = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$'
+  let password = 'Temp'
+  for (let i = 0; i < 8; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return password
+}
+
+const createUser = async () => {
   sending.value = true
   
   try {
-    // Get current user for invited_by
-    const { data: { user: currentUser } } = await supabase.auth.getUser()
+    // Generate a temporary password
+    const tempPassword = generatePassword()
     
-    // Generate a unique invitation token
-    const inviteToken = crypto.randomUUID()
+    // Get current user session for admin operations
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) throw new Error('No admin session found')
     
-    // Create invitation record ONLY - no user profiles!
-    const inviteData = {
-      email: inviteForm.value.email,
-      role: inviteForm.value.userType,
-      artist_id: inviteForm.value.artistId || null,
-      selected_artists: inviteForm.value.selectedArtists,
-      invited_by: currentUser?.id,
-      invite_token: inviteToken,
-      accepted: false,
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
-    }
-    
-    const { data: invite, error: inviteError } = await supabase
-      .from('pending_invites')
-      .insert(inviteData)
-      .select()
-      .single()
-    
-    if (inviteError) throw inviteError
-    
-    // For now, in development, show the signup link
-    const signupLink = `${siteUrl}/auth/signup?token=${inviteToken}`
-    
-    // In development, copy to clipboard and show alert
-    if (isDev) {
-      navigator.clipboard.writeText(signupLink)
-      alert(`Invitation created!\n\nSignup link copied to clipboard:\n${signupLink}\n\nIn production, this would be sent via email to ${inviteForm.value.email}`)
-    } else {
-      // For production, call edge function to send email
-      try {
-        const { data: emailData, error: emailError } = await supabase.functions
-          .invoke('invite-users', {
-            body: {
-              email: inviteForm.value.email,
-              role: inviteForm.value.userType,
-              signupUrl: signupLink
-            }
-          })
-        
-        if (emailError) throw emailError
-        
-        if (emailData.signupUrl && !emailData.success) {
-          // Email service not configured, show manual link
-          showToast(`Email service not configured. Share this link: ${emailData.signupUrl}`, 'info')
-        } else {
-          showToast('Invitation email sent successfully!', 'success')
+    // 1. Create auth user using service role via edge function
+    const { data: createUserData, error: createUserError } = await supabase.functions
+      .invoke('admin-create-user', {
+        body: {
+          email: inviteForm.value.email,
+          password: tempPassword,
+          user_metadata: {
+            name: inviteForm.value.email.split('@')[0],
+            role: inviteForm.value.userType
+          }
         }
-      } catch (err) {
-        console.error('Email send error:', err)
-        // Fallback to showing the link
-        showToast(`Send this link to ${inviteForm.value.email}: ${signupLink}`, 'info')
-      }
+      })
+    
+    if (createUserError) throw createUserError
+    if (!createUserData.user) throw new Error('Failed to create user')
+    
+    const authData = createUserData
+    
+    // 2. Create user profile
+    const { error: profileError } = await supabase
+      .from('user_profiles')
+      .insert({
+        id: authData.user.id,
+        email: inviteForm.value.email,
+        name: inviteForm.value.email.split('@')[0],
+        role: inviteForm.value.userType,
+        artist_id: inviteForm.value.artistId || null,
+        setup_complete: false
+      })
+    
+    if (profileError) throw profileError
+    
+    // 3. Add permissions for editors
+    if (inviteForm.value.userType === 'editor' && inviteForm.value.selectedArtists.length > 0) {
+      const permissions = inviteForm.value.selectedArtists.map(artistId => ({
+        user_id: authData.user.id,
+        artist_id: artistId,
+        permission: 'edit'
+      }))
+      
+      await supabase.from('user_artist_permissions').insert(permissions)
     }
     
-    closeInviteModal()
+    // 4. Show the credentials
+    createdCredentials.value = {
+      email: inviteForm.value.email,
+      password: tempPassword
+    }
+    
+    showInviteModal.value = false
+    showCredentialsModal.value = true
+    
     await loadData()
     
   } catch (error) {
-    console.error('Failed to send invite:', error)
-    showToast('Failed to send invitation: ' + error.message, 'error')
+    console.error('Failed to create user:', error)
+    showToast('Failed to create user: ' + error.message, 'error')
   } finally {
     sending.value = false
   }
 }
 
-const resendInvite = async (invite) => {
-  try {
-      // Generate a new invitation token and extend expiry
-      const newToken = crypto.randomUUID()
-      const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-      const { error: updateError } = await supabase
-          .from('pending_invites')
-          .update({ 
-              invite_token: newToken,
-              expires_at: newExpiry,
-              updated_at: new Date().toISOString()
-          })
-          .eq('id', invite.id)
-      if (updateError) throw updateError
-      
-        const signupLink = `${siteUrl}/auth/signup?token=${newToken}`
-
-  if (isDev) {
-    navigator.clipboard.writeText(signupLink)
-    alert(`Copied new signup link:\n${signupLink}`)
-  } else {
-    await supabase.functions.invoke('invite-users', {
-      body: {
-        email: invite.email,
-        role:  invite.role,
-        signupUrl: signupLink
-      }
-    })
-  }
-      
-      showToast('Invitation resent successfully!', 'success')
-      await loadData()
-  } catch (error) {
-      console.error('Failed to resend invitation:', error)
-      showToast('Failed to resend invitation', 'error')
-  }
+const copyCredentials = () => {
+  const text = `Email: ${createdCredentials.value.email}\nPassword: ${createdCredentials.value.password}`
+  navigator.clipboard.writeText(text)
+  showToast('Credentials copied to clipboard!', 'success')
 }
 
-const cancelInvite = async (invite) => {
-  if (confirm('Are you sure you want to cancel this invitation?')) {
-      try {
-          await supabase
-              .from('pending_invites')
-              .delete()
-              .eq('id', invite.id)
-          
-          showToast('Invitation cancelled', 'success')
-          await loadData()
-      } catch (error) {
-          showToast('Failed to cancel invitation', 'error')
-      }
+const resetPassword = async (user) => {
+  if (confirm(`Send password reset email to ${user.email}?`)) {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/auth/callback?type=recovery`
+      })
+      
+      if (error) throw error
+      
+      showToast('Password reset email sent!', 'success')
+    } catch (error) {
+      showToast('Failed to send reset email', 'error')
+    }
   }
-}
-
-const editUser = (user) => {
-  // Implement edit functionality
-  showToast('Edit functionality coming soon', 'info')
 }
 
 const deleteUser = async (user) => {
-  if (confirm(`Are you sure you want to delete ${user.name}'s account?`)) {
-      try {
-          // Note: You'll need to set up a server-side function to delete users
-          // as the client SDK doesn't support user deletion
-          showToast('User deletion requires server-side implementation', 'info')
-      } catch (error) {
-          showToast('Failed to delete user', 'error')
-      }
+  if (confirm(`Are you sure you want to delete ${user.name}'s account? This cannot be undone.`)) {
+    try {
+      // Delete from user_profiles (this should cascade to permissions)
+      const { error } = await supabase
+        .from('user_profiles')
+        .delete()
+        .eq('id', user.id)
+      
+      if (error) throw error
+      
+      showToast('User deleted successfully', 'success')
+      await loadData()
+    } catch (error) {
+      showToast('Failed to delete user: ' + error.message, 'error')
+    }
   }
 }
 
@@ -494,19 +450,10 @@ const loadData = async () => {
           .select('*')
       permissions.value = permData || []
       
-      // Load pending invites
-      const { data: inviteData } = await supabase
-          .from('pending_invites')
-          .select('*')
-          .eq('accepted', false)
-          .order('created_at', { ascending: false })
-      pendingInvites.value = inviteData || []
-      
   } catch (error) {
       console.error('Failed to load data:', error)
   }
 }
-
 
 onMounted(() => {
   loadData()
@@ -573,20 +520,6 @@ onMounted(() => {
   right: 0;
   height: 2px;
   background: #1db954;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  background: rgba(29, 185, 84, 0.2);
-  color: #1db954;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 600;
 }
 
 /* User Cards */
@@ -726,91 +659,6 @@ onMounted(() => {
   gap: 8px;
 }
 
-/* Invite List */
-.invite-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.invite-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-}
-
-.invite-info h4 {
-  font-size: 16px;
-  font-weight: 600;
-  color: white;
-  margin: 0 0 8px 0;
-}
-
-.invite-info p {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 0 0 4px 0;
-}
-
-.invite-date {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.invite-expiry {
-  font-size: 12px;
-  color: #ff9800;
-}
-
-.invite-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-resend {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: rgba(33, 150, 243, 0.2);
-  border: 1px solid rgba(33, 150, 243, 0.3);
-  border-radius: 8px;
-  color: #2196f3;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-resend:hover {
-  background: rgba(33, 150, 243, 0.3);
-}
-
-.btn-resend svg {
-  width: 16px;
-  height: 16px;
-}
-
-.btn-cancel {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-cancel:hover {
-  border-color: #f44336;
-  color: #f44336;
-}
-
 /* Modal */
 .modal-overlay {
   position: fixed;
@@ -914,12 +762,6 @@ onMounted(() => {
   background: #1e1e1e;
 }
 
-.form-hint {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
-  margin-top: 4px;
-}
-
 .checkbox-list {
   display: flex;
   flex-direction: column;
@@ -955,6 +797,63 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 32px;
+}
+
+/* Credentials Modal */
+.credentials-modal {
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 500px;
+  text-align: center;
+}
+
+.credentials-modal h3 {
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+  margin: 0 0 24px 0;
+}
+
+.credentials-info {
+  background: rgba(29, 185, 84, 0.1);
+  border: 1px solid rgba(29, 185, 84, 0.2);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.credentials-info p {
+  font-size: 16px;
+  color: white;
+  margin: 0 0 12px 0;
+  font-family: monospace;
+}
+
+.credentials-info p:last-child {
+  margin-bottom: 0;
+}
+
+.credentials-info strong {
+  color: #1db954;
+  display: inline-block;
+  width: 150px;
+}
+
+.credentials-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.credentials-note {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
 }
 
 /* Buttons */

@@ -45,11 +45,6 @@
           <span v-if="!loading">Sign In</span>
           <div v-else class="spinner"></div>
         </button>
-        
-        <button type="submit" class="btn-login" :disabled="loading">
-          <span v-if="!loading">Sign In</span>
-          <div v-else class="spinner"></div>
-        </button>
       </form>
       
       <div class="login-footer">
@@ -63,6 +58,8 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/authStore'
+import { supabase } from '@/lib/supabase'
+import { showToast } from '@/utils/toast'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -80,8 +77,10 @@ const handleLogin = async () => {
     const result = await authStore.login(email.value, password.value)
     
     if (result.success) {
-      // Router navigation guard will handle redirect based on role
-      if (authStore.isArtist) {
+      // Check if this is their first login (using temp password)
+      if (!authStore.profile?.setup_complete || !authStore.profile?.name || authStore.profile?.name === authStore.profile?.email.split('@')[0]) {
+        router.push('/setup')
+      } else if (authStore.isArtist && authStore.profile.artist_id) {
         router.push(`/artist/${authStore.profile.artist_id}/overview`)
       } else {
         router.push('/')
@@ -92,6 +91,29 @@ const handleLogin = async () => {
   } catch (err) {
     error.value = 'An unexpected error occurred'
     console.error('Login error:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+const forgotPassword = async () => {
+  if (!email.value) {
+    error.value = 'Please enter your email first'
+    return
+  }
+  
+  loading.value = true
+  try {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.value, {
+      redirectTo: `${window.location.origin}/auth/callback?type=recovery`
+    })
+    
+    if (resetError) throw resetError
+    
+    showToast('Password reset email sent! Check your inbox.', 'success')
+    error.value = ''
+  } catch (err) {
+    error.value = 'Failed to send reset email: ' + err.message
   } finally {
     loading.value = false
   }
@@ -155,7 +177,7 @@ const handleLogin = async () => {
 }
 
 .login-title {
-  font-size: 20px;
+  font-size: 32px;
   font-weight: 700;
   color: white;
   text-align: center;
@@ -216,6 +238,23 @@ const handleLogin = async () => {
   color: #f44336;
   font-size: 14px;
   text-align: center;
+}
+
+.forgot-password {
+  text-align: right;
+  margin-top: -12px;
+}
+
+.forgot-password a {
+  font-size: 14px;
+  color: #1db954;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.forgot-password a:hover {
+  color: #1ed760;
 }
 
 .btn-login {
