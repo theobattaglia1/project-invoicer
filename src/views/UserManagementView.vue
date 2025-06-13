@@ -251,6 +251,10 @@ const inviteForm = ref({
 // Get site URL dynamically
 const siteUrl = window.location.origin
 
+// true when you’re on http://localhost:5173 or similar
+const isDev =
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1'
 // Computed
 const artists = computed(() => artistStore.sortedArtists)
 
@@ -351,9 +355,16 @@ const sendInvite = async () => {
       } else {
           // For production, call edge function to send email
           try {
-              const { data: emailData, error: emailError } = await supabase.functions.invoke('invite-users', {
-                  body: { inviteId: invite.id }
-              })
+              const signupLink = `${siteUrl}/auth/signup?token=${inviteToken}`   // already built
+
+  const { data: emailData, error: emailError } = await supabase.functions
+    .invoke('invite-users', {
+      body: {
+        email: inviteForm.value.email,
+        role:  inviteForm.value.userType,
+        signupUrl: signupLink          // 👈 edge function now gets the *exact* link
+      }
+    })
               
               if (emailError) throw emailError
               
@@ -396,22 +407,20 @@ const resendInvite = async (invite) => {
           .eq('id', invite.id)
       if (updateError) throw updateError
       
-      // Send a new magic link via Supabase
-      const { error: emailError } = await supabase.auth.signInWithOtp({
-          email: invite.email,
-          options: {
-              shouldCreateUser: true,
-              data: {
-                  invite_token: newToken,
-                  role: invite.role,
-                  artist_id: invite.artist_id,
-                  selected_artists: invite.selected_artists,
-                  invited_by: invite.invited_by
-              },
-              emailRedirectTo: `${siteUrl}/auth/callback`
-          }
-      })
-      if (emailError) throw emailError
+        const signupLink = `${siteUrl}/auth/signup?token=${newToken}`
+
+  if (isDev) {
+    navigator.clipboard.writeText(signupLink)
+    alert(`Copied new signup link:\n${signupLink}`)
+  } else {
+    await supabase.functions.invoke('invite-users', {
+      body: {
+        email: invite.email,
+        role:  invite.role,
+        signupUrl: signupLink
+      }
+    })
+  }
       
       showToast('Invitation resent successfully!', 'success')
       await loadData()
