@@ -44,10 +44,18 @@ serve(async (req) => {
       { redirectTo: signupUrl }
     );
 
-    if (mailErr) {
-      console.error("SMTP send error:", mailErr);
-      throw new Error("Failed to send e-mail via Supabase Auth SMTP");
-    }
+     if (mailErr) {
+         // log everything the API gives us
+         console.error('SMTP send error details:', mailErr)
+      
+         return new Response(
+           JSON.stringify({
+             error: 'smtp_send_failed',
+             details: mailErr            // ← shows provider error, rate-limit, etc.
+           }),
+           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+         )
+       }
 
     return new Response(
       JSON.stringify({
