@@ -319,76 +319,74 @@ const sendInvite = async () => {
   sending.value = true
   
   try {
-      // Get current user for invited_by
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
-      
-      // Generate a unique invitation token
-      const inviteToken = crypto.randomUUID()
-      
-      // Create invitation record
-      const inviteData = {
-          email: inviteForm.value.email,
-          role: inviteForm.value.userType,
-          artist_id: inviteForm.value.artistId || null,
-          selected_artists: inviteForm.value.selectedArtists,
-          invited_by: currentUser?.id,
-          invite_token: inviteToken,
-          accepted: false,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+    // Get current user for invited_by
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
+    
+    // Generate a unique invitation token
+    const inviteToken = crypto.randomUUID()
+    
+    // Create invitation record ONLY - no user profiles!
+    const inviteData = {
+      email: inviteForm.value.email,
+      role: inviteForm.value.userType,
+      artist_id: inviteForm.value.artistId || null,
+      selected_artists: inviteForm.value.selectedArtists,
+      invited_by: currentUser?.id,
+      invite_token: inviteToken,
+      accepted: false,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+    }
+    
+    const { data: invite, error: inviteError } = await supabase
+      .from('pending_invites')
+      .insert(inviteData)
+      .select()
+      .single()
+    
+    if (inviteError) throw inviteError
+    
+    // For now, in development, show the signup link
+    const signupLink = `${siteUrl}/auth/signup?token=${inviteToken}`
+    
+    // In development, copy to clipboard and show alert
+    if (isDev) {
+      navigator.clipboard.writeText(signupLink)
+      alert(`Invitation created!\n\nSignup link copied to clipboard:\n${signupLink}\n\nIn production, this would be sent via email to ${inviteForm.value.email}`)
+    } else {
+      // For production, call edge function to send email
+      try {
+        const { data: emailData, error: emailError } = await supabase.functions
+          .invoke('invite-users', {
+            body: {
+              email: inviteForm.value.email,
+              role: inviteForm.value.userType,
+              signupUrl: signupLink
+            }
+          })
+        
+        if (emailError) throw emailError
+        
+        if (emailData.signupUrl && !emailData.success) {
+          // Email service not configured, show manual link
+          showToast(`Email service not configured. Share this link: ${emailData.signupUrl}`, 'info')
+        } else {
+          showToast('Invitation email sent successfully!', 'success')
+        }
+      } catch (err) {
+        console.error('Email send error:', err)
+        // Fallback to showing the link
+        showToast(`Send this link to ${inviteForm.value.email}: ${signupLink}`, 'info')
       }
-      
-      const { data: invite, error: inviteError } = await supabase
-          .from('pending_invites')
-          .insert(inviteData)
-          .select()
-          .single()
-      
-      if (inviteError) throw inviteError
-      
-      // For now, in development, show the signup link
-      const signupLink = `${siteUrl}/auth/signup?token=${inviteToken}`
-      
-      // In development, copy to clipboard and show alert
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-          navigator.clipboard.writeText(signupLink)
-          alert(`Invitation created!\n\nSignup link copied to clipboard:\n${signupLink}\n\nIn production, this would be sent via email to ${inviteForm.value.email}`)
-      } else {
-          // For production, call edge function to send email
-          try {
-              const signupLink = `${siteUrl}/auth/signup?token=${inviteToken}`   // already built
-
-  const { data: emailData, error: emailError } = await supabase.functions
-    .invoke('invite-users', {
-      body: {
-        email: inviteForm.value.email,
-        role:  inviteForm.value.userType,
-        signupUrl: signupLink          // 👈 edge function now gets the *exact* link
-      }
-    })
-              
-              if (emailError) throw emailError
-              
-              if (emailData.signupUrl && !emailData.success) {
-                  // Email service not configured, show manual link
-                  showToast(`Email service not configured. Share this link: ${emailData.signupUrl}`, 'info')
-              } else {
-                  showToast('Invitation email sent successfully!', 'success')
-              }
-          } catch (err) {
-              console.error('Email send error:', err)
-              // Fallback to showing the link
-              showToast(`Send this link to ${inviteForm.value.email}: ${signupLink}`, 'info')
-          }
-      }
-      
-      closeInviteModal()
-      await loadData()
-      
+    }
+    
+    closeInviteModal()
+    await loadData()
+    
   } catch (error) {
-      console.error('Failed to send invite:', error)
-      showToast('Failed to send invitation: ' + error.message, 'error')
+    console.error('Failed to send invite:', error)
+    showToast('Failed to send invitation: ' + error.message, 'error')
   } finally {
-      sending.value = false
+    sending.value = false
   }
 }
 

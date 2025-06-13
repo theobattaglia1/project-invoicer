@@ -108,7 +108,7 @@ onMounted(async () => {
             .from('user_artist_permissions')
             .insert(permissions)
         }
-        // Mark invite as accepted if applicable
+        // Mark  as accepted if applicable
         if (metadata.invite_token) {
           const { error: inviteError } = await supabase
             .from('pending_invites')
