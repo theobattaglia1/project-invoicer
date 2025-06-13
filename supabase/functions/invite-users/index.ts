@@ -28,7 +28,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[invite-users] Attempting to invite ${email}`);
+    console.log(`[invite-users] Processing invite for ${email}`);
 
     // Try to invite the user
     const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
@@ -39,53 +39,55 @@ serve(async (req) => {
     if (!error) {
       console.log(`[invite-users] Successfully sent invite to ${email}`);
       return new Response(
-        JSON.stringify({ success: true }),
+        JSON.stringify({ success: true, message: "Invitation email sent" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Check if user already exists (status can be 400, 422, or have various messages)
-    if (error.message?.includes("already registered") || 
-        error.message?.includes("already been invited") ||
-        error.message?.includes("already exists")) {
+    // Log the actual error for debugging
+    console.log(`[invite-users] Invite error:`, error);
+
+    // Check if user already exists - check the actual error message we're getting
+    const errorMessage = error.message?.toLowerCase() || '';
+    if (errorMessage.includes("already been registered") || 
+        errorMessage.includes("already registered") ||
+        errorMessage.includes("already exists") ||
+        errorMessage.includes("user already exists")) {
       
-      console.log(`[invite-users] ${email} already registered – generating magic-link`);
+      console.log(`[invite-users] User ${email} already exists, sending magic link instead`);
       
-      // For existing users, generate a magic link
-      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-        type: "magiclink",
+      // For existing users, just send a magic link
+      const { error: magicLinkError } = await supabase.auth.signInWithOtp({
         email: email,
-        options: { 
-          redirectTo: signupUrl 
+        options: {
+          emailRedirectTo: signupUrl,
         }
       });
 
-      if (linkError) {
-        console.error(`[invite-users] Failed to generate magic link:`, linkError);
-        throw linkError;
+      if (magicLinkError) {
+        console.error(`[invite-users] Failed to send magic link:`, magicLinkError);
+        throw magicLinkError;
       }
 
-      // The magic link URL is in linkData.properties.action_link
-      console.log(`[invite-users] Magic link generated successfully`);
+      console.log(`[invite-users] Magic link sent successfully`);
       
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: "Magic link sent to existing user",
+          message: "Login link sent to existing user",
           isExistingUser: true
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Any other error
-    console.error(`[invite-users] Error:`, error);
-    throw new Error(error.message);
+    // Any other error - return it
+    throw error;
 
   } catch (err) {
-    console.error("[invite-users] Fatal error:", err);
+    console.error("[invite-users] Error:", err);
     return new Response(
-      JSON.stringify({ error: err.message }),
+      JSON.stringify({ error: err.message || "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
