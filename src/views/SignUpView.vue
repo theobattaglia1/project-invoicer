@@ -4,50 +4,55 @@
         <div class="signup-logo">
           <h1>All My Friends Accounting</h1>
         </div>
-        
+  
+        <!-- ▸ LOADING -------------------------------------------------------------- -->
         <div v-if="loading" class="loading-state">
           <div class="spinner"></div>
           <p>Validating invitation...</p>
         </div>
-        
+  
+        <!-- ▸ ERROR --------------------------------------------------------------- -->
         <div v-else-if="error" class="error-state">
           <svg class="error-icon" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
           </svg>
           <h2>{{ error }}</h2>
           <button @click="goToLogin" class="btn-secondary">Go to Login</button>
         </div>
-        
+  
+        <!-- ▸ FORM ---------------------------------------------------------------- -->
         <div v-else-if="invite">
           <h2 class="signup-title">Create Your Account</h2>
           <p class="signup-subtitle">Welcome! Set up your password to get started.</p>
-          
+  
           <div class="invite-info">
             <p><strong>Email:</strong> {{ invite.email }}</p>
             <p><strong>Role:</strong> {{ formatRole(invite.role) }}</p>
             <p v-if="invite.artist_id"><strong>Artist:</strong> {{ getArtistName(invite.artist_id) }}</p>
           </div>
-          
+  
           <form @submit.prevent="createAccount" class="signup-form">
+            <!-- name -->
             <div class="form-group">
               <label for="name">Your Name *</label>
               <input
                 v-model="form.name"
-                type="text"
                 id="name"
+                type="text"
                 placeholder="Enter your full name"
                 required
                 class="form-input"
                 :disabled="submitting"
               />
             </div>
-            
+  
+            <!-- password -->
             <div class="form-group">
               <label for="password">Create Password *</label>
               <input
                 v-model="form.password"
-                type="password"
                 id="password"
+                type="password"
                 placeholder="Choose a secure password"
                 required
                 minlength="8"
@@ -57,8 +62,8 @@
               />
               <div class="password-strength">
                 <div class="strength-bar">
-                  <div 
-                    class="strength-fill" 
+                  <div
+                    class="strength-fill"
                     :class="passwordStrength.class"
                     :style="{ width: passwordStrength.percent + '%' }"
                   ></div>
@@ -67,13 +72,14 @@
               </div>
               <p class="form-hint">At least 8 characters with a mix of letters and numbers</p>
             </div>
-            
+  
+            <!-- confirm -->
             <div class="form-group">
               <label for="confirmPassword">Confirm Password *</label>
               <input
                 v-model="form.confirmPassword"
-                type="password"
                 id="confirmPassword"
+                type="password"
                 placeholder="Confirm your password"
                 required
                 class="form-input"
@@ -83,28 +89,20 @@
                 Passwords do not match
               </p>
             </div>
-            
+  
+            <!-- terms -->
             <div class="form-group">
               <label class="checkbox-label">
-                <input 
-                  v-model="form.acceptTerms" 
-                  type="checkbox" 
-                  required
-                  :disabled="submitting"
-                />
+                <input v-model="form.acceptTerms" type="checkbox" required :disabled="submitting" />
                 <span>I accept the terms of service and privacy policy</span>
               </label>
             </div>
-            
-            <div v-if="formError" class="error-message">
-              {{ formError }}
-            </div>
-            
-            <button 
-              type="submit" 
-              class="btn-submit" 
-              :disabled="submitting || !isFormValid"
-            >
+  
+            <!-- form‑level error -->
+            <div v-if="formError" class="error-message">{{ formError }}</div>
+  
+            <!-- submit -->
+            <button class="btn-submit" :disabled="submitting || !isFormValid">
               {{ submitting ? 'Creating Account...' : 'Create Account' }}
             </button>
           </form>
@@ -114,21 +112,23 @@
   </template>
   
   <script setup>
-  import { ref, computed, onMounted } from 'vue'
-  import { useRouter, useRoute } from 'vue-router'
-  import { supabase } from '@/lib/supabase'
-  import { useArtistStore } from '@/store/artistStore'
+  /* -------------------------------------------------------------------------- */
+  import { ref, computed, onMounted }          from 'vue'
+  import { useRouter, useRoute }               from 'vue-router'
+  import { supabase }                          from '@/lib/supabase'
+  import { useArtistStore }                    from '@/store/artistStore'
+  /* -------------------------------------------------------------------------- */
   
-  const router = useRouter()
-  const route = useRoute()
-  const artistStore = useArtistStore()
+  const router       = useRouter()
+  const route        = useRoute()
+  const artistStore  = useArtistStore()
   
-  // State
-  const loading = ref(true)
-  const error = ref('')
-  const submitting = ref(false)
-  const formError = ref('')
-  const invite = ref(null)
+  /* ── reactive state --------------------------------------------------------- */
+  const loading      = ref(true)
+  const error        = ref('')
+  const submitting   = ref(false)
+  const formError    = ref('')
+  const invite       = ref(null)
   
   const form = ref({
     name: '',
@@ -137,75 +137,46 @@
     acceptTerms: false
   })
   
-  const passwordStrength = ref({
-    percent: 0,
-    text: '',
-    class: ''
-  })
+  const passwordStrength = ref({ percent: 0, text: '', class: '' })
   
-  // Computed
-  const isFormValid = computed(() => {
-    return form.value.name &&
-           form.value.password &&
-           form.value.password === form.value.confirmPassword &&
-           form.value.password.length >= 8 &&
-           form.value.acceptTerms
-  })
+  /* ── computed --------------------------------------------------------------- */
+  const isFormValid = computed(() =>
+    form.value.name &&
+    form.value.password &&
+    form.value.password === form.value.confirmPassword &&
+    form.value.password.length >= 8 &&
+    form.value.acceptTerms
+  )
   
-  // Methods
-  const formatRole = (role) => {
-    const roleMap = {
-      owner: 'Owner',
-      editor: 'Editor',
-      invoicer: 'Invoicer',
-      artist: 'Artist',
-      viewer: 'Viewer'
-    }
-    return roleMap[role] || role
+  /* ── helpers ---------------------------------------------------------------- */
+  const formatRole = role => ({
+    owner: 'Owner', editor: 'Editor', invoicer: 'Invoicer', artist: 'Artist', viewer: 'Viewer'
+  }[role] ?? role)
+  
+  const getArtistName = id => artistStore.getArtistById(id)?.name ?? 'Loading…'
+  
+  function checkPasswordStrength () {
+    const pwd = form.value.password
+    let score = 0
+    if (pwd.length >= 8)  score += 25
+    if (pwd.length >= 12) score += 25
+    if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score += 25
+    if (/[0-9]/.test(pwd))                      score += 12.5
+    if (/[^A-Za-z0-9]/.test(pwd))               score += 12.5
+  
+    passwordStrength.value.percent = score
+    passwordStrength.value.text  = score <= 25 ? 'Weak'  : score <= 50 ? 'Fair'
+                                     : score <= 75 ? 'Good' : 'Strong'
+    passwordStrength.value.class = passwordStrength.value.text.toLowerCase()
   }
   
-  const getArtistName = (artistId) => {
-    const artist = artistStore.getArtistById(artistId)
-    return artist ? artist.name : 'Loading...'
-  }
-  
-  const checkPasswordStrength = () => {
-    const password = form.value.password
-    let strength = 0
-    
-    if (password.length >= 8) strength += 25
-    if (password.length >= 12) strength += 25
-    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength += 25
-    if (/[0-9]/.test(password)) strength += 12.5
-    if (/[^A-Za-z0-9]/.test(password)) strength += 12.5
-    
-    passwordStrength.value.percent = strength
-    
-    if (strength <= 25) {
-      passwordStrength.value.text = 'Weak'
-      passwordStrength.value.class = 'weak'
-    } else if (strength <= 50) {
-      passwordStrength.value.text = 'Fair'
-      passwordStrength.value.class = 'fair'
-    } else if (strength <= 75) {
-      passwordStrength.value.text = 'Good'
-      passwordStrength.value.class = 'good'
-    } else {
-      passwordStrength.value.text = 'Strong'
-      passwordStrength.value.class = 'strong'
-    }
-  }
-  
-  const validateInvite = async () => {
+  /* ── invitation lookup ------------------------------------------------------ */
+  async function validateInvite () {
     try {
       const token = route.query.token
-      
-      if (!token) {
-        error.value = 'Invalid invitation link'
-        return
-      }
-      
-      // Check if invite exists and is valid
+      if (!token) { error.value = 'Invalid invitation link'; return }
+  
+      console.log('[signup] starting invite query, token =', token)
       const { data: inviteData, error: inviteError } = await supabase
         .from('pending_invites')
         .select('*')
@@ -213,129 +184,99 @@
         .eq('accepted', false)
         .gte('expires_at', new Date().toISOString())
         .single()
-
-console.log('[signup] inviteError =', inviteError)
-console.log('[signup] inviteData  =', inviteData)
-      
+  
+      console.log('[signup] inviteError =', inviteError)
+      console.log('[signup] inviteData  =', inviteData)
+  
       if (inviteError || !inviteData) {
         error.value = 'Invitation not found or has expired'
         return
       }
-      
-      // Check if email already has an account
-      const { data: existingUser } = await supabase
+  
+      // was the email already used?
+      const { data: existing } = await supabase
         .from('user_profiles')
         .select('id')
         .eq('email', inviteData.email)
         .single()
-      
-      if (existingUser) {
-        error.value = 'An account already exists for this email'
-        return
-      }
-      
+      if (existing) { error.value = 'An account already exists for this email'; return }
+  
       invite.value = inviteData
-      
-      // Load artist info if needed
-      if (inviteData.artist_id) {
-        await artistStore.loadArtists()
-      }
-      
-    } catch (err) {
-      console.error('Validation error:', err)
+      if (inviteData.artist_id) await artistStore.loadArtists()
+    } catch (e) {
+      console.error('Validation error:', e)
       error.value = 'Failed to validate invitation'
     } finally {
       loading.value = false
     }
   }
   
-  const createAccount = async () => {
+  /* ── create account --------------------------------------------------------- */
+  async function createAccount () {
     formError.value = ''
     submitting.value = true
-    
     try {
-      // Create the user account
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: invite.value.email,
-        password: form.value.password,
-        options: {
-          data: {
-            name: form.value.name,
-            role: invite.value.role,
-            artist_id: invite.value.artist_id || null,
-            invited_by: invite.value.invited_by
-          }
-        }
+      /* sign‑up with Supabase auth */
+      const { data: authData, error: authErr } = await supabase.auth.signUp({
+        email:     invite.value.email,
+        password:  form.value.password,
+        options: { data: {
+          name: form.value.name,
+          role: invite.value.role,
+          artist_id: invite.value.artist_id ?? null,
+          invited_by: invite.value.invited_by
+        }}
       })
-      
-      if (authError) throw authError
-      
-      if (authData.user) {
-        // Create user profile
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: authData.user.id,
-            email: invite.value.email,
-            name: form.value.name,
-            role: invite.value.role,
-            artist_id: invite.value.artist_id || null,
-            setup_complete: true
-          })
-        
-        if (profileError) throw profileError
-        
-        // Add permissions for editors
-        if (invite.value.role === 'editor' && invite.value.selected_artists?.length > 0) {
-          const permissions = invite.value.selected_artists.map(artistId => ({
-            user_id: authData.user.id,
-            artist_id: artistId,
-            permission: 'edit'
-          }))
-          
-          await supabase
-            .from('user_artist_permissions')
-            .insert(permissions)
-        }
-        
-        // Mark invite as accepted
-        await supabase
-          .from('pending_invites')
-          .update({ accepted: true })
-          .eq('id', invite.value.id)
-        
-        // Sign in the user
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: invite.value.email,
-          password: form.value.password
-        })
-        
-        if (signInError) throw signInError
-        
-        // Redirect based on role
-        if (invite.value.role === 'artist' && invite.value.artist_id) {
-          router.push(`/artist/${invite.value.artist_id}/overview`)
-        } else {
-          router.push('/')
-        }
+      if (authErr) throw authErr
+  
+      /* create profile row */
+      const { error: profileErr } = await supabase.from('user_profiles').insert({
+        id: authData.user.id,
+        email: invite.value.email,
+        name: form.value.name,
+        role: invite.value.role,
+        artist_id: invite.value.artist_id ?? null,
+        setup_complete: true
+      })
+      if (profileErr) throw profileErr
+  
+      /* editor permissions */
+      if (invite.value.role === 'editor' && invite.value.selected_artists?.length) {
+        const perms = invite.value.selected_artists.map(a => ({
+          user_id: authData.user.id, artist_id: a, permission: 'edit'
+        }))
+        await supabase.from('user_artist_permissions').insert(perms)
       }
-      
-    } catch (err) {
-      console.error('Account creation error:', err)
-      formError.value = err.message || 'Failed to create account'
+  
+      /* mark invite accepted */
+      await supabase.from('pending_invites')
+        .update({ accepted: true })
+        .eq('id', invite.value.id)
+  
+      /* login user */
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email: invite.value.email,
+        password: form.value.password
+      })
+      if (signInErr) throw signInErr
+  
+      /* redirect */
+      router.push(invite.value.role === 'artist' && invite.value.artist_id
+        ? `/artist/${invite.value.artist_id}/overview`
+        : '/')
+    } catch (e) {
+      console.error('Account creation error:', e)
+      formError.value = e.message ?? 'Failed to create account'
     } finally {
       submitting.value = false
     }
   }
   
-  const goToLogin = () => {
-    router.push('/login')
-  }
+  /* ── misc ------------------------------------------------------------------- */
+  const goToLogin = () => router.push('/login')
   
-  onMounted(() => {
-    validateInvite()
-  })
-  </script>  
+  onMounted(() => validateInvite())
+  </script>
 
 <style scoped>
 .signup-container {
