@@ -77,74 +77,49 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    async initialize() {
+    async initialize () {
+      /* ─────────── 1. always enter loading state ─────────── */
       try {
-        // Get current user from Supabase
-        const user = await auth.getUser()
-        
-        if (user) {
-          this.user = user
-          
-          // Fetch user profile from user_profiles table
-          const { data: profile, error } = await supabase
+        /* 2️⃣  Ask Supabase for the *current session* instead of `getUser()` —
+               this avoids a 401 that sometimes bubbles up as an exception.     */
+        const { data: { session }, error: sessionErr } =
+          await supabase.auth.getSession()
+    
+        if (sessionErr) throw sessionErr          // network / CORS problems
+        this.user = session?.user ?? null         // may still be null
+    
+        /* ─────────── 3. fetch profile if we have a user ─────────── */
+        if (this.user) {
+          const { data: profile, error: profileErr } = await supabase
             .from('user_profiles')
             .select('*')
-            .eq('id', user.id)
+            .eq('id', this.user.id)
             .single()
-          
-          if (!error && profile) {
-            this.profile = profile
-            
-            // If team member, fetch their permissions
-            if (this.isTeam && !this.isOwner) {
-              const { data: permissions } = await supabase
-                .from('user_artist_permissions')
-                .select('*')
-                .eq('user_id', user.id)
-              
-              this.permissions = permissions || []
-            }
+    
+          if (profileErr) throw profileErr        // bad RLS, etc.
+    
+          this.profile = profile ?? null
+    
+          /* ── permissions for team members (optional) ────────── */
+          if (this.isTeam && !this.isOwner) {
+            const { data: perms } = await supabase
+              .from('user_artist_permissions')
+              .select('*')
+              .eq('user_id', this.user.id)
+    
+            this.permissions = perms || []
           }
         }
-        
-        this.initialized = true
-        
-        // Set up auth state listener
-        auth.onAuthStateChange(async (event, session) => {
-          if (session?.user) {
-            this.user = session.user
-            
-            // Fetch updated profile
-            const { data: profile } = await supabase
-              .from('user_profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single()
-            
-            if (profile) {
-              this.profile = profile
-              
-              // Fetch permissions if team member
-              if (this.isTeam && !this.isOwner) {
-                const { data: permissions } = await supabase
-                  .from('user_artist_permissions')
-                  .select('*')
-                  .eq('user_id', session.user.id)
-                
-                this.permissions = permissions || []
-              }
-            }
-          } else {
-            this.user = null
-            this.profile = null
-            this.permissions = []
-          }
-        })
-      } catch (error) {
-        console.error('Failed to initialize auth:', error)
+      } catch (err) {
+        /* 4️⃣  NEVER throw – just log.  
+               The router only cares that `initialized` flips to true.          */
+        console.error('[authStore] initialise failed:', err)
+      } finally {
+        /* 5️⃣  GUARANTEE the guard can continue */
         this.initialized = true
       }
     },
+    
 
     async login(email, password) {
       this.loading = true
