@@ -35,7 +35,7 @@ serve(async (req) => {
       redirectTo: signupUrl,
     });
 
-    // Success case
+    // Success case - new user
     if (!error) {
       console.log(`[invite-users] Successfully sent invite to ${email}`);
       return new Response(
@@ -47,34 +47,68 @@ serve(async (req) => {
     // Log the actual error for debugging
     console.log(`[invite-users] Invite error:`, error);
 
-    // Check if user already exists - check the actual error message we're getting
+    // Check if user already exists
     const errorMessage = error.message?.toLowerCase() || '';
     if (errorMessage.includes("already been registered") || 
         errorMessage.includes("already registered") ||
         errorMessage.includes("already exists") ||
         errorMessage.includes("user already exists")) {
       
-      console.log(`[invite-users] User ${email} already exists, sending magic link instead`);
+      console.log(`[invite-users] User ${email} already exists, looking up existing invite`);
       
-      // For existing users, just send a magic link
+      // Look up the existing pending invite for this email
+      const { data: existingInvite, error: inviteError } = await supabase
+        .from('pending_invites')
+        .select('invite_token')
+        .eq('email', email)
+        .eq('accepted', false)
+        .gte('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (inviteError || !existingInvite) {
+        console.error(`[invite-users] No valid pending invite found for ${email}`);
+        throw new Error("No valid pending invitation found for this email");
+      }
+
+      // Build the signup URL with the existing token
+      const url = new URL(signupUrl);
+      url.searchParams.set('token', existingInvite.invite_token);
+      const signupUrlWithToken = url.toString();
+
+      console.log(`[invite-users] Found existing invite token, sending email with signup link`);
+      
+      // Send a custom email with the signup link
+      // For now, we'll use the magic link system but redirect to our signup page
       const { error: magicLinkError } = await supabase.auth.signInWithOtp({
         email: email,
         options: {
-          emailRedirectTo: signupUrl,
+          emailRedirectTo: signupUrlWithToken,
+          shouldCreateUser: false, // Don't create another user
         }
       });
 
       if (magicLinkError) {
         console.error(`[invite-users] Failed to send magic link:`, magicLinkError);
-        throw magicLinkError;
+        // If magic link fails, return the URL for manual sharing
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: "Email service unavailable - share this link manually",
+            signupUrl: signupUrlWithToken,
+            isExistingUser: true
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
-      console.log(`[invite-users] Magic link sent successfully`);
+      console.log(`[invite-users] Email sent successfully`);
       
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: "Login link sent to existing user",
+          message: "Signup link sent to existing user",
           isExistingUser: true
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
