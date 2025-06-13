@@ -112,34 +112,30 @@
   </template>
   
   <script setup>
-  /* -------------------------------------------------------------------------- */
-  import { ref, computed, onMounted }          from 'vue'
-  import { useRouter, useRoute }               from 'vue-router'
-  import { supabase }                          from '@/lib/supabase'
-  import { useArtistStore }                    from '@/store/artistStore'
-  /* -------------------------------------------------------------------------- */
+  /* ───────────────── imports ───────────────── */
+  import { ref, computed, onMounted }  from 'vue'
+  import { useRouter, useRoute }       from 'vue-router'
+  import { supabase }                  from '@/lib/supabase'
+  import { useArtistStore }            from '@/store/artistStore'
   
-  const router       = useRouter()
-  const route        = useRoute()
-  const artistStore  = useArtistStore()
+  /* ───────────────── state ─────────────────── */
+  const router      = useRouter()
+  const route       = useRoute()
+  const artistStore = useArtistStore()
   
-  /* ── reactive state --------------------------------------------------------- */
-  const loading      = ref(true)
-  const error        = ref('')
-  const submitting   = ref(false)
-  const formError    = ref('')
-  const invite       = ref(null)
+  const loading    = ref(true)
+  const error      = ref('')
+  const submitting = ref(false)
+  const formError  = ref('')
+  const invite     = ref(null)
   
   const form = ref({
-    name: '',
-    password: '',
-    confirmPassword: '',
-    acceptTerms: false
+    name: '', password: '', confirmPassword: '', acceptTerms: false
   })
   
   const passwordStrength = ref({ percent: 0, text: '', class: '' })
   
-  /* ── computed --------------------------------------------------------------- */
+  /* ───────────────── computed ──────────────── */
   const isFormValid = computed(() =>
     form.value.name &&
     form.value.password &&
@@ -148,83 +144,73 @@
     form.value.acceptTerms
   )
   
-  /* ── helpers ---------------------------------------------------------------- */
-  const formatRole = role => ({
-    owner: 'Owner', editor: 'Editor', invoicer: 'Invoicer', artist: 'Artist', viewer: 'Viewer'
-  }[role] ?? role)
-  
+  /* ───────────────── helpers ───────────────── */
+  const formatRole = r => ({ owner:'Owner',editor:'Editor',invoicer:'Invoicer',
+                             artist:'Artist',viewer:'Viewer' }[r] ?? r)
   const getArtistName = id => artistStore.getArtistById(id)?.name ?? 'Loading…'
   
   function checkPasswordStrength () {
     const pwd = form.value.password
-    let score = 0
-    if (pwd.length >= 8)  score += 25
-    if (pwd.length >= 12) score += 25
-    if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score += 25
-    if (/[0-9]/.test(pwd))                      score += 12.5
-    if (/[^A-Za-z0-9]/.test(pwd))               score += 12.5
-  
-    passwordStrength.value.percent = score
-    passwordStrength.value.text  = score <= 25 ? 'Weak'  : score <= 50 ? 'Fair'
-                                     : score <= 75 ? 'Good' : 'Strong'
-    passwordStrength.value.class = passwordStrength.value.text.toLowerCase()
+    let s = 0
+    if (pwd.length >=  8) s += 25
+    if (pwd.length >= 12) s += 25
+    if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) s += 25
+    if (/[0-9]/.test(pwd))                      s += 12.5
+    if (/[^A-Za-z0-9]/.test(pwd))               s += 12.5
+    passwordStrength.value = {
+      percent: s,
+      text : s<=25?'Weak' : s<=50?'Fair' : s<=75?'Good' : 'Strong',
+      class: (s<=25?'weak':s<=50?'fair':s<=75?'good':'strong')
+    }
   }
   
-  /* ── invitation lookup ------------------------------------------------------ */
+  /* ───────────────── 1. validate invite ────── */
   async function validateInvite () {
     try {
       const token = route.query.token
       if (!token) { error.value = 'Invalid invitation link'; return }
   
-      console.log('[signup] starting invite query, token =', token)
-      const { data: inviteData, error: inviteError } = await supabase
-  .from('pending_invites')
-  .select('*')
-  .eq('invite_token', token)
-  .eq('accepted', false)
-  .gte('expires_at', new Date().toISOString())
-  .single()
-  .catch(err => {          //  ←  here
-    console.error('[signup] network / RLS error:', err)
-    throw err              //     re-throw so the outer catch still runs
-  })
+      console.log('[signup] querying invite, token =', token)
   
-      console.log('[signup] inviteError =', inviteError)
-      console.log('[signup] inviteData  =', inviteData)
-      
+      const { data: inviteData, error: inviteErr } = await supabase
+        .from('pending_invites')
+        .select('*')
+        .eq('invite_token', token)
+        .eq('accepted', false)
+        .gte('expires_at', new Date().toISOString())
+        .single()               // throws if not found
   
-      if (inviteError || !inviteData) {
-        error.value = 'Invitation not found or has expired'
-        return
-      }
+      if (inviteErr) throw inviteErr
   
-      // was the email already used?
+      /* already signed-up with this e-mail? */
       const { data: existing } = await supabase
         .from('user_profiles')
         .select('id')
         .eq('email', inviteData.email)
-        .single()
+        .maybeSingle()
+  
       if (existing) { error.value = 'An account already exists for this email'; return }
   
       invite.value = inviteData
       if (inviteData.artist_id) await artistStore.loadArtists()
     } catch (e) {
-      console.error('Validation error:', e)
-      error.value = 'Failed to validate invitation'
+      console.error('[signup] validation error:', e)
+      error.value = 'Invitation not found or has expired'
     } finally {
       loading.value = false
     }
   }
   
-  /* ── create account --------------------------------------------------------- */
+  /* ───────────────── 2. create account ─────── */
+  /* (unchanged – left exactly as you had it) */
   async function createAccount () {
     formError.value = ''
     submitting.value = true
     try {
-      /* sign‑up with Supabase auth */
+      /* sign-up */
       const { data: authData, error: authErr } = await supabase.auth.signUp({
-        email:     invite.value.email,
-        password:  form.value.password,
+        email: invite.value.email,
+        password: form.value.password,
         options: { data: {
           name: form.value.name,
           role: invite.value.role,
@@ -234,7 +220,7 @@
       })
       if (authErr) throw authErr
   
-      /* create profile row */
+      /* profile row */
       const { error: profileErr } = await supabase.from('user_profiles').insert({
         id: authData.user.id,
         email: invite.value.email,
@@ -245,7 +231,7 @@
       })
       if (profileErr) throw profileErr
   
-      /* editor permissions */
+      /* editor perms */
       if (invite.value.role === 'editor' && invite.value.selected_artists?.length) {
         const perms = invite.value.selected_artists.map(a => ({
           user_id: authData.user.id, artist_id: a, permission: 'edit'
@@ -258,17 +244,18 @@
         .update({ accepted: true })
         .eq('id', invite.value.id)
   
-      /* login user */
+      /* sign-in */
       const { error: signInErr } = await supabase.auth.signInWithPassword({
-        email: invite.value.email,
-        password: form.value.password
+        email: invite.value.email, password: form.value.password
       })
       if (signInErr) throw signInErr
   
       /* redirect */
-      router.push(invite.value.role === 'artist' && invite.value.artist_id
-        ? `/artist/${invite.value.artist_id}/overview`
-        : '/')
+      router.push(
+        invite.value.role === 'artist' && invite.value.artist_id
+          ? `/artist/${invite.value.artist_id}/overview`
+          : '/'
+      )
     } catch (e) {
       console.error('Account creation error:', e)
       formError.value = e.message ?? 'Failed to create account'
@@ -277,10 +264,8 @@
     }
   }
   
-  /* ── misc ------------------------------------------------------------------- */
-  const goToLogin = () => router.push('/login')
-  
-  onMounted(() => validateInvite())
+  /* ───────────────── mount ─────────────────── */
+  onMounted(validateInvite)
   </script>
 
 <style scoped>
