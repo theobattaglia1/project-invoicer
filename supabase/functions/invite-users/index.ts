@@ -27,40 +27,74 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[invite-users] Sending invite to ${email}`);
+    console.log(`[invite-users] Processing invite for ${email}`);
 
-    // Try to send the invite email
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email,
-      options: {
-        emailRedirectTo: signupUrl,
-        shouldCreateUser: false,
-        data: { invite_link: signupUrl }
+    // First, try the proper invite method
+    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
+      redirectTo: signupUrl,
+      data: {
+        invite_url: signupUrl,
+        role: role
       }
     });
 
-    if (error) {
-      console.error(`[invite-users] Failed to send email:`, error);
-      // Return the signup URL so it can be shared manually
+    if (!error) {
+      console.log(`[invite-users] Successfully sent invite to ${email}`);
+      return new Response(
+        JSON.stringify({ success: true, message: "Invitation email sent" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Log the error for debugging
+    console.log(`[invite-users] Invite error:`, error);
+
+    // If user already exists, we can't use inviteUserByEmail
+    // Instead, send them a magic link that redirects to the signup URL
+    if (error.message?.toLowerCase().includes("already") || 
+        error.message?.toLowerCase().includes("exists")) {
+      
+      console.log(`[invite-users] User already has an auth account, sending magic link instead`);
+      
+      // Send a magic link that will redirect to the signup URL
+      const { error: magicLinkError } = await supabase.auth.signInWithOtp({
+        email: email,
+        options: {
+          emailRedirectTo: signupUrl,
+          shouldCreateUser: false,
+          data: {
+            invite_url: signupUrl,
+            role: role
+          }
+        }
+      });
+
+      if (magicLinkError) {
+        console.error(`[invite-users] Failed to send magic link:`, magicLinkError);
+        // Return the URL for manual sharing
+        return new Response(
+          JSON.stringify({ 
+            success: false,
+            message: "Email service unavailable - share link manually",
+            signupUrl: signupUrl
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`[invite-users] Magic link sent successfully`);
+      
       return new Response(
         JSON.stringify({ 
-          success: false,
-          message: "Email service unavailable - share link manually",
-          signupUrl: signupUrl
+          success: true, 
+          message: "Invitation email sent to existing user"
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`[invite-users] Email sent successfully`);
-    
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: "Invitation email sent"
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    // Any other error
+    throw error;
 
   } catch (err) {
     console.error("[invite-users] Error:", err);
