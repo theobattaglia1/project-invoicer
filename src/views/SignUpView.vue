@@ -178,15 +178,20 @@
   
       console.log('[signup] starting invite query, token =', token)
       const { data: inviteData, error: inviteError } = await supabase
-        .from('pending_invites')
-        .select('*')
-        .eq('invite_token', token)
-        .eq('accepted', false)
-        .gte('expires_at', new Date().toISOString())
-        .single()
+  .from('pending_invites')
+  .select('*')
+  .eq('invite_token', token)
+  .eq('accepted', false)
+  .gte('expires_at', new Date().toISOString())
+  .single()
+  .catch(err => {          //  ←  here
+    console.error('[signup] network / RLS error:', err)
+    throw err              //     re-throw so the outer catch still runs
+  })
   
       console.log('[signup] inviteError =', inviteError)
       console.log('[signup] inviteData  =', inviteData)
+      
   
       if (inviteError || !inviteData) {
         error.value = 'Invitation not found or has expired'
