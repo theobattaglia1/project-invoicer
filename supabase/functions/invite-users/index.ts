@@ -1,44 +1,56 @@
-// supabase/functions/invite-users/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const sb = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+);
+
 const cors = {
-  "Access-Control-Allow-Origin":  "*",
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body),
-               { status, headers: { ...cors, "Content-Type":"application/json" } });
 
 serve(async (req) => {
+  /* CORS pre-flight */
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    /* ─── body ─────────────────────────────────────────────── */
     const { email, role, signupUrl } = await req.json();
     if (!email || !role || !signupUrl)
-      return json({ error:"email, role and signupUrl are required" }, 400);
+      return json({ error: "email, role, signupUrl required" }, 400);
 
-    /* ─── send via Supabase-Auth SMTP (same template you saw)─ */
-    const sb = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    /* ─── send through the Auth SMTP server directly ────────────── */
+    const { error } = await sb.auth.api
+      .sendEmail({
+        to: email,
+        subject: "You’re invited to All My Friends Accounting",
+        html: buildHtml(email, role, signupUrl),
+      });
 
-    const { error } = await sb.auth.admin.inviteUserByEmail(email, {
-      redirectTo: signupUrl,
-    });
+    if (error) return json({ error }, 500);
 
-    /* ─── ignore “already exists” ───────────────────────────── */
-    if (error && error.code !== "email_exists") throw error;
-
-    /* either it was sent, or the user already had the e-mail —
-       in both cases we’re good.  */
-    return json({ success:true, signupUrl });
-  } catch (err) {
-    console.error("[invite-users] fatal:", err);
-    return json({ error:"smtp_send_failed", details:err }, 500);
+    return json({ success: true });
+  } catch (e) {
+    console.error("[invite-users]", e);
+    return json({ error: e.message }, 500);
   }
 });
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...cors, "Content-Type": "application/json" },
+  });
+}
+
+function buildHtml(email: string, role: string, link: string) {
+  const nice = role[0].toUpperCase() + role.slice(1);
+  return `<!doctype html><html><body>
+  <h2>You’re invited to All My Friends Accounting</h2>
+  <p><b>Email:</b> ${email}<br><b>Role:</b> ${nice}</p>
+  <p><a href="${link}">Accept invitation</a> (expires in 7 days)</p>
+</body></html>`;
+}
