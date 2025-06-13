@@ -2,65 +2,75 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-/* ─────────────────────────── bootstrap ─────────────────────────── */
+/* ───────────── Supabase service client (server-side secrets) */
 const supabase = createClient(
+  // ①  Supabase URL (kept in the project automatically)
   Deno.env.get("SUPABASE_URL")!,
+  // ②  Service-role key – Settings ▸ API ▸ "Service key"
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
-const CORS = {
+/* ───────────── CORS helper  */
+const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, "Content-Type": "application/json" },
-  });
 
-/* ───────────────────────────── handler ──────────────────────────── */
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  /* Pre-flight */
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
 
   try {
+    /* 1. Parse & validate payload from the front-end */
     const { email, role, signupUrl } = await req.json();
-
     if (!email || !role || !signupUrl) {
-      return json({ error: "email, role and signupUrl are required" }, 400);
+      return new Response(
+        JSON.stringify({ error: "email, role & signupUrl are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    /* ── does a user row with that e-mail already exist? ─────────── */
-    const { data: existing } = await supabase.auth.admin.getUserByEmail(email);
+    /* 2. Let Supabase Auth **re-send** (or send) the invite */
+    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
+      redirectTo: signupUrl,
+    });
 
-    let actionLink: string;
+    /*  ── Success case ────────────────────────────────── */
+    if (!error) {
+      return new Response(
+        JSON.stringify({ success: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    if (!existing) {
-      /* first time – let Auth send the real invite */
-      const { data, error } =
-        await supabase.auth.admin.inviteUserByEmail(email, {
-          data: { role },
-          redirectTo: signupUrl,
-        });
-
-      if (error) throw error;
-      actionLink = data?.action_link!; // Auth already mailed it
-    } else {
-      /* second+ time – just create a fresh signup link */
-      const { data, error } = await supabase.auth.admin.generateLink({
-        type: "signup",
+    /*  ── User exists → send “reset-password / magic link” instead ── */
+    if (error?.status === 400 && error.message.includes("already registered")) {
+      const { error: pwErr } = await supabase.auth.admin.generateLink({
+        type: "recovery",
         email,
         options: { redirectTo: signupUrl },
       });
-      if (error) throw error;
-      actionLink = data?.action_link!;
+      if (!pwErr) {
+        return new Response(
+          JSON.stringify({ success: true, note: "sent recovery link" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      // fall through to generic 500 if recovery also failed
     }
 
-    /* return 😉 – front-end will copy-to-clipboard or toast it */
-    return json({ success: true, signupUrl: actionLink });
+    /*  ── Everything else is a hard failure ───────────── */
+    console.error("[invite-users] admin.invite error:", error);
+    throw new Error(error.message);
   } catch (err) {
-    console.error("[invite-users] error:", err);
-    return json({ error: err.message ?? err }, 500);
+    console.error("[invite-users] fatal:", err);
+    return new Response(
+      JSON.stringify({ error: err.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
