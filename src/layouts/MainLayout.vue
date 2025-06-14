@@ -2,7 +2,16 @@
   <div class="main-layout">
     <!-- ───────── Sidebar (fixed) ───────── -->
     <aside class="sidebar">
-      <!-- app logo / title -->
+      <!-- Logo -->
+      <div class="sidebar-logo">
+        <img 
+          src="https://admin.allmyfriendsinc.com/uploads/upload-1749252346013-699909862.png" 
+          alt="All My Friends Inc"
+          class="logo-image"
+        />
+      </div>
+
+      <!-- app title -->
       <div class="sidebar-header">
         <h1 class="app-title">Invoice Tracker</h1>
       </div>
@@ -75,11 +84,13 @@
 
     <!-- ───────── Main content ───────── -->
     <main class="main-content">
-      <router-view
-        @create="handleCreate"
-        @update="handleUpdate"
-        @delete="handleDelete"
-      />
+      <div class="content-wrapper">
+        <router-view
+          @create="handleCreate"
+          @update="handleUpdate"
+          @delete="handleDelete"
+        />
+      </div>
     </main>
 
     <!-- unified modal (unchanged) -->
@@ -243,8 +254,22 @@ onMounted(async () => {
   user-select: none;
 }
 
+/* Logo Section */
+.sidebar-logo {
+  padding: 16px 24px 12px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.logo-image {
+  width: 100%;
+  max-width: 192px; /* 240px sidebar - 48px padding */
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
+
 .sidebar-header {
-  padding: 20px 24px;
+  padding: 12px 24px 16px 24px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -383,25 +408,36 @@ onMounted(async () => {
 .main-content {
   margin-left: 240px;
   flex: 1;
-  overflow-y: auto;
+  height: 100vh;
+  overflow: hidden;
   background: #000;
 }
 
+.content-wrapper {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 /* ────────── Scrollbar ──────────*/
-.sidebar-nav::-webkit-scrollbar {
+.sidebar-nav::-webkit-scrollbar,
+.content-wrapper::-webkit-scrollbar {
   width: 6px;
 }
 
-.sidebar-nav::-webkit-scrollbar-track {
+.sidebar-nav::-webkit-scrollbar-track,
+.content-wrapper::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.sidebar-nav::-webkit-scrollbar-thumb {
+.sidebar-nav::-webkit-scrollbar-thumb,
+.content-wrapper::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 3px;
 }
 
-.sidebar-nav::-webkit-scrollbar-thumb:hover {
+.sidebar-nav::-webkit-scrollbar-thumb:hover,
+.content-wrapper::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
 
@@ -416,6 +452,8 @@ onMounted(async () => {
     margin-left: 0;
   }
   
-  /* You could add mobile menu toggle here */
+  .content-wrapper {
+    padding: 16px;
+  }
 }
 </style>
