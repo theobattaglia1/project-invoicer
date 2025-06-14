@@ -1,235 +1,154 @@
 <template>
   <div class="user-management-view">
-      <!-- Header -->
-      <div class="view-header">
-          <h1 class="view-title">User Management</h1>
-          <button @click="showInviteModal = true" class="btn-primary">
-              <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+    <!-- Header -->
+    <div class="view-header">
+      <h1 class="view-title">User Management</h1>
+      <button @click="showInviteModal = true" class="btn-primary">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+        </svg>
+        Create User
+      </button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button @click="activeTab = 'team'" :class="['tab', { active: activeTab === 'team' }]">
+        Team Members
+      </button>
+      <button @click="activeTab = 'artists'" :class="['tab', { active: activeTab === 'artists' }]">
+        Artist Accounts
+      </button>
+    </div>
+
+    <!-- Team Members -->
+    <div v-if="activeTab === 'team'" class="content-section">
+      <p v-if="teamMembers.length === 0" class="empty-state">No team members yet</p>
+
+      <div v-else class="user-grid">
+        <div v-for="member in teamMembers" :key="member.id" class="user-card">
+          <div class="user-info">
+            <h3>{{ member.name }}</h3>
+            <p>{{ member.email }}</p>
+            <span class="role-badge">{{ formatRole(member.role) }}</span>
+          </div>
+
+          <div class="user-permissions">
+            <h4>Artist Access</h4>
+            <template v-if="member.role === 'editor'">
+              <div class="permission-list">
+                <div
+                  v-for="perm in getPermissionsForUser(member.id)"
+                  :key="perm.id"
+                  class="permission-item"
+                >
+                  <span>{{ getArtistName(perm.artist_id) }}</span>
+                  <button @click="removePermission(perm)" class="btn-remove">×</button>
+                </div>
+              </div>
+              <button @click="addPermissionForUser(member)" class="btn-add-permission">
+                + Add Artist
+              </button>
+            </template>
+            <p v-else-if="member.role === 'owner'" class="all-access">Full access (Owner)</p>
+            <p v-else-if="member.role === 'invoicer'" class="all-access">Can invoice all artists</p>
+          </div>
+
+          <div class="user-actions">
+            <button v-if="member.role !== 'owner'" @click="resetPassword(member)" class="btn-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"
+                />
               </svg>
-              Create User
-          </button>
+            </button>
+            <button v-if="member.role !== 'owner'" @click="deleteUser(member)" class="btn-icon danger">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
+    </div>
 
-      <!-- Tabs -->
-      <div class="tabs">
-          <button 
-              @click="activeTab = 'team'" 
-              :class="['tab', { active: activeTab === 'team' }]"
-          >
-              Team Members
-          </button>
-          <button 
-              @click="activeTab = 'artists'" 
-              :class="['tab', { active: activeTab === 'artists' }]"
-          >
-              Artist Accounts
-          </button>
-      </div>
+    <!-- Artist Accounts -->
+    <div v-if="activeTab === 'artists'" class="content-section">
+      <p v-if="artistAccounts.length === 0" class="empty-state">No artist accounts yet</p>
 
-      <!-- Team Members Tab -->
-      <div v-if="activeTab === 'team'" class="content-section">
-          <div v-if="teamMembers.length === 0" class="empty-state">
-              <p>No team members yet</p>
+      <div v-else class="user-grid">
+        <div v-for="artist in artistAccounts" :key="artist.id" class="user-card">
+          <div class="user-info">
+            <h3>{{ artist.name }}</h3>
+            <p>{{ artist.email }}</p>
+            <span class="role-badge artist">Artist</span>
           </div>
-          <div v-else class="user-grid">
-              <div v-for="member in teamMembers" :key="member.id" class="user-card">
-                  <div class="user-info">
-                      <h3>{{ member.name }}</h3>
-                      <p>{{ member.email }}</p>
-                      <span class="role-badge">{{ formatRole(member.role) }}</span>
-                  </div>
-                  <div class="user-permissions">
-                      <h4>Artist Access</h4>
-                      <div v-if="member.role === 'editor'" class="permission-list">
-                          <div v-for="perm in getPermissionsForUser(member.id)" :key="perm.id" class="permission-item">
-                              <span>{{ getArtistName(perm.artist_id) }}</span>
-                              <button @click="removePermission(perm)" class="btn-remove">×</button>
-                          </div>
-                          <button @click="addPermissionForUser(member)" class="btn-add-permission">
-                              + Add Artist
-                          </button>
-                      </div>
-                      <div v-else-if="member.role === 'owner'" class="all-access">
-                          <span>Full access (Owner)</span>
-                      </div>
-                      <div v-else-if="member.role === 'invoicer'" class="all-access">
-                          <span>Can create invoices for all artists</span>
-                      </div>
-                  </div>
-                  <div class="user-actions">
-                      <button v-if="member.role !== 'owner'" @click="resetPassword(member)" class="btn-icon">
-                          <svg viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
-                          </svg>
-                      </button>
-                      <button v-if="member.role !== 'owner'" @click="deleteUser(member)" class="btn-icon danger">
-                          <svg viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                          </svg>
-                      </button>
-                  </div>
-              </div>
-          </div>
-      </div>
 
-      <!-- Artist Accounts Tab -->
-      <div v-if="activeTab === 'artists'" class="content-section">
-          <div v-if="artistAccounts.length === 0" class="empty-state">
-              <p>No artist accounts yet</p>
-          </div>
-          <div v-else class="user-grid">
-              <div v-for="artist in artistAccounts" :key="artist.id" class="user-card">
-                  <div class="user-info">
-                      <h3>{{ artist.name }}</h3>
-                      <p>{{ artist.email }}</p>
-                      <span class="role-badge artist">Artist</span>
-                  </div>
-                  <div class="linked-artist">
-                      <p>Linked to: <strong>{{ getArtistName(artist.artist_id) }}</strong></p>
-                  </div>
-                  <div class="user-actions">
-                      <button @click="resetPassword(artist)" class="btn-icon">
-                          <svg viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
-                          </svg>
-                      </button>
-                      <button @click="deleteUser(artist)" class="btn-icon danger">
-                          <svg viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                          </svg>
-                      </button>
-                  </div>
-              </div>
-          </div>
-      </div>
+          <p class="linked-artist">Linked to: <strong>{{ getArtistName(artist.artist_id) }}</strong></p>
 
-      <!-- Create User Modal -->
-      <div v-if="showInviteModal" class="modal-overlay" @click="closeInviteModal">
-          <div class="modal-container" @click.stop>
-              <div class="modal-header">
-                  <h2>Create User</h2>
-                  <button @click="closeInviteModal" class="modal-close">×</button>
-              </div>
-              
-              <form @submit.prevent="createUser" class="invite-form">
-                  <div class="form-group">
-                      <label>Email Address *</label>
-                      <input 
-                          v-model="inviteForm.email" 
-                          type="email" 
-                          required
-                          placeholder="user@example.com"
-                      />
-                  </div>
-                  
-                  <div class="form-group">
-                      <label>User Type *</label>
-                      <select v-model="inviteForm.userType" required>
-                          <option value="">Select type</option>
-                          <option value="editor">Team Member (Editor)</option>
-                          <option value="invoicer">Team Member (Invoicer)</option>
-                          <option value="artist">Artist</option>
-                          <option value="viewer">Viewer</option>
-                      </select>
-                  </div>
-                  
-                  <div v-if="inviteForm.userType === 'artist'" class="form-group">
-                      <label>Link to Artist *</label>
-                      <select v-model="inviteForm.artistId" required>
-                          <option value="">Select artist</option>
-                          <option 
-                              v-for="artist in availableArtists" 
-                              :key="artist.id" 
-                              :value="artist.id"
-                          >
-                              {{ artist.name }}
-                          </option>
-                      </select>
-                  </div>
-                  
-                  <div v-if="inviteForm.userType === 'editor'" class="form-group">
-                      <label>Artist Access</label>
-                      <div class="checkbox-list">
-                          <label class="checkbox-item">
-                              <input 
-                                  type="checkbox" 
-                                  v-model="inviteForm.fullAccess"
-                                  @change="toggleFullAccess"
-                              />
-                              Grant access to all artists
-                          </label>
-                          <div v-if="!inviteForm.fullAccess" class="artist-checkboxes">
-                              <label 
-                                  v-for="artist in artists" 
-                                  :key="artist.id"
-                                  class="checkbox-item"
-                              >
-                                  <input 
-                                      type="checkbox" 
-                                      :value="artist.id"
-                                      v-model="inviteForm.selectedArtists"
-                                  />
-                                  {{ artist.name }}
-                              </label>
-                          </div>
-                      </div>
-                  </div>
-                  
-                  <div class="form-actions">
-                      <button type="button" @click="closeInviteModal" class="btn-secondary">
-                          Cancel
-                      </button>
-                      <button type="submit" class="btn-primary" :disabled="sending">
-                          {{ sending ? 'Creating...' : 'Create User' }}
-                      </button>
-                  </div>
-              </form>
+          <div class="user-actions">
+            <button @click="resetPassword(artist)" class="btn-icon">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"
+                />
+              </svg>
+            </button>
+            <button @click="deleteUser(artist)" class="btn-icon danger">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+              </svg>
+            </button>
           </div>
+        </div>
       </div>
+    </div>
 
-      <!-- Credentials Modal -->
-      <div v-if="showCredentialsModal" class="modal-overlay" @click="showCredentialsModal = false">
-          <div class="credentials-modal" @click.stop>
-              <h3>User Created Successfully!</h3>
-              <div class="credentials-info">
-                  <p><strong>Email:</strong> {{ createdCredentials.email }}</p>
-                  <p><strong>Temporary Password:</strong> {{ createdCredentials.password }}</p>
-              </div>
-              <div class="credentials-actions">
-                  <button @click="copyCredentials" class="btn-primary">
-                      Copy to Clipboard
-                  </button>
-                  <button @click="showCredentialsModal = false" class="btn-secondary">
-                      Close
-                  </button>
-              </div>
-              <p class="credentials-note">
-                  Please save this password and share it securely with the user. 
-                  They can change it after logging in.
-              </p>
-          </div>
-      </div>
+    <!-- Create‑user modal -->
+    <InviteModal
+      v-if="showInviteModal"
+      :artists="artists"
+      :available-artists="availableArtists"
+      :sending="sending"
+      :form="inviteForm"
+      @close="closeInviteModal"
+      @submit="createUser"
+    />
+
+    <!-- Credentials modal -->
+    <CredentialsModal
+      v-if="showCredentialsModal"
+      :creds="createdCredentials"
+      @close="showCredentialsModal = false"
+      @copy="copyCredentials"
+    />
   </div>
 </template>
 
 <script setup>
-import { showToast } from '@/utils/toast'
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useArtistStore } from '@/store/artistStore'
+import { showToast } from '@/utils/toast'
 
+import InviteModal from '@/components/InviteModal.vue'
+import CredentialsModal from '@/components/CredentialsModal.vue'
+
+/* ───────────────────────── stores */
 const artistStore = useArtistStore()
 
-// State
+/* ───────────────────────── reactive state */
 const activeTab = ref('team')
 const showInviteModal = ref(false)
 const showCredentialsModal = ref(false)
 const sending = ref(false)
+
 const users = ref([])
 const permissions = ref([])
-const createdCredentials = ref({ email: '', password: '' })
 
+const createdCredentials = ref({ email: '', password: '' })
 const inviteForm = ref({
   email: '',
   userType: '',
@@ -238,242 +157,152 @@ const inviteForm = ref({
   selectedArtists: []
 })
 
-// Computed
+/* ───────────────────────── computed */
 const artists = computed(() => artistStore.sortedArtists)
-
-const teamMembers = computed(() => 
-  users.value.filter(u => ['owner', 'editor', 'invoicer', 'viewer'].includes(u.role))
-)
-
-const artistAccounts = computed(() => 
-  users.value.filter(u => u.role === 'artist')
-)
-
+const teamMembers = computed(() => users.value.filter(u => ['owner', 'editor', 'invoicer', 'viewer'].includes(u.role)))
+const artistAccounts = computed(() => users.value.filter(u => u.role === 'artist'))
 const availableArtists = computed(() => {
-  const linkedArtistIds = artistAccounts.value.map(a => a.artist_id).filter(Boolean)
-  return artists.value.filter(a => !linkedArtistIds.includes(a.id))
+  const linked = artistAccounts.value.map(a => a.artist_id).filter(Boolean)
+  return artists.value.filter(a => !linked.includes(a.id))
 })
 
-// Methods
-const getArtistName = (artistId) => {
-  const artist = artistStore.getArtistById(artistId)
-  return artist ? artist.name : 'Unknown Artist'
-}
-
-const getPermissionsForUser = (userId) => {
-  return permissions.value.filter(p => p.user_id === userId)
-}
-
-const formatRole = (role) => {
-  const roleMap = {
-      owner: 'Owner',
-      editor: 'Editor',
-      invoicer: 'Invoicer',
-      artist: 'Artist',
-      viewer: 'Viewer'
-  }
-  return roleMap[role] || role
-}
+/* ───────────────────────── helpers */
+const getArtistName = id => artistStore.getArtistById(id)?.name || 'Unknown Artist'
+const getPermissionsForUser = uid => permissions.value.filter(p => p.user_id === uid)
+const formatRole = r => ({ owner: 'Owner', editor: 'Editor', invoicer: 'Invoicer', artist: 'Artist', viewer: 'Viewer' }[r] || r)
 
 const toggleFullAccess = () => {
-  if (inviteForm.value.fullAccess) {
-      inviteForm.value.selectedArtists = artists.value.map(a => a.id)
-  } else {
-      inviteForm.value.selectedArtists = []
-  }
+  inviteForm.value.selectedArtists = inviteForm.value.fullAccess ? artists.value.map(a => a.id) : []
 }
 
 const closeInviteModal = () => {
   showInviteModal.value = false
-  inviteForm.value = {
-      email: '',
-      userType: '',
-      artistId: '',
-      fullAccess: false,
-      selectedArtists: []
-  }
+  inviteForm.value = { email: '', userType: '', artistId: '', fullAccess: false, selectedArtists: [] }
 }
 
+/* ───────────────────────── generate temp pwd */
 const generatePassword = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$'
-  let password = 'Temp'
-  for (let i = 0; i < 8; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return password
+  let pwd = 'Temp'
+  for (let i = 0; i < 8; i++) pwd += chars[Math.floor(Math.random() * chars.length)]
+  return pwd
 }
 
+/* ───────────────────────── CREATE USER */
 const createUser = async () => {
   sending.value = true
-  
   try {
-    // Generate a temporary password
+    const email = inviteForm.value.email.trim().toLowerCase()
     const tempPassword = generatePassword()
-    
-    // Get current user session for admin operations
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) throw new Error('No admin session found')
-    
-    console.log('Creating user with email:', inviteForm.value.email)
-    
-    // 1. Create auth user using service role via edge function
-    const { data: createUserData, error: createUserError } = await supabase.functions
-      .invoke('admin-create-user', {
-        body: {
-          email: inviteForm.value.email,
-          password: tempPassword,
-          user_metadata: {
-            name: inviteForm.value.email.split('@')[0],
-            role: inviteForm.value.userType
-          }
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
-      })
-    
-    console.log('Create user response:', createUserData)
-    
-    if (createUserError) {
-      console.error('Create user error:', createUserError)
-      throw createUserError
+
+    /* 1 ‑ call edge function to create auth user */
+    const { data: sess } = await supabase.auth.getSession()
+    if (!sess.session) throw new Error('No admin session')
+
+    const { data: resp, error } = await supabase.functions.invoke('admin-create-user', {
+      body: {
+        email,
+        password: tempPassword,
+        user_metadata: { name: email.split('@')[0], role: inviteForm.value.userType }
+      },
+      headers: { Authorization: `Bearer ${sess.session.access_token}` }
+    })
+
+    if (error) throw error
+    const newUser = resp.user
+    if (!newUser) throw new Error('Edge function returned no user')
+
+    /* 2 ‑ insert profile */
+    const { error: profileErr } = await supabase.from('user_profiles').insert({
+      id: newUser.id,
+      email,
+      name: email.split('@')[0],
+      role: inviteForm.value.userType,
+      artist_id: inviteForm.value.artistId || null,
+      setup_complete: false
+    })
+    if (profileErr && profileErr.code !== '23505') throw profileErr
+
+    /* 3 ‑ permissions for editors */
+    if (inviteForm.value.userType === 'editor' && inviteForm.value.selectedArtists.length) {
+      await supabase.from('user_artist_permissions').insert(
+        inviteForm.value.selectedArtists.map(aid => ({ user_id: newUser.id, artist_id: aid, permission: 'edit' }))
+      )
     }
-    
-    if (!createUserData?.user) {
-      console.error('No user in response:', createUserData)
-      throw new Error('Failed to create user - no user data returned')
-    }
-    
-    const authData = createUserData
-      
-      // 2. Create user profile
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .insert({
-          id: authData.user.id,
-          email: email,
-          name: email.split('@')[0],
-          role: inviteForm.value.userType,
-          artist_id: inviteForm.value.artistId || null,
-          setup_complete: false
-        })
-      
-      if (profileError && profileError.code !== '23505') throw profileError
-      
-      // 3. Add permissions for editors
-      if (inviteForm.value.userType === 'editor' && inviteForm.value.selectedArtists.length > 0) {
-        const permissions = inviteForm.value.selectedArtists.map(artistId => ({
-          user_id: authData.user.id,
-          artist_id: artistId,
-          permission: 'edit'
-        }))
-        
-        await supabase.from('user_artist_permissions').insert(permissions)
-      }
-      
-      // 4. Show the credentials
-      createdCredentials.value = {
-        email: email,
-        password: tempPassword
-      }
-      
-      showInviteModal.value = false
-      showCredentialsModal.value = true
-      
-      await loadData()
-    }
-    
-  } catch (error) {
-    console.error('Failed to create user:', error)
-    showToast('Failed to create user: ' + error.message, 'error')
+
+    /* 4 ‑ show credentials */
+    createdCredentials.value = { email, password: tempPassword }
+    showInviteModal.value = false
+    showCredentialsModal.value = true
+
+    await loadData()
+  } catch (err) {
+    console.error('createUser error', err)
+    showToast(`Failed to create user: ${err.message}`, 'error')
   } finally {
     sending.value = false
   }
 }
 
+/* ───────────────────────── other actions (reset, delete, etc.) */
 const copyCredentials = () => {
-  const text = `Email: ${createdCredentials.value.email}\nPassword: ${createdCredentials.value.password}`
-  navigator.clipboard.writeText(text)
-  showToast('Credentials copied to clipboard!', 'success')
+  navigator.clipboard.writeText(`Email: ${createdCredentials.value.email}\nPassword: ${createdCredentials.value.password}`)
+  showToast('Credentials copied!', 'success')
 }
 
-const resetPassword = async (user) => {
-  if (confirm(`Send password reset email to ${user.email}?`)) {
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/auth/callback?type=recovery`
-      })
-      
-      if (error) throw error
-      
-      showToast('Password reset email sent!', 'success')
-    } catch (error) {
-      showToast('Failed to send reset email', 'error')
-    }
-  }
-}
-
-const deleteUser = async (user) => {
-  if (confirm(`Are you sure you want to delete ${user.name}'s account? This cannot be undone.`)) {
-    try {
-      // Delete from user_profiles (this should cascade to permissions)
-      const { error } = await supabase
-        .from('user_profiles')
-        .delete()
-        .eq('id', user.id)
-      
-      if (error) throw error
-      
-      showToast('User deleted successfully', 'success')
-      await loadData()
-    } catch (error) {
-      showToast('Failed to delete user: ' + error.message, 'error')
-    }
-  }
-}
-
-const removePermission = async (permission) => {
+const resetPassword = async user => {
+  if (!confirm(`Send password reset to ${user.email}?`)) return
   try {
-      await supabase
-          .from('user_artist_permissions')
-          .delete()
-          .eq('id', permission.id)
-      
-      showToast('Permission removed', 'success')
-      await loadData()
-  } catch (error) {
-      showToast('Failed to remove permission', 'error')
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+      redirectTo: `${location.origin}/auth/callback?type=recovery`
+    })
+    if (error) throw error
+    showToast('Reset e-mail sent', 'success')
+  } catch (err) {
+    showToast('Failed to send reset', 'error')
   }
 }
 
-const addPermissionForUser = (user) => {
-  // Implement add permission functionality
-  showToast('Add permission functionality coming soon', 'info')
+const deleteUser = async user => {
+  if (!confirm(`Delete account for ${user.email}?`)) return
+  try {
+    const { error } = await supabase.from('user_profiles').delete().eq('id', user.id)
+    if (error) throw error
+    showToast('User deleted', 'success')
+    await loadData()
+  } catch (err) {
+    showToast('Deletion failed', 'error')
+  }
 }
 
+const removePermission = async perm => {
+  try {
+    await supabase.from('user_artist_permissions').delete().eq('id', perm.id)
+    showToast('Permission removed', 'success')
+    await loadData()
+  } catch (err) {
+    showToast('Remove failed', 'error')
+  }
+}
+
+const addPermissionForUser = () => showToast('Coming soon', 'info')
+
+/* ───────────────────────── initial load */
 const loadData = async () => {
-  try {
-      // Load users
-      const { data: userData } = await supabase
-          .from('user_profiles')
-          .select('*')
-      users.value = userData || []
-      
-      // Load permissions
-      const { data: permData } = await supabase
-          .from('user_artist_permissions')
-          .select('*')
-      permissions.value = permData || []
-      
-  } catch (error) {
-      console.error('Failed to load data:', error)
-  }
+  const [{ data: u }, { data: p }] = await Promise.all([
+    supabase.from('user_profiles').select('*'),
+    supabase.from('user_artist_permissions').select('*')
+  ])
+  users.value = u || []
+  permissions.value = p || []
 }
 
-onMounted(() => {
-  loadData()
+onMounted(async () => {
+  await artistStore.loadArtists()
+  await loadData()
 })
 </script>
+
 
 <style scoped>
 .user-management-view {
