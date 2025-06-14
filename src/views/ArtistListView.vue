@@ -3,7 +3,11 @@
     <!-- Header -->
     <div class="view-header">
       <h1 class="view-title">Artists</h1>
-      <button @click="createArtist" class="btn-primary">
+      <button 
+        v-if="authStore.isOwner || authStore.profile?.role === 'editor'" 
+        @click="createArtist" 
+        class="btn-primary"
+      >
         <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
           <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
         </svg>
@@ -30,13 +34,22 @@
       <p>Loading artists...</p>
     </div>
 
-    <div v-else-if="filteredArtists.length === 0" class="empty-state">
+    <div v-else-if="accessibleArtists.length === 0" class="empty-state">
       <svg class="empty-icon" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
       </svg>
       <h3>No artists found</h3>
-      <p>Get started by adding your first artist</p>
-      <button @click="createArtist" class="btn-primary">Add Artist</button>
+      <p v-if="authStore.isArtist">You don't have access to any artist profiles</p>
+      <p v-else-if="authStore.profile?.role === 'editor'">You don't have permission to view any artists yet</p>
+      <p v-else>Get started by adding your first artist</p>
+      
+      <button 
+        v-if="authStore.isOwner" 
+        @click="createArtist" 
+        class="btn-primary"
+      >
+        Add Artist
+      </button>
     </div>
 
     <div v-else class="artists-grid">
@@ -68,12 +81,20 @@
           </div>
         </div>
         <div class="artist-actions" @click.stop>
-          <button @click.stop="editArtist(artist)" class="btn-icon">
+          <button 
+            v-if="canEditArtist(artist.id)" 
+            @click.stop="editArtist(artist)" 
+            class="btn-icon"
+          >
             <svg viewBox="0 0 24 24" fill="currentColor">
               <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
             </svg>
           </button>
-          <button @click.stop="deleteArtist(artist)" class="btn-icon danger">
+          <button 
+            v-if="authStore.isOwner" 
+            @click.stop="deleteArtist(artist)" 
+            class="btn-icon danger"
+          >
             <svg viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
             </svg>
@@ -90,20 +111,46 @@ import { useRouter } from 'vue-router'
 import { useArtistStore } from '@/store/artistStore'
 import { useProjectStore } from '@/store/projectStore'
 import { useInvoiceStore } from '@/store/invoiceStore'
+import { useAuthStore } from '@/store/authStore'
 
 const router = useRouter()
 const artistStore = useArtistStore()
 const projectStore = useProjectStore()
 const invoiceStore = useInvoiceStore()
+const authStore = useAuthStore()
 
 const searchQuery = ref('')
 
 const loading = computed(() => artistStore.loading)
+
+// Filter artists based on user permissions
+const accessibleArtists = computed(() => {
+  const allArtists = artistStore.sortedArtists
+
+  // Owners can see all artists
+  if (authStore.isOwner) {
+    return allArtists
+  }
+
+  // Artists can only see their own profile
+  if (authStore.isArtist) {
+    return allArtists.filter(artist => artist.id === authStore.profile?.artist_id)
+  }
+
+  // Team members (editors, invoicers, viewers) see artists they have permissions for
+  if (authStore.isTeam) {
+    return allArtists.filter(artist => authStore.canViewArtist(artist.id))
+  }
+
+  // Default: no access
+  return []
+})
+
 const filteredArtists = computed(() => {
   const query = searchQuery.value.toLowerCase()
-  if (!query) return artistStore.sortedArtists
+  if (!query) return accessibleArtists.value
   
-  return artistStore.sortedArtists.filter(artist => 
+  return accessibleArtists.value.filter(artist => 
     artist.name.toLowerCase().includes(query) ||
     (artist.email && artist.email.toLowerCase().includes(query))
   )
@@ -126,6 +173,10 @@ const getInvoiceCount = (artistId) => {
   return invoiceStore.getInvoicesByArtist(artistId).length
 }
 
+const canEditArtist = (artistId) => {
+  return authStore.canEditArtist(artistId)
+}
+
 const createArtist = () => {
   emit('create', 'artist')
 }
@@ -141,6 +192,12 @@ const deleteArtist = async (artist) => {
 }
 
 const viewArtistDetails = (artist) => {
+  // Check if user has access to view this artist
+  if (!authStore.canViewArtist(artist.id)) {
+    console.warn('User does not have access to view artist:', artist.id)
+    return
+  }
+  
   console.log('Navigating to artist:', artist.id)
   router.push(`/artist/${artist.id}/overview`)
 }
@@ -151,6 +208,7 @@ onMounted(() => {
   if (artistStore.artists.length === 0) {
     artistStore.loadArtists().then(() => {
       console.log('Artists loaded:', artistStore.artists)
+      console.log('Accessible artists:', accessibleArtists.value)
     })
   }
 })

@@ -158,7 +158,7 @@
       <select v-model="artistFilter" class="filter-select">
         <option value="">All Artists</option>
         <option 
-          v-for="artist in artists" 
+          v-for="artist in accessibleArtists" 
           :key="artist.id" 
           :value="artist.id"
         >
@@ -178,8 +178,8 @@
         <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
       </svg>
       <h3>No invoices found</h3>
-      <p>Create your first invoice to get started</p>
-      <button @click="createInvoice" class="btn-primary">Create Invoice</button>
+      <p>{{ accessibleArtists.length === 0 ? 'You don\'t have access to any artists yet' : 'Create your first invoice to get started' }}</p>
+      <button v-if="accessibleArtists.length > 0" @click="createInvoice" class="btn-primary">Create Invoice</button>
     </div>
 
     <div v-else class="table-container">
@@ -256,7 +256,11 @@
                   <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                 </svg>
               </button>
-              <button @click="deleteInvoice(invoice)" class="btn-icon danger">
+              <button 
+                v-if="authStore.canEditArtist(invoice.artist_id)"
+                @click="deleteInvoice(invoice)" 
+                class="btn-icon danger"
+              >
                 <svg viewBox="0 0 24 24" fill="currentColor">
                   <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                 </svg>
@@ -628,10 +632,23 @@ const invoiceImportData = [
 ]
 
 const loading = computed(() => invoiceStore.loading)
-const artists = computed(() => artistStore.sortedArtists)
+
+// Only show artists the user has access to
+const accessibleArtists = computed(() => {
+  return artistStore.sortedArtists.filter(artist => 
+    authStore.canViewArtist(artist.id)
+  )
+})
+
+// Filter invoices by user permissions
+const userAccessibleInvoices = computed(() => {
+  return invoiceStore.activeInvoices.filter(invoice => 
+    authStore.canViewArtist(invoice.artist_id)
+  )
+})
 
 const filteredInvoices = computed(() => {
-  let invoices = invoiceStore.activeInvoices
+  let invoices = userAccessibleInvoices.value
   
   if (statusFilter.value) {
     invoices = invoices.filter(i => getInvoiceStatus(i) === statusFilter.value)
@@ -675,12 +692,12 @@ const displayedStats = computed(() => {
   
   if (selectedInvoices.value.length > 0) {
     // Show stats for selected invoices
-    invoicesToAnalyze = invoiceStore.activeInvoices.filter(i => 
+    invoicesToAnalyze = userAccessibleInvoices.value.filter(i => 
       selectedInvoices.value.includes(i.id)
     )
   } else {
-    // Show overall stats
-    invoicesToAnalyze = invoiceStore.activeInvoices
+    // Show overall stats for accessible invoices
+    invoicesToAnalyze = userAccessibleInvoices.value
   }
   
   const pending = invoicesToAnalyze
