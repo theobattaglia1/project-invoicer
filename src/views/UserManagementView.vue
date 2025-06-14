@@ -307,133 +307,44 @@ const createUser = async () => {
   sending.value = true
   
   try {
-    const email = inviteForm.value.email
+    // Generate a temporary password
+    const tempPassword = generatePassword()
     
-    // First, check if user already exists in auth
-    const { data: existingUsers } = await supabase
-      .from('user_profiles')
-      .select('id, email')
-      .eq('email', email)
-      .single()
+    // Get current user session for admin operations
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) throw new Error('No admin session found')
     
-    if (existingUsers) {
-      // User exists - just update their profile and send password reset
-      showToast('User already exists. Sending password reset email...', 'info')
-      
-      // Update their role if needed
-      const { error: updateError } = await supabase
-        .from('user_profiles')
-        .update({
-          role: inviteForm.value.userType,
-          artist_id: inviteForm.value.artistId || null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('email', email)
-      
-      if (updateError) throw updateError
-      
-      // Add permissions for editors
-      if (inviteForm.value.userType === 'editor' && inviteForm.value.selectedArtists.length > 0) {
-        // First remove existing permissions
-        await supabase
-          .from('user_artist_permissions')
-          .delete()
-          .eq('user_id', existingUsers.id)
-        
-        // Then add new ones
-        const permissions = inviteForm.value.selectedArtists.map(artistId => ({
-          user_id: existingUsers.id,
-          artist_id: artistId,
-          permission: 'edit'
-        }))
-        
-        await supabase.from('user_artist_permissions').insert(permissions)
-      }
-      
-      // Send password reset email
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?type=recovery`
-      })
-      
-      if (resetError) throw resetError
-      
-      showToast('Password reset email sent to existing user!', 'success')
-      closeInviteModal()
-      await loadData()
-      
-    } else {
-      // New user - create them
-      const tempPassword = generatePassword()
-      
-      // Get current user session for admin operations
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) throw new Error('No admin session found')
-      
-      console.log('Creating new user with email:', email)
-      
-      // 1. Create auth user using service role via edge function
-      const { data: createUserData, error: createUserError } = await supabase.functions
-        .invoke('admin-create-user', {
-          body: {
-            email: email,
-            password: tempPassword,
-            user_metadata: {
-              name: email.split('@')[0],
-              role: inviteForm.value.userType
-            }
-          },
-          headers: {
-            Authorization: `Bearer ${session.access_token}`
+    console.log('Creating user with email:', inviteForm.value.email)
+    
+    // 1. Create auth user using service role via edge function
+    const { data: createUserData, error: createUserError } = await supabase.functions
+      .invoke('admin-create-user', {
+        body: {
+          email: inviteForm.value.email,
+          password: tempPassword,
+          user_metadata: {
+            name: inviteForm.value.email.split('@')[0],
+            role: inviteForm.value.userType
           }
-        })
-      
-      console.log('Create user response:', createUserData)
-      
-      if (createUserError) {
-        console.error('Create user error:', createUserError)
-        
-        // If user exists in auth but not in profiles, handle it
-        if (createUserError.message?.includes('already')) {
-          // Try to get the user ID from auth
-          const { data: authUser } = await supabase.auth.admin.listUsers()
-          const existingAuthUser = authUser?.users?.find(u => u.email === email)
-          
-          if (existingAuthUser) {
-            // Create profile for existing auth user
-            const { error: profileError } = await supabase
-              .from('user_profiles')
-              .insert({
-                id: existingAuthUser.id,
-                email: email,
-                name: email.split('@')[0],
-                role: inviteForm.value.userType,
-                artist_id: inviteForm.value.artistId || null,
-                setup_complete: false
-              })
-            
-            if (!profileError || profileError.code === '23505') { // duplicate key error is ok
-              // Send password reset
-              await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/auth/callback?type=recovery`
-              })
-              
-              showToast('User already had an account. Password reset email sent!', 'success')
-              closeInviteModal()
-              await loadData()
-              return
-            }
-          }
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
         }
-        
-        throw createUserError
-      }
-      
-      if (!createUserData?.user) {
-        console.error('No user in response:', createUserData)
-        throw new Error('Failed to create user - no user data returned')
-      }
-      
-      const authData = createUserData
+      })
+    
+    console.log('Create user response:', createUserData)
+    
+    if (createUserError) {
+      console.error('Create user error:', createUserError)
+      throw createUserError
+    }
+    
+    if (!createUserData?.user) {
+      console.error('No user in response:', createUserData)
+      throw new Error('Failed to create user - no user data returned')
+    }
+    
+    const authData = createUserData
       
       // 2. Create user profile
       const { error: profileError } = await supabase
