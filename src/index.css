@@ -126,3 +126,6 @@ input[type="checkbox"]:indeterminate {
   height: 20px;
   flex-shrink: 0;   /* optional but avoids stretching */
 }
+
+/* ====== MAIN LAYOUT helpers  ====== */
+body, #app { overflow: hidden; }
