@@ -21,6 +21,8 @@ onMounted(() => {
   
   // Listen for auth state changes
   authListener = auth.onAuthStateChange((event, session) => {
+    console.log('Auth state change:', event, session?.user?.email)
+    
     if (event === 'SIGNED_IN') {
       // User signed in
       localStorage.setItem('isAuthenticated', 'true')
@@ -52,5 +54,17 @@ onUnmounted(() => {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Icons', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: #000;
+  color: white;
+  height: 100vh;
+  overflow: hidden;
+}
+
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
 }
 </style>
