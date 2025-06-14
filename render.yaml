@@ -15,7 +15,7 @@ services:
         priority: 0
 envVars:
   - key: NODE_VERSION
-    value: 18.17.0
+    value: 20.18.0
   - key: VITE_SUPABASE_URL
     sync: false  # This tells Render to get the value from the dashboard
   - key: VITE_SUPABASE_ANON_KEY

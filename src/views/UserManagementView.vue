@@ -106,7 +106,7 @@
       </div>
     </div>
 
-    <!-- Create‑user modal -->
+    <!-- Create user modal -->
     <InviteModal
       v-if="showInviteModal"
       :artists="artists"
@@ -170,10 +170,6 @@ const availableArtists = computed(() => {
 const getArtistName = id => artistStore.getArtistById(id)?.name || 'Unknown Artist'
 const getPermissionsForUser = uid => permissions.value.filter(p => p.user_id === uid)
 const formatRole = r => ({ owner: 'Owner', editor: 'Editor', invoicer: 'Invoicer', artist: 'Artist', viewer: 'Viewer' }[r] || r)
-
-const toggleFullAccess = () => {
-  inviteForm.value.selectedArtists = inviteForm.value.fullAccess ? artists.value.map(a => a.id) : []
-}
 
 const closeInviteModal = () => {
   showInviteModal.value = false
@@ -302,7 +298,6 @@ onMounted(async () => {
   await loadData()
 })
 </script>
-
 
 <style scoped>
 .user-management-view {
@@ -483,12 +478,8 @@ onMounted(async () => {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.linked-artist p {
   font-size: 14px;
   color: rgba(255, 255, 255, 0.6);
-  margin: 0;
 }
 
 .linked-artist strong {
@@ -501,203 +492,6 @@ onMounted(async () => {
   right: 24px;
   display: flex;
   gap: 8px;
-}
-
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(5px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-container {
-  background: rgba(30, 30, 30, 0.95);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  width: 90%;
-  max-width: 600px;
-  max-height: 90vh;
-  overflow: hidden;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.modal-header h2 {
-  font-size: 24px;
-  font-weight: 700;
-  color: white;
-  margin: 0;
-}
-
-.modal-close {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: 50%;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 24px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.modal-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-}
-
-/* Form */
-.invite-form {
-  padding: 24px;
-  overflow-y: auto;
-  max-height: calc(90vh - 140px);
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.form-group input,
-.form-group select {
-  width: 100%;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: white;
-  font-size: 14px;
-  transition: all 0.2s ease;
-}
-
-.form-group input:focus,
-.form-group select:focus {
-  outline: none;
-  background: rgba(255, 255, 255, 0.08);
-  border-color: #1db954;
-}
-
-.form-group select option {
-  background: #1e1e1e;
-}
-
-.checkbox-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.checkbox-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.checkbox-item input[type="checkbox"] {
-  width: auto;
-  margin: 0;
-}
-
-.artist-checkboxes {
-  margin-top: 12px;
-  padding-left: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 32px;
-}
-
-/* Credentials Modal */
-.credentials-modal {
-  background: rgba(30, 30, 30, 0.95);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 32px;
-  max-width: 500px;
-  text-align: center;
-}
-
-.credentials-modal h3 {
-  font-size: 24px;
-  font-weight: 700;
-  color: white;
-  margin: 0 0 24px 0;
-}
-
-.credentials-info {
-  background: rgba(29, 185, 84, 0.1);
-  border: 1px solid rgba(29, 185, 84, 0.2);
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 24px;
-  text-align: left;
-}
-
-.credentials-info p {
-  font-size: 16px;
-  color: white;
-  margin: 0 0 12px 0;
-  font-family: monospace;
-}
-
-.credentials-info p:last-child {
-  margin-bottom: 0;
-}
-
-.credentials-info strong {
-  color: #1db954;
-  display: inline-block;
-  width: 150px;
-}
-
-.credentials-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  margin-bottom: 24px;
-}
-
-.credentials-note {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 0;
 }
 
 /* Buttons */
@@ -723,23 +517,6 @@ onMounted(async () => {
 .btn-primary:disabled {
   opacity: 0.7;
   cursor: not-allowed;
-}
-
-.btn-secondary {
-  padding: 12px 24px;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.7);
-  border: none;
-  border-radius: 24px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
 }
 
 .btn-icon {
@@ -775,31 +552,6 @@ onMounted(async () => {
   text-align: center;
   padding: 80px 20px;
   color: rgba(255, 255, 255, 0.5);
-}
-
-.empty-state p {
   font-size: 16px;
-}
-
-/* Scrollbar */
-.invite-form::-webkit-scrollbar,
-.artist-checkboxes::-webkit-scrollbar {
-  width: 8px;
-}
-
-.invite-form::-webkit-scrollbar-track,
-.artist-checkboxes::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.invite-form::-webkit-scrollbar-thumb,
-.artist-checkboxes::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-
-.invite-form::-webkit-scrollbar-thumb:hover,
-.artist-checkboxes::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
 }
 </style>
