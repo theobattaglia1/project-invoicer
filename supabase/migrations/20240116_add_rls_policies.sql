@@ -76,7 +76,7 @@ CREATE POLICY "Owners can manage all invites" ON pending_invites
         )
     );
 
--- Budgets Policies
+-- Budgets Policies (with proper type casting)
 CREATE POLICY "Users can view budgets for accessible projects" ON budgets
     FOR SELECT USING (
         -- Owners can see all
@@ -88,7 +88,7 @@ CREATE POLICY "Users can view budgets for accessible projects" ON budgets
         -- Team members with permissions
         EXISTS (
             SELECT 1 FROM user_artist_permissions uap
-            JOIN projects p ON p.artist_id = uap.artist_id
+            JOIN projects p ON p.artist_id::text = uap.artist_id
             WHERE uap.user_id = auth.uid() 
             AND p.id = budgets.project_id
         )
@@ -96,7 +96,7 @@ CREATE POLICY "Users can view budgets for accessible projects" ON budgets
         -- Artists can see their own project budgets
         EXISTS (
             SELECT 1 FROM user_profiles up
-            JOIN projects p ON p.artist_id = up.artist_id
+            JOIN projects p ON p.artist_id::text = up.artist_id
             WHERE up.id = auth.uid() 
             AND up.role = 'artist'
             AND p.id = budgets.project_id
@@ -114,7 +114,7 @@ CREATE POLICY "Team members can manage budgets" ON budgets
         -- Editors with permission
         EXISTS (
             SELECT 1 FROM user_artist_permissions uap
-            JOIN projects p ON p.artist_id = uap.artist_id
+            JOIN projects p ON p.artist_id::text = uap.artist_id
             JOIN user_profiles up ON up.id = auth.uid()
             WHERE uap.user_id = auth.uid() 
             AND p.id = budgets.project_id
@@ -138,14 +138,14 @@ CREATE POLICY "Users can view budget items for accessible budgets" ON budget_ite
                 OR
                 EXISTS (
                     SELECT 1 FROM user_artist_permissions uap
-                    JOIN projects p ON p.artist_id = uap.artist_id
+                    JOIN projects p ON p.artist_id::text = uap.artist_id
                     WHERE uap.user_id = auth.uid() 
                     AND p.id = b.project_id
                 )
                 OR
                 EXISTS (
                     SELECT 1 FROM user_profiles up
-                    JOIN projects p ON p.artist_id = up.artist_id
+                    JOIN projects p ON p.artist_id::text = up.artist_id
                     WHERE up.id = auth.uid() 
                     AND up.role = 'artist'
                     AND p.id = b.project_id
@@ -169,7 +169,7 @@ CREATE POLICY "Team members can manage budget items" ON budget_items
                 -- Editors with permission
                 EXISTS (
                     SELECT 1 FROM user_artist_permissions uap
-                    JOIN projects p ON p.artist_id = uap.artist_id
+                    JOIN projects p ON p.artist_id::text = uap.artist_id
                     JOIN user_profiles up ON up.id = auth.uid()
                     WHERE uap.user_id = auth.uid() 
                     AND p.id = b.project_id
@@ -188,11 +188,11 @@ BEGIN
         SELECT 1 FROM user_profiles
         WHERE id = auth.uid() AND (
             role = 'owner' OR
-            (role = 'artist' AND artist_id = artist_uuid)
+            (role = 'artist' AND artist_id = artist_uuid::text)
         )
     ) OR EXISTS (
         SELECT 1 FROM user_artist_permissions
-        WHERE user_id = auth.uid() AND artist_id = artist_uuid
+        WHERE user_id = auth.uid() AND artist_id = artist_uuid::text
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -207,7 +207,7 @@ BEGIN
     ) OR EXISTS (
         SELECT 1 FROM user_artist_permissions
         WHERE user_id = auth.uid() 
-        AND artist_id = artist_uuid
+        AND artist_id = artist_uuid::text
         AND permission = 'edit'
     );
 END;
