@@ -88,7 +88,7 @@ export const useInvoiceStore = defineStore('invoices', {
       return state.invoices
         .filter(i => i.status === 'pending')
         .reduce((total, invoice) => total + parseFloat(invoice.amount), 0)
-    }
+    },
     
     paidInvoices: (state) => {
       return state.invoices.filter(i => i.status === 'paid')
