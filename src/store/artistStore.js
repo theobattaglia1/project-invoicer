@@ -160,6 +160,23 @@ export const useArtistStore = defineStore('artists', {
         this.error = err.message
         throw err
       }
+    },
+
+    // Debug method to force refresh all data
+    async refreshAllData() {
+      try {
+        // Clear cache completely
+        cache.clear()
+        
+        // Force reload artists
+        await this.loadArtists(true)
+        
+        console.log('Data refreshed successfully. Artists loaded:', this.artists.length)
+        return this.artists
+      } catch (err) {
+        console.error('Failed to refresh data:', err)
+        throw err
+      }
     }
   }
 })
