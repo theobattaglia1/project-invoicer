@@ -218,12 +218,32 @@ const handleSave = async (type, data) => {
 /* initial data */
 onMounted(async () => {
   console.log('MainLayout mounted, current route:', route.path)
+  
   try {
-    await Promise.all([
-      artistStore.loadArtists(),
-      projectStore.loadProjects(),
-      invoiceStore.loadInvoices()
-    ])
+    // Wait for auth to be initialized first
+    if (!authStore.initialized) {
+      console.log('Waiting for auth initialization...')
+      await authStore.initialize()
+    }
+    
+    console.log('Auth initialized, loading data...')
+    console.log('User:', authStore.user?.email)
+    console.log('Profile:', authStore.profile)
+    console.log('Is authenticated:', authStore.isAuthenticated)
+    
+    if (authStore.isAuthenticated) {
+      await Promise.all([
+        artistStore.loadArtists(),
+        projectStore.loadProjects(),
+        invoiceStore.loadInvoices()
+      ])
+      console.log('Data loaded successfully')
+      console.log('Artists:', artistStore.artists.length)
+      console.log('Projects:', projectStore.projects?.length || 0)
+      console.log('Invoices:', invoiceStore.invoices.length)
+    } else {
+      console.log('User not authenticated, skipping data load')
+    }
   } catch (err) {
     console.error('Failed to load initial data:', err)
   }

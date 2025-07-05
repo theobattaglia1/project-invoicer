@@ -205,10 +205,40 @@ const viewArtistDetails = (artist) => {
 const emit = defineEmits(['create', 'update', 'delete'])
 
 onMounted(() => {
+  console.log('🎭 ArtistListView mounted')
+  console.log('Auth state:', {
+    isAuthenticated: authStore.isAuthenticated,
+    user: authStore.user?.email,
+    profile: authStore.profile,
+    isOwner: authStore.isOwner,
+    isTeam: authStore.isTeam,
+    isArtist: authStore.isArtist
+  })
+  
   if (artistStore.artists.length === 0) {
     artistStore.loadArtists().then(() => {
       console.log('Artists loaded:', artistStore.artists)
+      console.log('All artists:', artistStore.sortedArtists)
       console.log('Accessible artists:', accessibleArtists.value)
+      console.log('Filtered artists:', filteredArtists.value)
+    }).catch(err => {
+      console.error('Failed to load artists:', err)
+    })
+  } else {
+    console.log('Artists already loaded:', artistStore.artists.length)
+    console.log('Accessible artists:', accessibleArtists.value.length)
+  }
+  
+  // Add debug method to window for easy testing
+  window.debugArtists = () => {
+    console.log('=== ARTIST DEBUG INFO ===')
+    console.log('Store artists:', artistStore.artists)
+    console.log('Auth state:', authStore.isAuthenticated, authStore.profile)
+    console.log('Accessible:', accessibleArtists.value)
+    
+    // Force refresh
+    return artistStore.refreshAllData().then(() => {
+      console.log('After refresh:', artistStore.artists)
     })
   }
 })
