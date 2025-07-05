@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
 use chrono::Utc;
+use r2d2_sqlite::SqliteConnectionManager;
+use r2d2::{Pool, PooledConnection};
+use lazy_static::lazy_static;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Artist {
@@ -59,12 +62,31 @@ fn get_db_path() -> PathBuf {
     path
 }
 
-fn get_connection() -> Result<Connection> {
-    Connection::open(get_db_path())
+// Connection pool configuration
+lazy_static! {
+    static ref CONNECTION_POOL: Pool<SqliteConnectionManager> = {
+        let manager = SqliteConnectionManager::file(get_db_path());
+        Pool::builder()
+            .max_size(10) // Maximum 10 connections
+            .min_idle(Some(2)) // Keep at least 2 idle connections
+            .connection_timeout(std::time::Duration::from_secs(30))
+            .build(manager)
+            .expect("Failed to create connection pool")
+    };
+}
+
+fn get_connection() -> Result<PooledConnection<SqliteConnectionManager>> {
+    CONNECTION_POOL
+        .get()
+        .map_err(|e| rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_BUSY),
+            Some(format!("Connection pool error: {}", e))
+        ))
 }
 
 pub fn init() -> Result<()> {
-    let conn = get_connection()?;
+    // Initialize the database using a direct connection for setup
+    let conn = Connection::open(get_db_path())?;
     
     // Create artists table with new fields
     conn.execute(
@@ -146,6 +168,17 @@ pub fn init() -> Result<()> {
     if !invoice_columns.contains(&"bill_to".to_string()) {
         conn.execute("ALTER TABLE invoices ADD COLUMN bill_to TEXT", [])?;
     }
+    
+    // Create indexes for better performance
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_projects_artist_id ON projects(artist_id)", [])?;
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status)", [])?;
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_projects_created_at ON projects(created_at DESC)", [])?;
+    
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_invoices_artist_id ON invoices(artist_id)", [])?;
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_invoices_project_id ON invoices(project_id)", [])?;
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status)", [])?;
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_invoices_created_at ON invoices(created_at DESC)", [])?;
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_invoices_due_date ON invoices(due_date)", [])?;
     
     Ok(())
 }

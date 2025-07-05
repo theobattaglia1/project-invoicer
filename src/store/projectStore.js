@@ -1,12 +1,17 @@
 // src/store/projectStore.js
 import { defineStore } from 'pinia'
 import { supabase } from '@/lib/supabase'
+import { monitoredQuery } from '@/utils/performanceMonitor'
 
 export const useProjectStore = defineStore('projects', {
   state: () => ({
     projects: [],
     loading: false,
-    error: null
+    error: null,
+    // Pagination state
+    totalCount: 0,
+    pageSize: 20,
+    currentPage: 1
   }),
 
   getters: {
@@ -28,17 +33,41 @@ export const useProjectStore = defineStore('projects', {
   },
 
   actions: {
-    async loadProjects() {
+    async loadProjects(page = 1, pageSize = 20, filters = {}) {
       this.loading = true
       this.error = null
+      this.currentPage = page
+      this.pageSize = pageSize
+      
       try {
-        const { data, error } = await supabase
-          .from('projects')
-          .select('*')
-          .order('created_at', { ascending: false })
+        // Build query
+        let query = supabase.from('projects').select('*', { count: 'exact' })
+        
+        // Apply filters
+        if (filters.artistId) {
+          query = query.eq('artist_id', filters.artistId)
+        }
+        if (filters.status) {
+          query = query.eq('status', filters.status)
+        }
+        if (filters.search) {
+          query = query.ilike('name', `%${filters.search}%`)
+        }
+        
+        // Apply pagination
+        const from = (page - 1) * pageSize
+        const to = from + pageSize - 1
+        
+        const { data, error, count } = await monitoredQuery(
+          'loadProjects',
+          () => query.order('created_at', { ascending: false }).range(from, to),
+          { page, pageSize, filters }
+        )
         
         if (error) throw error
+        
         this.projects = data || []
+        this.totalCount = count || 0
       } catch (err) {
         this.error = err.message
         console.error('Failed to load projects:', err)
@@ -47,22 +76,27 @@ export const useProjectStore = defineStore('projects', {
       }
     },
 
-    async loadProjectsByArtist(artistId) {
+    async loadProjectsByArtist(artistId, page = 1, pageSize = 20) {
       try {
-        const { data, error } = await supabase
+        const from = (page - 1) * pageSize
+        const to = from + pageSize - 1
+        
+        const { data, error, count } = await supabase
           .from('projects')
-          .select('*')
+          .select('*', { count: 'exact' })
           .eq('artist_id', artistId)
           .order('created_at', { ascending: false })
+          .range(from, to)
         
         if (error) throw error
         
-        // Update local state with these projects
-        const existingIds = this.projects.map(p => p.id)
-        const newProjects = (data || []).filter(p => !existingIds.includes(p.id))
-        this.projects.push(...newProjects)
+        // For artist-specific views, replace the projects array
+        this.projects = data || []
+        this.totalCount = count || 0
+        this.currentPage = page
+        this.pageSize = pageSize
         
-        return data || []
+        return { data: data || [], count: count || 0 }
       } catch (err) {
         this.error = err.message
         throw err
@@ -86,7 +120,16 @@ export const useProjectStore = defineStore('projects', {
           .single()
         
         if (error) throw error
-        this.projects.push(data)
+        
+        // Add to beginning of list for newest first
+        this.projects.unshift(data)
+        this.totalCount++
+        
+        // If we're over the page size, remove the last item
+        if (this.projects.length > this.pageSize) {
+          this.projects.pop()
+        }
+        
         return data
       } catch (err) {
         this.error = err.message
@@ -132,7 +175,9 @@ export const useProjectStore = defineStore('projects', {
           .eq('id', id)
         
         if (error) throw error
+        
         this.projects = this.projects.filter(p => p.id !== id)
+        this.totalCount = Math.max(0, this.totalCount - 1)
       } catch (err) {
         this.error = err.message
         throw err

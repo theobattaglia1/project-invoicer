@@ -19,6 +19,8 @@ import UserManagementView   from '@/views/UserManagementView.vue'
 import FirstTimeSetupView   from '@/views/FirstTimeSetupView.vue'
 import AuthCallbackView     from '@/views/AuthCallbackView.vue'
 import PasswordResetView    from '@/views/PasswordResetView.vue'
+import ProjectBudgetsView   from '@/views/ProjectBudgetsView.vue'
+import BudgetDetailView     from '@/views/BudgetDetailView.vue'
 
 /* ── Route table ───────────────────────────────────── */
 const routes = [
@@ -47,7 +49,9 @@ const routes = [
           { path: 'invoices',  name: 'ArtistInvoices',  component: ArtistInvoicesView, props: true },
           { path: 'archived',  name: 'ArtistArchived',  component: ArtistArchivedView, props: true, meta:{ requiresTeam: true }},
           { path: 'trash',     name: 'ArtistTrash',     component: ArtistTrashView,    props: true, meta:{ requiresTeam: true }}
-      ]}
+      ]},
+      { path: 'projects/:projectId/budgets', name: 'ProjectBudgets', component: ProjectBudgetsView, props: true, meta: { requiresTeam: true }},
+      { path: 'budgets/:budgetId',          name: 'BudgetDetail',   component: BudgetDetailView,   props: true, meta: { requiresTeam: true }}
     ]
   }
 ]

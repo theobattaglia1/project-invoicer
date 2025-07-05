@@ -8,7 +8,7 @@ const supabase = createClient(
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-csrf-token",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -18,6 +18,15 @@ serve(async (req) => {
   }
 
   try {
+    // Check CSRF token for non-GET requests
+    const csrfToken = req.headers.get("x-csrf-token");
+    if (!csrfToken) {
+      return new Response(
+        JSON.stringify({ error: "CSRF token required" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { email, role, signupUrl } = await req.json();
     
     if (!email || !role || !signupUrl) {

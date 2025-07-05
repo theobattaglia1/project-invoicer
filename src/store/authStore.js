@@ -90,25 +90,31 @@ export const useAuthStore = defineStore('auth', {
     
         /* ─────────── 3. fetch profile if we have a user ─────────── */
         if (this.user) {
+          // Single query to get profile with permissions (fixes N+1)
           const { data: profile, error: profileErr } = await supabase
             .from('user_profiles')
-            .select('*')
+            .select(`
+              *,
+              user_artist_permissions!user_artist_permissions_user_id_fkey (*)
+            `)
             .eq('id', this.user.id)
             .single()
     
           if (profileErr) throw profileErr        // bad RLS, etc.
     
-          this.profile = profile ?? null
-    
-          /* ── permissions for team members (optional) ────────── */
-          if (this.isTeam && !this.isOwner) {
-            const { data: perms } = await supabase
-              .from('user_artist_permissions')
-              .select('*')
-              .eq('user_id', this.user.id)
-    
-            this.permissions = perms || []
-          }
+          this.profile = profile ? {
+            id: profile.id,
+            email: profile.email,
+            name: profile.name,
+            role: profile.role,
+            artist_id: profile.artist_id,
+            setup_complete: profile.setup_complete,
+            created_at: profile.created_at,
+            updated_at: profile.updated_at
+          } : null
+          
+          // Extract permissions from the joined data
+          this.permissions = profile?.user_artist_permissions || []
         }
       } catch (err) {
         /* 4️⃣  NEVER throw – just log.  
@@ -131,25 +137,30 @@ export const useAuthStore = defineStore('auth', {
         if (data.user) {
           this.user = data.user
           
-          // Fetch user profile
+          // Single query to fetch profile with permissions
           const { data: profile, error: profileError } = await supabase
             .from('user_profiles')
-            .select('*')
+            .select(`
+              *,
+              user_artist_permissions!user_artist_permissions_user_id_fkey (*)
+            `)
             .eq('id', data.user.id)
             .single()
           
           if (!profileError && profile) {
-            this.profile = profile
-            
-            // Fetch permissions if team member
-            if (this.isTeam && !this.isOwner) {
-              const { data: permissions } = await supabase
-                .from('user_artist_permissions')
-                .select('*')
-                .eq('user_id', data.user.id)
-              
-              this.permissions = permissions || []
+            this.profile = {
+              id: profile.id,
+              email: profile.email,
+              name: profile.name,
+              role: profile.role,
+              artist_id: profile.artist_id,
+              setup_complete: profile.setup_complete,
+              created_at: profile.created_at,
+              updated_at: profile.updated_at
             }
+            
+            // Extract permissions from the joined data
+            this.permissions = profile.user_artist_permissions || []
           }
           
           return { success: true }

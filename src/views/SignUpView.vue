@@ -55,7 +55,7 @@
                 type="password"
                 placeholder="Choose a secure password"
                 required
-                minlength="8"
+                minlength="12"
                 class="form-input"
                 :disabled="submitting"
                 @input="checkPasswordStrength"
@@ -70,7 +70,10 @@
                 </div>
                 <p class="strength-text">{{ passwordStrength.text }}</p>
               </div>
-              <p class="form-hint">At least 8 characters with a mix of letters and numbers</p>
+              <p class="form-hint">At least 12 characters with uppercase, lowercase, numbers, and special characters</p>
+              <div v-if="passwordErrors.length > 0" class="password-errors">
+                <p v-for="error in passwordErrors" :key="error" class="error-text">{{ error }}</p>
+              </div>
             </div>
   
             <!-- confirm -->
@@ -116,6 +119,7 @@
   import { useRouter, useRoute } from 'vue-router'
   import { supabase } from '@/lib/supabase'
   import { useArtistStore } from '@/store/artistStore'
+  import { validatePassword, getPasswordStrengthLabel, checkPasswordCompromised } from '@/utils/passwordValidation'
   
   const router = useRouter()
   const route = useRoute()
@@ -135,12 +139,15 @@
   })
   
   const passwordStrength = ref({ percent: 0, text: '', class: '' })
+  const passwordErrors = ref([])
+  const isPasswordCompromised = ref(false)
   
   const isFormValid = computed(() =>
     form.value.name &&
     form.value.password &&
     form.value.password === form.value.confirmPassword &&
-    form.value.password.length >= 8 &&
+    passwordErrors.value.length === 0 &&
+    !isPasswordCompromised.value &&
     form.value.acceptTerms
   )
   
@@ -164,20 +171,28 @@
     router.push('/login')
   }
   
-  function checkPasswordStrength() {
+  async function checkPasswordStrength() {
     const pwd = form.value.password
-    let strength = 0
     
-    if (pwd.length >= 8) strength += 25
-    if (pwd.length >= 12) strength += 25
-    if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) strength += 25
-    if (/[0-9]/.test(pwd)) strength += 12.5
-    if (/[^A-Za-z0-9]/.test(pwd)) strength += 12.5
+    // Validate password
+    const validation = validatePassword(pwd)
+    passwordErrors.value = validation.errors
+    
+    // Get strength label
+    const strengthInfo = getPasswordStrengthLabel(validation.strength)
     
     passwordStrength.value = {
-      percent: strength,
-      text: strength <= 25 ? 'Weak' : strength <= 50 ? 'Fair' : strength <= 75 ? 'Good' : 'Strong',
-      class: strength <= 25 ? 'weak' : strength <= 50 ? 'fair' : strength <= 75 ? 'good' : 'strong'
+      percent: validation.strength,
+      text: strengthInfo.label,
+      class: strengthInfo.label.toLowerCase().replace(' ', '-')
+    }
+    
+    // Check if password has been compromised (debounced)
+    if (pwd.length >= 8) {
+      isPasswordCompromised.value = await checkPasswordCompromised(pwd)
+      if (isPasswordCompromised.value) {
+        passwordErrors.value.push('This password has been found in data breaches. Please choose a different password.')
+      }
     }
   }
   
@@ -244,6 +259,14 @@
   async function createAccount() {
     formError.value = ''
     submitting.value = true
+    
+    // Final password validation
+    const validation = validatePassword(form.value.password)
+    if (!validation.isValid) {
+      formError.value = 'Please fix the password errors before submitting'
+      submitting.value = false
+      return
+    }
     
     try {
       // 1. Sign up the user
@@ -507,10 +530,19 @@
     border-radius: 2px;
   }
   
-  .strength-fill.weak { background: #f44336; }
-  .strength-fill.fair { background: #ff9800; }
+  .strength-fill.very-weak { background: #f44336; }
+  .strength-fill.weak { background: #ff9800; }
+  .strength-fill.fair { background: #ffc107; }
   .strength-fill.good { background: #2196f3; }
   .strength-fill.strong { background: #4caf50; }
+  
+  .password-errors {
+    margin-top: 8px;
+  }
+  
+  .password-errors .error-text {
+    margin-bottom: 4px;
+  }
   
   .strength-text {
     font-size: 12px;

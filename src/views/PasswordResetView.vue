@@ -13,10 +13,24 @@
               id="password"
               placeholder="Enter new password"
               required
-              minlength="8"
+              minlength="12"
               class="form-input"
+              @input="checkPasswordStrength"
             />
-            <p class="form-hint">At least 8 characters</p>
+            <div class="password-strength">
+              <div class="strength-bar">
+                <div
+                  class="strength-fill"
+                  :class="passwordStrength.class"
+                  :style="{ width: passwordStrength.percent + '%' }"
+                ></div>
+              </div>
+              <p class="strength-text">{{ passwordStrength.text }}</p>
+            </div>
+            <p class="form-hint">At least 12 characters with uppercase, lowercase, numbers, and special characters</p>
+            <div v-if="passwordErrors.length > 0" class="password-errors">
+              <p v-for="error in passwordErrors" :key="error" class="error-text">{{ error }}</p>
+            </div>
           </div>
           
           <div class="form-group">
@@ -39,7 +53,7 @@
             Password reset successfully! Redirecting...
           </div>
           
-          <button type="submit" class="btn-submit" :disabled="loading || success">
+          <button type="submit" class="btn-submit" :disabled="loading || success || !isFormValid">
             {{ loading ? 'Resetting...' : 'Reset Password' }}
           </button>
         </form>
@@ -48,10 +62,11 @@
   </template>
   
   <script setup>
-  import { ref, onMounted } from 'vue'
+  import { ref, onMounted, computed } from 'vue'
   import { useRouter } from 'vue-router'
   import { supabase } from '@/lib/supabase'
   import { useAuthStore } from '@/store/authStore'
+  import { validatePassword, getPasswordStrengthLabel } from '@/utils/passwordValidation'
   
   const router = useRouter()
   const authStore = useAuthStore()
@@ -64,6 +79,8 @@
   const loading = ref(false)
   const error = ref('')
   const success = ref(false)
+  const passwordStrength = ref({ percent: 0, text: '', class: '' })
+  const passwordErrors = ref([])
   
   onMounted(async () => {
     // Check if user has a valid session (from the recovery token)
@@ -78,12 +95,38 @@
     }
   })
   
+  const checkPasswordStrength = () => {
+    const pwd = form.value.password
+    const validation = validatePassword(pwd)
+    passwordErrors.value = validation.errors
+    
+    const strengthInfo = getPasswordStrengthLabel(validation.strength)
+    passwordStrength.value = {
+      percent: validation.strength,
+      text: strengthInfo.label,
+      class: strengthInfo.label.toLowerCase().replace(' ', '-')
+    }
+  }
+  
+  const isFormValid = computed(() => 
+    form.value.password &&
+    form.value.password === form.value.confirmPassword &&
+    passwordErrors.value.length === 0
+  )
+  
   const resetPassword = async () => {
     error.value = ''
     
     // Validate passwords match
     if (form.value.password !== form.value.confirmPassword) {
       error.value = 'Passwords do not match'
+      return
+    }
+    
+    // Validate password strength
+    const validation = validatePassword(form.value.password)
+    if (!validation.isValid) {
+      error.value = 'Please fix the password errors before submitting'
       return
     }
     
@@ -238,5 +281,44 @@
   .btn-submit:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+  }
+  
+  .password-strength {
+    margin-top: 8px;
+  }
+  
+  .strength-bar {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  
+  .strength-fill {
+    height: 100%;
+    transition: all 0.3s ease;
+    border-radius: 2px;
+  }
+  
+  .strength-fill.very-weak { background: #f44336; }
+  .strength-fill.weak { background: #ff9800; }
+  .strength-fill.fair { background: #ffc107; }
+  .strength-fill.good { background: #2196f3; }
+  .strength-fill.strong { background: #4caf50; }
+  
+  .strength-text {
+    font-size: 12px;
+    margin-top: 4px;
+    color: rgba(255, 255, 255, 0.6);
+  }
+  
+  .password-errors {
+    margin-top: 8px;
+  }
+  
+  .error-text {
+    font-size: 12px;
+    color: #f44336;
+    margin: 0 0 4px 0;
   }
   </style>

@@ -1,12 +1,15 @@
 // src/store/artistStore.js
 import { defineStore } from 'pinia'
 import { supabase } from '@/lib/supabase'
+import { cache, cacheKeys, invalidateArtistCache } from '@/utils/cache'
 
 export const useArtistStore = defineStore('artists', {
   state: () => ({
     artists: [],
     loading: false,
-    error: null
+    error: null,
+    lastFetch: null,
+    cacheEnabled: true
   }),
 
   getters: {
@@ -22,7 +25,19 @@ export const useArtistStore = defineStore('artists', {
   },
 
   actions: {
-    async loadArtists() {
+    async loadArtists(forceRefresh = false) {
+      const cacheKey = cacheKeys.artistList()
+      
+      // Check cache first unless forced refresh
+      if (!forceRefresh && this.cacheEnabled) {
+        const cached = cache.get(cacheKey)
+        if (cached) {
+          this.artists = cached
+          this.lastFetch = Date.now()
+          return cached
+        }
+      }
+      
       this.loading = true
       this.error = null
       try {
@@ -36,11 +51,19 @@ export const useArtistStore = defineStore('artists', {
           throw error
         }
         
-        console.log('Artists loaded:', data)
         this.artists = data || []
+        this.lastFetch = Date.now()
+        
+        // Cache the result
+        if (this.cacheEnabled) {
+          cache.set(cacheKey, this.artists, 5 * 60 * 1000) // 5 minutes
+        }
+        
+        return this.artists
       } catch (err) {
         this.error = err.message
         console.error('Failed to load artists:', err)
+        throw err
       } finally {
         this.loading = false
       }
@@ -71,6 +94,10 @@ export const useArtistStore = defineStore('artists', {
         
         console.log('Artist created:', data)
         this.artists.push(data)
+        
+        // Invalidate cache
+        invalidateArtistCache(data.id)
+        
         return data
       } catch (err) {
         this.error = err.message
@@ -106,6 +133,10 @@ export const useArtistStore = defineStore('artists', {
         if (index !== -1) {
           this.artists[index] = data
         }
+        
+        // Invalidate cache
+        invalidateArtistCache(id)
+        
         return data
       } catch (err) {
         this.error = err.message
@@ -122,6 +153,9 @@ export const useArtistStore = defineStore('artists', {
         
         if (error) throw error
         this.artists = this.artists.filter(a => a.id !== id)
+        
+        // Invalidate cache
+        invalidateArtistCache(id)
       } catch (err) {
         this.error = err.message
         throw err

@@ -60,6 +60,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/authStore'
 import { supabase } from '@/lib/supabase'
 import { showToast } from '@/utils/toast'
+import { authRateLimiter } from '@/utils/rateLimiter'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -71,12 +72,25 @@ const loading = ref(false)
 
 const handleLogin = async () => {
   error.value = ''
+  
+  // Check rate limit
+  const rateLimitKey = `login_${email.value}`
+  const { allowed, retriesLeft, message } = authRateLimiter.isAllowed(rateLimitKey, 5, 15 * 60 * 1000)
+  
+  if (!allowed) {
+    error.value = message
+    return
+  }
+  
   loading.value = true
   
   try {
     const result = await authStore.login(email.value, password.value)
     
     if (result.success) {
+      // Record successful login
+      authRateLimiter.recordSuccess(rateLimitKey)
+      
       // Check if this is their first login (using temp password)
       if (!authStore.profile?.setup_complete || !authStore.profile?.name || authStore.profile?.name === authStore.profile?.email.split('@')[0]) {
         router.push('/setup')
@@ -86,10 +100,15 @@ const handleLogin = async () => {
         router.push('/')
       }
     } else {
-      error.value = result.error || 'Login failed'
+      // Generic error message to prevent information leakage
+      error.value = 'Invalid email or password'
+      
+      if (retriesLeft <= 2) {
+        error.value += `. ${retriesLeft} attempts remaining`
+      }
     }
   } catch (err) {
-    error.value = 'An unexpected error occurred'
+    error.value = 'An unexpected error occurred. Please try again.'
     console.error('Login error:', err)
   } finally {
     loading.value = false
@@ -102,18 +121,30 @@ const forgotPassword = async () => {
     return
   }
   
+  // Check rate limit for password reset
+  const rateLimitKey = `reset_${email.value}`
+  const { allowed, message } = authRateLimiter.isAllowed(rateLimitKey, 3, 60 * 60 * 1000)
+  
+  if (!allowed) {
+    error.value = message
+    return
+  }
+  
   loading.value = true
   try {
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.value, {
       redirectTo: `${window.location.origin}/auth/callback?type=recovery`
     })
     
-    if (resetError) throw resetError
-    
-    showToast('Password reset email sent! Check your inbox.', 'success')
+    // Always show success message to prevent email enumeration
+    showToast('If an account exists for this email, a password reset link has been sent.', 'success')
     error.value = ''
+    
+    // Record successful request
+    authRateLimiter.recordSuccess(rateLimitKey)
   } catch (err) {
-    error.value = 'Failed to send reset email: ' + err.message
+    // Generic error message
+    error.value = 'Unable to process request. Please try again later.'
   } finally {
     loading.value = false
   }
