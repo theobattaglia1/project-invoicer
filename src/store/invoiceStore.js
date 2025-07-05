@@ -1,12 +1,24 @@
 // src/store/invoiceStore.js
 import { defineStore } from 'pinia'
 import { supabase } from '@/lib/supabase'
+import { monitoredQuery } from '@/utils/performanceMonitor'
 
 export const useInvoiceStore = defineStore('invoices', {
   state: () => ({
     invoices: [],
     loading: false,
-    error: null
+    error: null,
+    totalCount: 0,
+    paymentMethods: [
+      { value: 'cash', label: 'Cash', icon: '💵' },
+      { value: 'check', label: 'Check', icon: '🏦' },
+      { value: 'wire', label: 'Wire Transfer', icon: '🏧' },
+      { value: 'paypal', label: 'PayPal', icon: '💳' },
+      { value: 'venmo', label: 'Venmo', icon: '📱' },
+      { value: 'zelle', label: 'Zelle', icon: '⚡' },
+      { value: 'credit_card', label: 'Credit Card', icon: '💳' },
+      { value: 'other', label: 'Other', icon: '💰' }
+    ]
   }),
 
   getters: {
@@ -47,6 +59,36 @@ export const useInvoiceStore = defineStore('invoices', {
     pendingInvoices: (state) => {
       return state.invoices.filter(i => i.status === 'pending')
     },
+    
+    overDueInvoices: (state) => {
+      const today = new Date()
+      return state.invoices.filter(i => 
+        i.status === 'pending' && 
+        new Date(i.due_date) < today
+      )
+    },
+    
+    getPaymentMethodIcon: (state) => (method) => {
+      const pm = state.paymentMethods.find(m => m.value === method)
+      return pm ? pm.icon : '💰'
+    },
+    
+    getPaymentMethodLabel: (state) => (method) => {
+      const pm = state.paymentMethods.find(m => m.value === method)
+      return pm ? pm.label : method
+    },
+    
+    totalRevenue: (state) => {
+      return state.invoices
+        .filter(i => i.status === 'paid')
+        .reduce((total, invoice) => total + parseFloat(invoice.amount), 0)
+    },
+    
+    outstandingAmount: (state) => {
+      return state.invoices
+        .filter(i => i.status === 'pending')
+        .reduce((total, invoice) => total + parseFloat(invoice.amount), 0)
+    }
     
     paidInvoices: (state) => {
       return state.invoices.filter(i => i.status === 'paid')
